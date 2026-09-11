@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "AssistMob",
+    "slug": "assistmob-mobile-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0b0f19"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "O aplicativo necessita de Bluetooth para conectar à Bengala AssistMob.",
+        "NSLocationWhenInUseUsageDescription": "Necessário para rastreamento de segurança."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0b0f19"
+      },
+      "permissions": [
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    }
+  }
+}

@@ -1,0 +1,31 @@
+# Node & NPM
+node_modules/
+dist/
+build/
+.npm/
+*.log
+
+# Java & Maven
+target/
+*.class
+*.jar
+*.war
+.mvn/
+
+# PlatformIO & ESP32
+.pio/
+.vscode/.pio/
+*.bin
+*.hex
+
+# IDEs & System
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Environment variables & secrets
+.env
+.env.local
+firebase-service-account.json
