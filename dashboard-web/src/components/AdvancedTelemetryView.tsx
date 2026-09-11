@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Cpu, Wifi, Radio, BatteryCharging, Gauge, CheckCircle2 } from 'lucide-react';
+import { Activity, Footprints, ShieldCheck, HeartHandshake, Zap, Cpu, Wifi, Radio, BatteryCharging, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { DeviceStatus } from '../types';
 
 interface AdvancedTelemetryViewProps {
@@ -7,135 +7,153 @@ interface AdvancedTelemetryViewProps {
 }
 
 export const AdvancedTelemetryView: React.FC<AdvancedTelemetryViewProps> = ({ device }) => {
-  return (
-    <div style={{ margin: '0 20px 20px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      
-      {/* Top Banner de Diagnóstico do ESP32 */}
-      <div className="glass-panel" style={{ padding: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ background: 'var(--accent-primary)', padding: '10px', borderRadius: '12px', color: '#ffffff' }}>
-              <Cpu size={24} />
-            </div>
-            <div>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
-                Diagnóstico de Hardware ESP32 & Sensores
-              </h2>
-              <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                ID: {device?.deviceId || 'ESP32-MOB-001'} • Firmware: v1.0.0 • Free Heap: 184 KB
-              </p>
-            </div>
-          </div>
+  const steps = device?.stepsToday ?? 1840;
+  const activeMinutes = device?.activeMinutes ?? 42;
+  const mobilityScore = device?.mobilityScore ?? 86;
+  const isGripHolding = device?.isGripHolding ?? true;
 
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <span className="badge badge-online">
-              <Wifi size={13} /> Wi-Fi RSSI: -58 dBm
-            </span>
-            <span className="badge badge-online">
-              <Radio size={13} /> BLE Conectável
-            </span>
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'var(--accent-green-text)';
+    if (score >= 50) return 'var(--accent-yellow-text)';
+    return 'var(--accent-red-text)';
+  };
+
+  return (
+    <div style={{ margin: '0 20px 20px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      
+      {/* 1. Métricas de Saúde & Autonomia Motora */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+        
+        {/* Score de Mobilidade */}
+        <div className="glass-panel" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Score de Mobilidade</span>
+            <HeartHandshake size={20} color={getScoreColor(mobilityScore)} />
           </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <h2 style={{ fontSize: '2.2rem', fontWeight: 800, margin: 0, color: getScoreColor(mobilityScore) }}>
+              {mobilityScore}/100
+            </h2>
+          </div>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            Excelente autonomia de caminhada hoje
+          </p>
         </div>
+
+        {/* Passos e Distância */}
+        <div className="glass-panel" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Passos Caminhados</span>
+            <Footprints size={20} color="var(--accent-primary)" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <h2 style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+              {steps.toLocaleString('pt-BR')}
+            </h2>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>~1.2 km</span>
+          </div>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            {activeMinutes} min de atividade física moderada
+          </p>
+        </div>
+
+        {/* Sensor Grip Touch na Manopla */}
+        <div className="glass-panel" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Sensor Grip Touch</span>
+            <Zap size={20} color={isGripHolding ? 'var(--accent-green-text)' : 'var(--accent-yellow-text)'} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: isGripHolding ? 'var(--accent-green-text)' : 'var(--accent-yellow-text)' }}>
+              {isGripHolding ? 'Empunhadura Ativa' : 'Apoiada / Em Repouso'}
+            </h2>
+          </div>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            {isGripHolding ? 'Mão segurando a bengala firmemente' : 'Filtro anti-falsos positivos ativo'}
+          </p>
+        </div>
+
+        {/* Monitor de Tremor e Estabilidade */}
+        <div className="glass-panel" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Estabilidade & Tremores</span>
+            <Activity size={20} color="var(--accent-cyan)" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, color: 'var(--accent-cyan)' }}>
+              Normal (1.2 Hz)
+            </h2>
+          </div>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            Sem padrões anormais de tremor (3-7 Hz)
+          </p>
+        </div>
+
       </div>
 
-      {/* Grid: Gráfico de Aceleração IMU + Status de Barramentos */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1.2fr)', gap: '20px' }}>
+      {/* 2. Gráfico Triaxial MPU-6050 + Diagnóstico de Barramentos */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1.2fr)', gap: '16px' }}>
         
-        {/* Gráfico Visual do Acelerômetro MPU6050 (X, Y, Z) */}
+        {/* Gráfico Visual do Acelerômetro */}
         <div className="glass-panel" style={{ padding: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
             <div>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Activity size={18} color="var(--accent-primary)" />
-                Leituras do Acelerômetro Triaxial (MPU-6050)
+                Ondas do Acelerômetro MPU-6050 (Tempo Real)
               </h3>
-              <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                Monitoramento contínuo de aceleração vetorial em 'g' (1g ≈ 9.81 m/s²)
+              <p style={{ margin: '2px 0 0 0', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                Taxa de amostragem: 100ms • Gravidade de referência: 1.0g
               </p>
             </div>
-            <span className="badge badge-online">Frequência: 10 Hz</span>
+            <span className="badge badge-online">Estável</span>
           </div>
 
-          {/* Gráfico SVG Simulado em Tempo Real */}
-          <div style={{ height: '180px', position: 'relative', background: 'var(--bg-app)', borderRadius: '12px', padding: '12px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <svg width="100%" height="100%" viewBox="0 0 500 140" preserveAspectRatio="none">
-              {/* Linhas de Grade */}
+          <div style={{ height: '170px', background: 'var(--bg-app)', borderRadius: '12px', padding: '12px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <svg width="100%" height="100%" viewBox="0 0 500 130" preserveAspectRatio="none">
               <line x1="0" y1="20" x2="500" y2="20" stroke="var(--border-color)" strokeDasharray="3 3" />
-              <line x1="0" y1="70" x2="500" y2="70" stroke="var(--border-color)" />
-              <line x1="0" y1="120" x2="500" y2="120" stroke="var(--border-color)" strokeDasharray="3 3" />
+              <line x1="0" y1="65" x2="500" y2="65" stroke="var(--border-color)" />
+              <line x1="0" y1="110" x2="500" y2="110" stroke="var(--border-color)" strokeDasharray="3 3" />
 
-              {/* Onda Eixo Z (Gravidade ~ 1.0g) */}
-              <path
-                d="M 0 70 Q 50 65, 100 70 T 200 68 T 300 72 T 400 69 T 500 70"
-                fill="none"
-                stroke="#3b82f6"
-                strokeWidth="2.5"
-              />
-
-              {/* Onda Eixo X */}
-              <path
-                d="M 0 75 Q 40 85, 80 72 T 160 80 T 240 70 T 320 82 T 400 75 T 500 76"
-                fill="none"
-                stroke="#10b981"
-                strokeWidth="2"
-              />
-
-              {/* Onda Eixo Y */}
-              <path
-                d="M 0 65 Q 60 50, 120 68 T 240 60 T 360 70 T 480 62 T 500 65"
-                fill="none"
-                stroke="#f59e0b"
-                strokeWidth="2"
-              />
+              {/* Z-Axis */}
+              <path d="M 0 65 Q 50 60, 100 65 T 200 63 T 300 67 T 400 64 T 500 65" fill="none" stroke="#3b82f6" strokeWidth="2.5" />
+              {/* X-Axis */}
+              <path d="M 0 70 Q 40 80, 80 68 T 160 74 T 240 66 T 320 78 T 400 70 T 500 72" fill="none" stroke="#10b981" strokeWidth="2" />
+              {/* Y-Axis */}
+              <path d="M 0 60 Q 60 48, 120 62 T 240 56 T 360 64 T 480 58 T 500 60" fill="none" stroke="#f59e0b" strokeWidth="2" />
             </svg>
 
-            {/* Legenda dos Eixos */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '24px', marginTop: '8px', fontSize: '0.78rem' }}>
-              <span style={{ color: '#10b981', fontWeight: 600 }}>● Eixo X: 0.04g</span>
-              <span style={{ color: '#f59e0b', fontWeight: 600 }}>● Eixo Y: -0.02g</span>
-              <span style={{ color: '#3b82f6', fontWeight: 600 }}>● Eixo Z (Gravidade): 0.98g</span>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '6px', fontSize: '0.75rem' }}>
+              <span style={{ color: '#10b981', fontWeight: 600 }}>● X: 0.04g (Lateral)</span>
+              <span style={{ color: '#f59e0b', fontWeight: 600 }}>● Y: -0.02g (Frontal)</span>
+              <span style={{ color: '#3b82f6', fontWeight: 600 }}>● Z: 0.98g (Gravidade)</span>
             </div>
           </div>
         </div>
 
-        {/* Tabela de Status dos Periféricos de Hardware */}
+        {/* Diagnóstico de Conexões e Sensores */}
         <div className="glass-panel" style={{ padding: '20px' }}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: '0 0 14px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Gauge size={18} color="var(--accent-cyan)" />
-            Status dos Periféricos
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Cpu size={18} color="var(--accent-cyan)" />
+            Diagnóstico de Hardware
           </h3>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div>
-                <strong style={{ fontSize: '0.85rem' }}>HC-SR04 (Ultrassom)</strong>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>GPIO 5 (TRIG) / GPIO 18 (ECHO)</p>
-              </div>
-              <span className="badge badge-online">OK (100ms)</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+              <span>HC-SR04 Frontal + Chão 45°</span>
+              <span className="badge badge-online">2 Ativos</span>
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div>
-                <strong style={{ fontSize: '0.85rem' }}>MPU-6050 (Acelerômetro)</strong>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>I2C (SDA:21, SCL:22)</p>
-              </div>
-              <span className="badge badge-online">Calibrado</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+              <span>Farol Noturno Automático LDR</span>
+              <span className="badge badge-online">Sensor OK</span>
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div>
-                <strong style={{ fontSize: '0.85rem' }}>NEO-6M (Módulo GPS)</strong>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>UART 2 (RX:16, TX:17)</p>
-              </div>
-              <span className="badge badge-online">Fix 3D (8 Sats)</span>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div>
-                <strong style={{ fontSize: '0.85rem' }}>Botão de Pânico SOS</strong>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>GPIO 4 (Pull-Up Interrupt)</p>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+              <span>Duplo Motor Háptico (Dedos/Palma)</span>
               <span className="badge badge-online">Pronto</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.8rem' }}>
+              <span>GPS NEO-6M & Satélites</span>
+              <span className="badge badge-online">8 Sats (Fix 3D)</span>
             </div>
           </div>
         </div>

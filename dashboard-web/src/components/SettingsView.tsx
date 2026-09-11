@@ -1,127 +1,266 @@
 import React, { useState } from 'react';
-import { Shield, Phone, Users, Save, CheckCircle2, BellRing, MapPin } from 'lucide-react';
+import { Shield, Users, Pill, Plus, Save, Clock, MapPin, CheckCircle2, PhoneCall, Trash2 } from 'lucide-react';
+import { api } from '../services/api';
 
 interface SettingsViewProps {
   geofenceRadius: number;
   onUpdateGeofenceRadius: (radius: number) => void;
+  deviceId?: string;
+}
+
+interface GeofenceZone {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radius: number;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   geofenceRadius,
-  onUpdateGeofenceRadius
+  onUpdateGeofenceRadius,
+  deviceId = 'ESP32-MOB-001'
 }) => {
   const [radius, setRadius] = useState(geofenceRadius);
-  const [saved, setSaved] = useState(false);
+  const [savedRadius, setSavedRadius] = useState(false);
 
-  const handleSave = () => {
+  // Lembrete de Medicamentos
+  const [medicineName, setMedicineName] = useState('');
+  const [medicineTime, setMedicineTime] = useState('14:00');
+  const [medicineList, setMedicineList] = useState([
+    { id: 1, name: 'Losartana 50mg (Pressão)', time: '08:00' },
+    { id: 2, name: 'Complexo Vitamínico', time: '12:30' },
+    { id: 3, name: 'Metformina 500mg', time: '19:00' }
+  ]);
+  const [reminderMsg, setReminderMsg] = useState<string | null>(null);
+
+  // Múltiplas Áreas Seguras
+  const [safeZones, setSafeZones] = useState<GeofenceZone[]>([
+    { id: '1', name: '🏠 Residência Principal', lat: -23.550520, lng: -46.633308, radius: 250 },
+    { id: '2', name: '🌳 Praça do Bairro / Caminhada', lat: -23.552200, lng: -46.635100, radius: 150 },
+    { id: '3', name: '💊 Farmácia São Paulo', lat: -23.548900, lng: -46.631000, radius: 100 },
+    { id: '4', name: '🏥 Posto de Saúde Central', lat: -23.553500, lng: -46.637000, radius: 200 }
+  ]);
+
+  const handleSaveRadius = () => {
     onUpdateGeofenceRadius(radius);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setSavedRadius(true);
+    setTimeout(() => setSavedRadius(false), 2500);
+  };
+
+  const handleAddMedicine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!medicineName.trim()) return;
+
+    const newMed = {
+      id: Date.now(),
+      name: medicineName.trim(),
+      time: medicineTime
+    };
+
+    setMedicineList([...medicineList, newMed]);
+    await api.scheduleMedicineReminder(deviceId, `${medicineName} (${medicineTime})`);
+    
+    setReminderMsg(`⏰ Lembrete de "${medicineName}" enviado para a bengala!`);
+    setMedicineName('');
+    setTimeout(() => setReminderMsg(null), 3500);
+  };
+
+  const handleRemoveMedicine = (id: number) => {
+    setMedicineList(medicineList.filter(m => m.id !== id));
   };
 
   return (
     <div style={{ margin: '0 20px 20px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
-      {/* Grid de Configurações */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+      {reminderMsg && (
+        <div style={{
+          padding: '12px 18px',
+          background: 'var(--accent-primary)',
+          color: '#ffffff',
+          borderRadius: '10px',
+          fontSize: '0.88rem',
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          animation: 'fadeIn 0.2s'
+        }}>
+          <CheckCircle2 size={18} />
+          <span>{reminderMsg}</span>
+        </div>
+      )}
+
+      {/* Grid Principal de Configurações */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '20px' }}>
         
-        {/* Card 1: Cerca Virtual & Geofence */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+        {/* Card 1: Lembrete de Medicamentos na Bengala */}
+        <div className="glass-panel" style={{ padding: '22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ background: 'var(--accent-cyan)', padding: '8px', borderRadius: '10px', color: '#ffffff' }}>
+              <Pill size={20} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>
+                Lembrete de Remédios na Bengala
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                A bengala emite bip suave e vibra no horário do medicamento
+              </p>
+            </div>
+          </div>
+
+          {/* Formulário de Adicionar Remédio */}
+          <form onSubmit={handleAddMedicine} style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="Nome do remédio (ex: Insulina)"
+              value={medicineName}
+              onChange={(e) => setMedicineName(e.target.value)}
+              style={{
+                flex: 1,
+                minWidth: '160px',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: 'var(--bg-app)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                fontSize: '0.85rem'
+              }}
+            />
+            <input
+              type="time"
+              value={medicineTime}
+              onChange={(e) => setMedicineTime(e.target.value)}
+              style={{
+                padding: '8px 10px',
+                borderRadius: '8px',
+                background: 'var(--bg-app)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                fontSize: '0.85rem'
+              }}
+            />
+            <button type="submit" className="btn btn-primary" style={{ padding: '8px 14px', fontSize: '0.82rem' }}>
+              <Plus size={15} /> Adicionar
+            </button>
+          </form>
+
+          {/* Lista de Remédios Agendados */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+            {medicineList.map((med) => (
+              <div
+                key={med.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '8px 12px',
+                  background: 'var(--bg-app)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Clock size={15} color="var(--accent-cyan)" />
+                  <div>
+                    <strong style={{ fontSize: '0.84rem' }}>{med.name}</strong>
+                    <span style={{ marginLeft: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                      às {med.time}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleRemoveMedicine(med.id)}
+                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Card 2: Múltiplas Áreas Seguras (Multi-Geofencing) */}
+        <div className="glass-panel" style={{ padding: '22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
             <div style={{ background: 'var(--accent-primary)', padding: '8px', borderRadius: '10px', color: '#ffffff' }}>
               <Shield size={20} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
-                Configuração de Cerca Virtual
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>
+                Áreas Seguras Cadastradas (Multi-Cerca)
               </h3>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                Dispara alerta quando o usuário sair do perímetro seguro
+              <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                Detecção automática de chegada e saída em pontos familiares
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '10px' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '0.85rem' }}>
-                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Raio de Segurança</span>
-                <strong style={{ color: 'var(--accent-primary)', fontSize: '1rem' }}>{radius} metros</strong>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {safeZones.map((zone) => (
+              <div
+                key={zone.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '10px 14px',
+                  background: 'var(--bg-app)',
+                  borderRadius: '10px',
+                  border: '1px solid var(--border-color)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <MapPin size={16} color="var(--accent-primary)" />
+                  <div>
+                    <strong style={{ fontSize: '0.85rem' }}>{zone.name}</strong>
+                    <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                      Raio de proteção: {zone.radius}m
+                    </p>
+                  </div>
+                </div>
+                <span className="badge badge-online" style={{ fontSize: '0.65rem' }}>Ativo</span>
               </div>
-              <input
-                type="range"
-                min="100"
-                max="2000"
-                step="50"
-                value={radius}
-                onChange={(e) => setRadius(Number(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--accent-primary)' }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                <span>100m (Casa)</span>
-                <span>500m (Bairro)</span>
-                <span>2000m (Cidade)</span>
-              </div>
-            </div>
-
-            <div style={{ background: 'var(--bg-app)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
-              <MapPin size={16} color="var(--accent-cyan)" />
-              <div>
-                <p style={{ margin: 0, fontWeight: 600 }}>Ponto Central Seguro</p>
-                <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                  Residência: Av. Paulista, 1000 - Bela Vista, SP
-                </p>
-              </div>
-            </div>
-
-            <button className="btn btn-primary" onClick={handleSave} style={{ marginTop: '6px' }}>
-              <Save size={16} />
-              <span>{saved ? 'Configuração Salva!' : 'Salvar Perímetro'}</span>
-            </button>
+            ))}
           </div>
         </div>
 
-        {/* Card 2: Contatos de Emergência Cadastrados */}
-        <div className="glass-panel" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-            <div style={{ background: 'var(--accent-cyan)', padding: '8px', borderRadius: '10px', color: '#ffffff' }}>
+        {/* Card 3: Contatos de Emergência */}
+        <div className="glass-panel" style={{ padding: '22px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+            <div style={{ background: 'var(--accent-yellow)', padding: '8px', borderRadius: '10px', color: '#ffffff' }}>
               <Users size={20} />
             </div>
             <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
-                Contatos de Emergência
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>
+                Contatos de Resgate & Emergência
               </h3>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                Destinatários de chamadas e Notificações Push FCM
+              <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                Acionamento prioritário em caso de SOS ou Queda
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {/* Contato 1 */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-app)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <div>
-                <strong style={{ fontSize: '0.88rem' }}>Maria Silva (Filha / Cuidadora)</strong>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>+55 (11) 98765-4321 • Push FCM Ativo</p>
+                <strong style={{ fontSize: '0.84rem' }}>Maria Silva (Filha)</strong>
+                <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>+55 11 98765-4321 • Push FCM Ativo</p>
               </div>
-              <span className="badge badge-online">Principal</span>
+              <a href="tel:5511987654321" className="btn btn-secondary" style={{ padding: '6px 10px', fontSize: '0.75rem' }}>
+                <PhoneCall size={13} /> Ligar
+              </a>
             </div>
 
-            {/* Contato 2 */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-app)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--accent-red-bg)', borderRadius: '8px', border: '1px solid var(--accent-red-border)' }}>
               <div>
-                <strong style={{ fontSize: '0.88rem' }}>Carlos Silva (Filho)</strong>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>+55 (11) 91234-5678 • SMS & Ligação</p>
+                <strong style={{ fontSize: '0.84rem', color: 'var(--accent-red-text)' }}>SAMU Ambulância</strong>
+                <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>Emergências Médicas: 192</p>
               </div>
-              <span className="badge badge-online">Secundário</span>
-            </div>
-
-            {/* Contato 3 */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--accent-red-bg)', borderRadius: '10px', border: '1px solid var(--accent-red-border)' }}>
-              <div>
-                <strong style={{ fontSize: '0.88rem', color: 'var(--accent-red-text)' }}>SAMU / Ambulância Emergência</strong>
-                <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Central Telefônica: 192</p>
-              </div>
-              <span className="badge badge-alert">Emergência</span>
+              <a href="tel:192" className="btn btn-danger" style={{ padding: '6px 10px', fontSize: '0.75rem', textDecoration: 'none' }}>
+                <PhoneCall size={13} /> 192
+              </a>
             </div>
           </div>
         </div>

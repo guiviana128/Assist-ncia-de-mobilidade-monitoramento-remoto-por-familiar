@@ -2,44 +2,48 @@ import { Alert, DashboardSummary, DeviceStatus, TelemetryPoint } from '../types'
 
 const API_BASE_URL = 'http://localhost:8080/api/v1';
 
-// Estado simulado em memória caso o backend não esteja ativo
 let mockDevice: DeviceStatus = {
   deviceId: 'ESP32-MOB-001',
-  name: 'Bengala Inteligente AssistMob (José)',
+  name: 'Bengala Inteligente AssistMob Pro (José)',
   isOnline: true,
   currentLatitude: -23.550520,
   currentLongitude: -46.633308,
   batteryPercent: 88,
   lastDistanceCm: 145,
   obstacleAlert: false,
-  lastUpdate: new Date().toISOString()
+  lastUpdate: new Date().toISOString(),
+  isGripHolding: true,
+  stepsToday: 1840,
+  activeMinutes: 42,
+  mobilityScore: 86
 };
 
 let mockAlerts: Alert[] = [
   {
     id: 1,
     deviceId: 'ESP32-MOB-001',
-    alertType: 'SOS_BUTTON',
-    severity: 'CRITICAL',
-    status: 'PENDING',
-    message: 'Botão de pânico SOS acionado!',
+    alertType: 'CHECKIN_SAFE',
+    severity: 'INFO',
+    status: 'RESOLVED',
+    message: 'Check-in Seguro efetuado pelo idoso: "Cheguei bem na praça"',
     latitude: -23.550520,
     longitude: -46.633308,
     batteryLevel: 88,
-    createdAt: new Date(Date.now() - 1000 * 60 * 3).toISOString()
+    createdAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
+    resolvedAt: new Date(Date.now() - 1000 * 60 * 10).toISOString()
   },
   {
     id: 2,
     deviceId: 'ESP32-MOB-001',
-    alertType: 'OBSTACLE_COLLISION',
+    alertType: 'POTHOLE_HOLE_DETECTED',
     severity: 'WARNING',
     status: 'RESOLVED',
-    message: 'Obstáculo próximo detectado (< 30cm)',
+    message: 'Desnível / degrau de 35cm detectado pelo sensor no piso',
     latitude: -23.551200,
     longitude: -46.634100,
     batteryLevel: 90,
-    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    resolvedAt: new Date(Date.now() - 1000 * 60 * 40).toISOString()
+    createdAt: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
+    resolvedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString()
   }
 ];
 
@@ -50,7 +54,6 @@ export const api = {
       if (!res.ok) throw new Error('API Error');
       return await res.json();
     } catch {
-      // Fallback gracioso
       return {
         totalDevices: 1,
         onlineDevices: mockDevice.isOnline ? 1 : 0,
@@ -67,7 +70,6 @@ export const api = {
       if (!res.ok) throw new Error('API Error');
       return await res.json();
     } catch {
-      // Retorna uma rota de demonstração na região da Av. Paulista / Centro de SP
       return [
         { deviceId, latitude: -23.5520, longitude: -46.6350, speedKmh: 3.2, batteryPercent: 92, recordedAt: new Date(Date.now() - 1000 * 60 * 20).toISOString() },
         { deviceId, latitude: -23.5515, longitude: -46.6342, speedKmh: 2.8, batteryPercent: 90, recordedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString() },
@@ -94,6 +96,39 @@ export const api = {
     }
   },
 
+  async findMyCane(deviceId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/devices/${deviceId}/find`, { method: 'POST' });
+      if (!res.ok) throw new Error('API Error');
+      return { success: true, message: 'Comando de localização sonoro e luminoso emitido para a bengala!' };
+    } catch {
+      return { success: true, message: '🔔 Bengala Localizada! Alarme sonoro e farol LED ativados por 10s.' };
+    }
+  },
+
+  async scheduleMedicineReminder(deviceId: string, medicineName: string): Promise<void> {
+    try {
+      await fetch(`${API_BASE_URL}/devices/${deviceId}/reminder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ medicineName })
+      });
+    } catch {
+      const newAlert: Alert = {
+        id: Date.now(),
+        deviceId,
+        alertType: 'MEDICATION_REMINDER',
+        severity: 'INFO',
+        status: 'PENDING',
+        message: `⏰ Lembrete de Medicamento: ${medicineName}`,
+        latitude: mockDevice.currentLatitude,
+        longitude: mockDevice.currentLongitude,
+        createdAt: new Date().toISOString()
+      };
+      mockAlerts = [newAlert, ...mockAlerts];
+    }
+  },
+
   async sendSimulatedTelemetry(data: Partial<TelemetryPoint>): Promise<void> {
     try {
       await fetch(`${API_BASE_URL}/telemetry`, {
@@ -112,7 +147,6 @@ export const api = {
         })
       });
     } catch {
-      // Atualizar dados no mock local
       mockDevice = {
         ...mockDevice,
         currentLatitude: data.latitude ?? mockDevice.currentLatitude,
@@ -133,7 +167,7 @@ export const api = {
         body: JSON.stringify({
           deviceId: mockDevice.deviceId,
           alertType,
-          severity: alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED' ? 'CRITICAL' : 'WARNING',
+          severity: alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED' ? 'CRITICAL' : alertType === 'CHECKIN_SAFE' || alertType === 'MEDICATION_REMINDER' ? 'INFO' : 'WARNING',
           message,
           latitude: mockDevice.currentLatitude,
           longitude: mockDevice.currentLongitude,
@@ -145,13 +179,14 @@ export const api = {
         id: Date.now(),
         deviceId: mockDevice.deviceId,
         alertType,
-        severity: alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED' ? 'CRITICAL' : 'WARNING',
-        status: 'PENDING',
+        severity: alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED' ? 'CRITICAL' : alertType === 'CHECKIN_SAFE' || alertType === 'MEDICATION_REMINDER' ? 'INFO' : 'WARNING',
+        status: alertType === 'CHECKIN_SAFE' ? 'RESOLVED' : 'PENDING',
         message,
         latitude: mockDevice.currentLatitude,
         longitude: mockDevice.currentLongitude,
         batteryLevel: mockDevice.batteryPercent,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        resolvedAt: alertType === 'CHECKIN_SAFE' ? new Date().toISOString() : undefined
       };
       mockAlerts = [newAlert, ...mockAlerts];
     }

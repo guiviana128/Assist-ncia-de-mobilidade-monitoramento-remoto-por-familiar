@@ -2,9 +2,14 @@ export type AlertType =
   | 'SOS_BUTTON'
   | 'FALL_DETECTED'
   | 'OBSTACLE_COLLISION'
+  | 'POTHOLE_HOLE_DETECTED'
   | 'LOW_BATTERY'
   | 'GEOFENCE_EXIT'
-  | 'DEVICE_OFFLINE';
+  | 'DEVICE_OFFLINE'
+  | 'CHECKIN_SAFE'
+  | 'TREMOR_DETECTED'
+  | 'FATIGUE_WARNING'
+  | 'MEDICATION_REMINDER';
 
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 export type AlertStatus = 'PENDING' | 'ACKNOWLEDGED' | 'RESOLVED';
@@ -33,6 +38,10 @@ export interface DeviceStatus {
   lastDistanceCm?: number;
   obstacleAlert?: boolean;
   lastUpdate?: string;
+  isGripHolding?: boolean;
+  stepsToday?: number;
+  activeMinutes?: number;
+  mobilityScore?: number;
 }
 
 export interface TelemetryPoint {

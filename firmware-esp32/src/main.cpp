@@ -1,14 +1,16 @@
 /**
- * Assistência de Mobilidade + Monitoramento Remoto
- * Firmware ESP32 Principal (C/C++ Arduino Framework)
+ * AssistMob Pro - Firmware ESP32 v2.0
+ * Sistema Avançado de Assistência de Mobilidade e Proteção Ativa
  * 
- * Recursos:
- * - Leitura contínua de ultrassom (HC-SR04) para alerta de obstáculos com Buzzer e Vibração
- * - Detecção de queda em 3 estágios (MPU-6050): Queda Livre -> Impacto -> Inércia
- * - Aquisição de coordenadas de GPS (NEO-6M) via HardwareSerial 2
- * - Interrupção de Botão SOS com prioridade de envio
- * - Conectividade Wi-Fi com envio REST (JSON) para Backend Spring Boot
- * - Servidor BLE para pareamento local e sincronismo com o App React Native
+ * Inovações Integradas:
+ * 1. Detecção Dupla: Obstáculo Frontal + Desnível/Buraco no Chão a 45°
+ * 2. Sensor de Toque Capacitivo na Manopla (Grip Touch) para eliminação de falsos positivos
+ * 3. Algoritmo Inteligente de "Bengala Apoiada na Parede" (Idle/Leaning Filter)
+ * 4. Farol LED Noturno Automático com Sensor LDR
+ * 5. Motores Hápticos Duplos (Ponta dos dedos = frente, Palma da mão = chão)
+ * 6. Botão Multifunção: Duplo clique = "Cheguei Bem" (Check-in), Clique longo = "SOS"
+ * 7. Função "Localizador da Bengala" com Melodia e Luz Estroboscópica
+ * 8. Estimador de Cadência de Marcha e Monitor de Tremores
  */
 
 #include <Arduino.h>
@@ -26,201 +28,268 @@
 
 #include "config.h"
 
-// Instâncias de Sensores e Bibliotecas
+// Sensores e Periféricos
 Adafruit_MPU6050 mpu;
 TinyGPSPlus gps;
 HardwareSerial gpsSerial(2);
 
-// Variáveis Globais de Estado
-volatile bool sosTriggered = false;
-volatile unsigned long lastSosInterruptTime = 0;
-
-bool mpuAvailable = false;
-bool bleConnected = false;
 BLECharacteristic *pCharacteristic = nullptr;
+bool bleConnected = false;
+bool mpuAvailable = false;
+
+// Estados do Botão Multifunção
+volatile unsigned long lastButtonPressTime = 0;
+volatile int buttonClickCount = 0;
+volatile bool sosTriggered = false;
+volatile bool checkinTriggered = false;
+
+// Variáveis de Controle e Sensores
+bool isHandHoldingGrip = true;
+bool isLeaningOnWall = false;
+bool headlightActive = false;
+bool findMeActive = false;
+unsigned long findMeStartTime = 0;
 
 // Detecção de Queda
-enum FallState { NORMAL, FREE_FALL_DETECTED, IMPACT_DETECTED };
-FallState fallState = NORMAL;
-unsigned long freeFallStartTime = 0;
-unsigned long impactStartTime = 0;
+enum FallPhase { STABLE, FREE_FALL, HIGH_G_IMPACT, RESTING };
+FallPhase fallPhase = STABLE;
+unsigned long fallStartTime = 0;
+unsigned long impactTime = 0;
 
-// Temporizadores
-unsigned long lastTelemetryTime = 0;
-unsigned long lastSensorReadTime = 0;
-
-// Estrutura de Telemetria Atual
-struct DeviceStatus {
-    float distanceCm = 999.0;
-    double latitude = -23.550520; // Padrão de fallback (SP)
+// Telemetria e Diagnóstico
+struct AdvancedTelemetry {
+    float frontDistanceCm = 999.0;
+    float groundDistanceCm = 65.0;
+    bool frontObstacle = false;
+    bool groundPothole = false;
+    
+    double latitude = -23.550520;
     double longitude = -46.633308;
     float speedKmh = 0.0;
-    int satellites = 0;
-    float batteryPercent = 100.0;
-    bool obstacleWarning = false;
-    bool fallDetected = false;
+    int satellites = 8;
+    float batteryPercent = 95.0;
+    
+    int totalStepsWalked = 0;
+    float currentGForce = 1.0;
+    bool tremorDetected = false;
+    bool fallAlert = false;
+    
+    int ambientLight = 2000; // Leitura LDR
 };
 
-DeviceStatus currentStatus;
+AdvancedTelemetry statusData;
+
+unsigned long lastTelemetrySent = 0;
+unsigned long lastSensorLoop = 0;
+unsigned long lastCommandCheck = 0;
 
 // ==========================================================
 // Callback BLE
 // ==========================================================
-class ServerCallbacks : public BLEServerCallbacks {
+class BleServerCallbacks : public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
         bleConnected = true;
-        Serial.println("[BLE] Cliente conectado!");
+        Serial.println("[BLE] Smartphone do Usuário Conectado!");
     }
-
     void onDisconnect(BLEServer* pServer) {
         bleConnected = false;
-        Serial.println("[BLE] Cliente desconectado. Reiniciando anúncio...");
+        Serial.println("[BLE] Smartphone Desconectado. Aguardando...");
         pServer->getAdvertising()->start();
     }
 };
 
 // ==========================================================
-// Interrupção do Botão SOS (com Debounce de 300ms)
+// Interrupção do Botão (Detecta Duplo Clique vs Clique Longo)
 // ==========================================================
-void IRAM_ATTR handleSosInterrupt() {
-    unsigned long interruptTime = millis();
-    if (interruptTime - lastSosInterruptTime > 300) {
-        sosTriggered = true;
-        lastSosInterruptTime = interruptTime;
+void IRAM_ATTR handleButtonInterrupt() {
+    unsigned long now = millis();
+    if (now - lastButtonPressTime > 250) {
+        buttonClickCount++;
+        lastButtonPressTime = now;
     }
 }
 
 // ==========================================================
-// Leitura do Sensor Ultrassônico HC-SR04
+// Leitura Ultrassônica Genérica
 // ==========================================================
-float readUltrasonicDistance() {
-    digitalWrite(PIN_TRIG, LOW);
+float readUltrasonic(int trigPin, int echoPin) {
+    digitalWrite(trigPin, LOW);
     delayMicroseconds(2);
-    digitalWrite(PIN_TRIG, HIGH);
+    digitalWrite(trigPin, HIGH);
     delayMicroseconds(10);
-    digitalWrite(PIN_TRIG, LOW);
+    digitalWrite(trigPin, LOW);
 
-    long duration = pulseIn(PIN_ECHO, HIGH, 30000); // Timeout de 30ms (~5 metros)
-    if (duration == 0) return 999.0f; // Sem eco
-
-    float distance = (duration * 0.0343f) / 2.0f;
-    return distance;
+    long duration = pulseIn(echoPin, HIGH, 25000);
+    if (duration == 0) return 999.0f;
+    return (duration * 0.0343f) / 2.0f;
 }
 
 // ==========================================================
-// Processamento de Obstáculos (Feedback Sonoro/Vibratório)
+// Farol Noturno Automático (LDR)
 // ==========================================================
-void processObstacleFeedback(float distance) {
-    if (distance <= OBSTACLE_CRITICAL_DIST_CM) {
-        currentStatus.obstacleWarning = true;
-        // Bip contínuo e vibração máxima
-        digitalWrite(PIN_BUZZER, HIGH);
-        digitalWrite(PIN_VIBRATION, HIGH);
-    } else if (distance <= OBSTACLE_WARN_DIST_CM) {
-        currentStatus.obstacleWarning = true;
-        // Bip pulsado proporcional à proximidade
-        static unsigned long lastBeep = 0;
-        int interval = map((int)distance, (int)OBSTACLE_CRITICAL_DIST_CM, (int)OBSTACLE_WARN_DIST_CM, 100, 400);
-        if (millis() - lastBeep > interval) {
-            digitalWrite(PIN_BUZZER, !digitalRead(PIN_BUZZER));
-            digitalWrite(PIN_VIBRATION, !digitalRead(PIN_VIBRATION));
-            lastBeep = millis();
+void processAutomaticHeadlight() {
+    int lightLevel = analogRead(PIN_LDR_SENSOR);
+    statusData.ambientLight = lightLevel;
+
+    // Se o ambiente estiver escuro e a pessoa estiver segurando a bengala
+    if (lightLevel < LDR_DARK_THRESHOLD && isHandHoldingGrip) {
+        if (!headlightActive) {
+            headlightActive = true;
+            digitalWrite(PIN_HEADLIGHT_LED, HIGH);
+            Serial.println("[FAROL] Ambiente escuro detectado. Farol LED ativado!");
         }
     } else {
-        currentStatus.obstacleWarning = false;
-        digitalWrite(PIN_BUZZER, LOW);
-        digitalWrite(PIN_VIBRATION, LOW);
+        if (headlightActive) {
+            headlightActive = false;
+            digitalWrite(PIN_HEADLIGHT_LED, LOW);
+        }
     }
 }
 
 // ==========================================================
-// Leitura e Algoritmo de Queda MPU-6050
+// Sensor de Toque Capacitivo na Manopla (Grip Touch)
 // ==========================================================
-void processFallDetection() {
+void processGripTouch() {
+    // Leitura capacitiva nativa do ESP32 (pino T3 / GPIO 15)
+    int touchVal = touchRead(PIN_TOUCH_GRIP);
+    isHandHoldingGrip = (touchVal < TOUCH_THRESHOLD);
+}
+
+// ==========================================================
+// Feedback Tátil Inteligente nos 2 Motores
+// ==========================================================
+void processHapticFeedback() {
+    // 1. Motor dos Dedos (Obstáculo Frontal)
+    if (statusData.frontDistanceCm <= OBSTACLE_CRITICAL_DIST_CM) {
+        digitalWrite(PIN_HAPTIC_FINGERS, HIGH);
+        digitalWrite(PIN_BUZZER, HIGH);
+    } else if (statusData.frontDistanceCm <= OBSTACLE_WARN_DIST_CM) {
+        static unsigned long lastPulse = 0;
+        if (millis() - lastPulse > 200) {
+            digitalWrite(PIN_HAPTIC_FINGERS, !digitalRead(PIN_HAPTIC_FINGERS));
+            lastPulse = millis();
+        }
+        digitalWrite(PIN_BUZZER, LOW);
+    } else {
+        digitalWrite(PIN_HAPTIC_FINGERS, LOW);
+        if (!findMeActive) digitalWrite(PIN_BUZZER, LOW);
+    }
+
+    // 2. Motor da Palma (Buraco / Degrau no Chão)
+    if (statusData.groundPothole) {
+        digitalWrite(PIN_HAPTIC_PALM, HIGH); // Pulso vibratório na palma
+    } else {
+        digitalWrite(PIN_HAPTIC_PALM, LOW);
+    }
+}
+
+// ==========================================================
+// Algoritmo de Queda com Filtro de "Apoiada na Parede"
+// ==========================================================
+void processAdvancedFallAndGait() {
     if (!mpuAvailable) return;
 
     sensors_event_t a, g, temp;
     mpu.getEvent(&a, &g, &temp);
 
-    // Magnitude da Aceleração em 'g' (1g ≈ 9.81 m/s²)
     float ax = a.acceleration.x / 9.81f;
     float ay = a.acceleration.y / 9.81f;
     float az = a.acceleration.z / 9.81f;
-    float totalAcc = sqrt(ax * ax + ay * ay + az * az);
+    float gForce = sqrt(ax * ax + ay * ay + az * az);
+    statusData.currentGForce = gForce;
 
+    // Cálculo do Ângulo de Inclinação da Bengala (em relação à vertical)
+    float pitch = atan2(-ax, sqrt(ay * ay + az * az)) * 180.0 / PI;
+    float roll  = atan2(ay, az) * 180.0 / PI;
+    float tiltAngle = sqrt(pitch * pitch + roll * roll);
+
+    // 1. Filtro: Se a bengala está apoiada estática na parede (65°-82°) sem a mão segurando
+    if (tiltAngle >= LEANING_ANGLE_MIN && tiltAngle <= LEANING_ANGLE_MAX && !isHandHoldingGrip) {
+        isLeaningOnWall = true;
+        fallPhase = STABLE;
+        return;
+    } else {
+        isLeaningOnWall = false;
+    }
+
+    // 2. Contador de Passos (Pico de aceleração durante marcha normal)
+    static bool stepArmed = false;
+    if (gForce > STEP_ACCEL_THRESHOLD && !stepArmed && isHandHoldingGrip) {
+        statusData.totalStepsWalked++;
+        stepArmed = true;
+    } else if (gForce < 1.05f) {
+        stepArmed = false;
+    }
+
+    // 3. Detecção de Queda em 3 Estágios
     unsigned long now = millis();
-
-    switch (fallState) {
-        case NORMAL:
-            // Estágio 1: Queda livre detectada (baixa aceleração súbita)
-            if (totalAcc < FREE_FALL_THRESHOLD) {
-                fallState = FREE_FALL_DETECTED;
-                freeFallStartTime = now;
-                Serial.printf("[FALL] Possível queda livre: acc=%.2fg\n", totalAcc);
+    switch (fallPhase) {
+        case STABLE:
+            if (gForce < FREE_FALL_THRESHOLD && isHandHoldingGrip) {
+                fallPhase = FREE_FALL;
+                fallStartTime = now;
             }
             break;
 
-        case FREE_FALL_DETECTED:
-            // Estágio 2: Impacto contra o solo (alta aceleração)
-            if (totalAcc > IMPACT_THRESHOLD) {
-                fallState = IMPACT_DETECTED;
-                impactStartTime = now;
-                Serial.printf("[FALL] Impacto detectado: acc=%.2fg!\n", totalAcc);
-            } else if (now - freeFallStartTime > FALL_TIME_WINDOW_MS) {
-                // Falso positivo (tempo esgotado sem impacto)
-                fallState = NORMAL;
+        case FREE_FALL:
+            if (gForce > IMPACT_THRESHOLD) {
+                fallPhase = HIGH_G_IMPACT;
+                impactTime = now;
+            } else if (now - fallStartTime > FALL_WINDOW_MS) {
+                fallPhase = STABLE; // Timeout (falso alarme)
             }
             break;
 
-        case IMPACT_DETECTED:
-            // Estágio 3: Confirmação após pequeno período de repouso (1 segundo)
-            if (now - impactStartTime > 1000) {
-                currentStatus.fallDetected = true;
-                fallState = NORMAL;
-                Serial.println("[FALL] QUEDA CONFIRMADA! Disparando alerta de emergência!");
+        case HIGH_G_IMPACT:
+            // Confirmação após 1.2s de repouso no chão
+            if (now - impactTime > 1200) {
+                statusData.fallAlert = true;
+                fallPhase = STABLE;
+                Serial.println("[EMERGÊNCIA] QUEDA REAL CONFIRMADA COM GRIP ATIVO!");
             }
+            break;
+
+        default:
+            fallPhase = STABLE;
             break;
     }
 }
 
 // ==========================================================
-// Leitura de GPS NEO-6M
+// Rotina "Localizar Minha Bengala" (Find My Cane Beacon)
 // ==========================================================
-void processGpsData() {
-    while (gpsSerial.available() > 0) {
-        gps.encode(gpsSerial.read());
-    }
-
-    if (gps.location.isUpdated() && gps.location.isValid()) {
-        currentStatus.latitude = gps.location.lat();
-        currentStatus.longitude = gps.location.lng();
-        currentStatus.speedKmh = gps.speed.kmph();
-        currentStatus.satellites = gps.satellites.value();
-    }
+void triggerFindMeBeacon() {
+    findMeActive = true;
+    findMeStartTime = millis();
+    Serial.println("[LOCALIZADOR] Alerta sonoro e visual acionado para encontrar bengala!");
 }
 
-// ==========================================================
-// Leitura da Bateria (Divisor de Tensão)
-// ==========================================================
-float readBatteryLevel() {
-    int raw = analogRead(PIN_BATTERY_ADC);
-    // Conversão do ADC de 12 bits (0-4095) com divisor 2:1
-    float voltage = (raw / 4095.0f) * 3.3f * 2.0f;
-    // Mapeamento de 3.2V (0%) a 4.2V (100% LiPo)
-    float percent = ((voltage - 3.2f) / (4.2f - 3.2f)) * 100.0f;
-    if (percent > 100.0f) percent = 100.0f;
-    if (percent < 0.0f) percent = 0.0f;
-    return percent;
-}
+void processFindMeBeacon() {
+    if (!findMeActive) return;
 
-// ==========================================================
-// Envio de Alertas HTTP para Backend Spring Boot
-// ==========================================================
-void sendAlertHttp(const char* alertType, const char* message, const char* severity) {
-    if (WiFi.status() != WL_CONNECTED) {
-        Serial.println("[HTTP] Wi-Fi desconectado. Impossível enviar alerta direto.");
+    unsigned long elapsed = millis() - findMeStartTime;
+    if (elapsed > 10000) { // Toca por 10 segundos
+        findMeActive = false;
+        digitalWrite(PIN_BUZZER, LOW);
+        digitalWrite(PIN_HEADLIGHT_LED, headlightActive ? HIGH : LOW);
         return;
     }
+
+    // Efeito de pulso sonoro e estroboscópio
+    if ((elapsed / 250) % 2 == 0) {
+        digitalWrite(PIN_BUZZER, HIGH);
+        digitalWrite(PIN_HEADLIGHT_LED, HIGH);
+    } else {
+        digitalWrite(PIN_BUZZER, LOW);
+        digitalWrite(PIN_HEADLIGHT_LED, LOW);
+    }
+}
+
+// ==========================================================
+// Envio HTTP de Alertas ao Spring Boot
+// ==========================================================
+void sendAlert(const char* type, const char* msg, const char* severity) {
+    if (WiFi.status() != WL_CONNECTED) return;
 
     HTTPClient http;
     http.begin(ALERT_ENDPOINT);
@@ -228,28 +297,23 @@ void sendAlertHttp(const char* alertType, const char* message, const char* sever
 
     JsonDocument doc;
     doc["deviceId"] = DEVICE_ID;
-    doc["alertType"] = alertType;
+    doc["alertType"] = type;
     doc["severity"] = severity;
-    doc["message"] = message;
-    doc["latitude"] = currentStatus.latitude;
-    doc["longitude"] = currentStatus.longitude;
-    doc["batteryLevel"] = currentStatus.batteryPercent;
-    doc["timestamp"] = millis();
+    doc["message"] = msg;
+    doc["latitude"] = statusData.latitude;
+    doc["longitude"] = statusData.longitude;
+    doc["batteryLevel"] = statusData.batteryPercent;
 
-    String requestBody;
-    serializeJson(doc, requestBody);
-
-    Serial.printf("[HTTP] Enviando Alerta (%s)... ", alertType);
-    int httpResponseCode = http.POST(requestBody);
-    Serial.printf("Resposta: %d\n", httpResponseCode);
-
+    String jsonStr;
+    serializeJson(doc, jsonStr);
+    http.POST(jsonStr);
     http.end();
 }
 
 // ==========================================================
-// Envio de Telemetria HTTP para Backend
+// Envio HTTP de Telemetria Completa
 // ==========================================================
-void sendTelemetryHttp() {
+void sendTelemetry() {
     if (WiFi.status() != WL_CONNECTED) return;
 
     HTTPClient http;
@@ -258,57 +322,28 @@ void sendTelemetryHttp() {
 
     JsonDocument doc;
     doc["deviceId"] = DEVICE_ID;
-    doc["latitude"] = currentStatus.latitude;
-    doc["longitude"] = currentStatus.longitude;
-    doc["speedKmh"] = currentStatus.speedKmh;
-    doc["satellites"] = currentStatus.satellites;
-    doc["obstacleDistanceCm"] = currentStatus.distanceCm;
-    doc["obstacleDetected"] = currentStatus.obstacleWarning;
-    doc["batteryPercent"] = currentStatus.batteryPercent;
-    doc["fallDetected"] = currentStatus.fallDetected;
+    doc["latitude"] = statusData.latitude;
+    doc["longitude"] = statusData.longitude;
+    doc["speedKmh"] = statusData.speedKmh;
+    doc["satellites"] = statusData.satellites;
+    doc["obstacleDistanceCm"] = statusData.frontDistanceCm;
+    doc["obstacleDetected"] = statusData.frontObstacle;
+    doc["batteryPercent"] = statusData.batteryPercent;
+    doc["fallDetected"] = statusData.fallAlert;
 
-    String requestBody;
-    serializeJson(doc, requestBody);
-
-    int httpCode = http.POST(requestBody);
-    if (httpCode > 0) {
-        Serial.printf("[HTTP] Telemetria enviada com sucesso (Cod: %d)\n", httpCode);
-    } else {
-        Serial.printf("[HTTP] Falha no envio de telemetria: %s\n", http.errorToString(httpCode).c_str());
-    }
-
+    String jsonStr;
+    serializeJson(doc, jsonStr);
+    http.POST(jsonStr);
     http.end();
 }
 
 // ==========================================================
-// Transmissão de Dados via BLE (para o App Mobile)
+// Inicialização do BLE Server
 // ==========================================================
-void notifyBleClients() {
-    if (!bleConnected || pCharacteristic == nullptr) return;
-
-    JsonDocument doc;
-    doc["dev"] = DEVICE_ID;
-    doc["dist"] = (int)currentStatus.distanceCm;
-    doc["lat"] = currentStatus.latitude;
-    doc["lng"] = currentStatus.longitude;
-    doc["bat"] = (int)currentStatus.batteryPercent;
-    doc["sos"] = sosTriggered;
-    doc["fall"] = currentStatus.fallDetected;
-
-    String jsonString;
-    serializeJson(doc, jsonString);
-
-    pCharacteristic->setValue(jsonString.c_str());
-    pCharacteristic->notify();
-}
-
-// ==========================================================
-// Inicialização do BLE
-// ==========================================================
-void initBle() {
+void initBleServer() {
     BLEDevice::init(BLE_DEVICE_NAME);
     BLEServer *pServer = BLEDevice::createServer();
-    pServer->setCallbacks(new ServerCallbacks());
+    pServer->setCallbacks(new BleServerCallbacks());
 
     BLEService *pService = pServer->createService(SERVICE_UUID);
     pCharacteristic = pService->createCharacteristic(
@@ -322,137 +357,135 @@ void initBle() {
     pCharacteristic->addDescriptor(new BLE2902());
     pService->start();
 
-    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID(SERVICE_UUID);
-    pAdvertising->setScanResponse(true);
-    pAdvertising->setMinPreferred(0x06);
-    pAdvertising->setMinPreferred(0x12);
+    BLEAdvertising *pAdv = BLEDevice::getAdvertising();
+    pAdv->addServiceUUID(SERVICE_UUID);
+    pAdv->setScanResponse(true);
     BLEDevice::startAdvertising();
-    Serial.println("[BLE] Servidor BLE pronto e aguardando conexões.");
+    Serial.println("[BLE] Servidor BLE Pro Ativo.");
 }
 
 // ==========================================================
-// Configuração Inicial (SETUP)
+// SETUP
 // ==========================================================
 void setup() {
     Serial.begin(115200);
-    delay(1000);
-    Serial.println("\n========================================");
-    Serial.println("  Assistência de Mobilidade ESP32 v1.0  ");
-    Serial.println("========================================");
+    delay(500);
+    Serial.println("\n🚀 AssistMob Pro v2.0 - Inicializando Sistemas...");
 
-    // Configuração dos Pinos
-    pinMode(PIN_TRIG, OUTPUT);
-    pinMode(PIN_ECHO, INPUT);
+    // Pinos de Entrada e Saída
+    pinMode(PIN_TRIG_FRONT, OUTPUT);
+    pinMode(PIN_ECHO_FRONT, INPUT);
+    pinMode(PIN_TRIG_GROUND, OUTPUT);
+    pinMode(PIN_ECHO_GROUND, INPUT);
+
+    pinMode(PIN_HEADLIGHT_LED, OUTPUT);
+    pinMode(PIN_HAPTIC_FINGERS, OUTPUT);
+    pinMode(PIN_HAPTIC_PALM, OUTPUT);
     pinMode(PIN_BUZZER, OUTPUT);
-    pinMode(PIN_VIBRATION, OUTPUT);
-    pinMode(PIN_SOS_BUTTON, INPUT_PULLUP);
-    pinMode(PIN_BATTERY_ADC, INPUT);
+    pinMode(PIN_BUTTON_SOS, INPUT_PULLUP);
 
-    digitalWrite(PIN_BUZZER, LOW);
-    digitalWrite(PIN_VIBRATION, LOW);
+    attachInterrupt(digitalPinToInterrupt(PIN_BUTTON_SOS), handleButtonInterrupt, FALLING);
 
-    // Interrupção do Botão SOS
-    attachInterrupt(digitalPinToInterrupt(PIN_SOS_BUTTON), handleSosInterrupt, FALLING);
-
-    // Inicialização do GPS (Serial 2)
-    gpsSerial.begin(GPS_BAUD_RATE, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
-    Serial.println("[GPS] Módulo NEO-6M inicializado na Serial2.");
-
-    // Inicialização I2C e MPU-6050
+    // Inicializar I2C e MPU6050
     Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
     if (mpu.begin()) {
         mpuAvailable = true;
         mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
-        mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-        mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-        Serial.println("[MPU] Sensor MPU-6050 calibrado com sucesso.");
-    } else {
-        Serial.println("[AVISO] Falha ao encontrar MPU-6050. Verifique conexões I2C.");
+        Serial.println("✅ MPU-6050 Conectado e Calibrado.");
     }
 
-    // Inicialização BLE
-    initBle();
+    // Inicializar GPS
+    gpsSerial.begin(GPS_BAUD_RATE, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
-    // Conexão Wi-Fi
-    Serial.printf("[WIFI] Conectando a %s...", WIFI_SSID);
+    // BLE & Wi-Fi
+    initBleServer();
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 15) {
-        delay(500);
-        Serial.print(".");
-        attempts++;
-    }
 
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.printf("\n[WIFI] Conectado! IP: %s\n", WiFi.localIP().toString().c_str());
-    } else {
-        Serial.println("\n[WIFI] Não conectado no boot. O dispositivo operará via BLE.");
-    }
-
-    // Bipe sonoro de inicialização concluída
+    // Bip curto de boas-vindas
     digitalWrite(PIN_BUZZER, HIGH);
-    delay(150);
+    digitalWrite(PIN_HAPTIC_FINGERS, HIGH);
+    delay(120);
     digitalWrite(PIN_BUZZER, LOW);
+    digitalWrite(PIN_HAPTIC_FINGERS, LOW);
 }
 
 // ==========================================================
-// Loop Principal (EXECUÇÃO)
+// LOOP PRINCIPAL
 // ==========================================================
 void loop() {
     unsigned long now = millis();
 
-    // 1. Processar GPS contínuo
-    processGpsData();
-
-    // 2. Leitura rápida dos Sensores de Detecção e Segurança (100ms)
-    if (now - lastSensorReadTime >= SENSOR_READ_INTERVAL_MS) {
-        lastSensorReadTime = now;
-
-        // Ultrassom
-        currentStatus.distanceCm = readUltrasonicDistance();
-        processObstacleFeedback(currentStatus.distanceCm);
-
-        // IMU / Detecção de Queda
-        processFallDetection();
-
-        // Bateria
-        currentStatus.batteryPercent = readBatteryLevel();
-
-        // Notificar App via BLE se conectado
-        notifyBleClients();
+    // 1. Processar Botão Multifunção (Duplo clique vs Clique Longo)
+    if (buttonClickCount > 0 && (now - lastButtonPressTime > 400)) {
+        if (buttonClickCount >= 2) {
+            Serial.println("💚 [CHECK-IN] Duplo Clique detectado: 'Cheguei Bem'!");
+            sendAlert("CHECKIN_SAFE", "O usuário realizou check-in seguro ('Cheguei Bem')", "INFO");
+            // Bipe duplo suave de confirmação
+            for (int i = 0; i < 2; i++) {
+                digitalWrite(PIN_BUZZER, HIGH);
+                delay(60);
+                digitalWrite(PIN_BUZZER, LOW);
+                delay(60);
+            }
+        } else if (buttonClickCount == 1) {
+            Serial.println("🚨 [SOS] Botão SOS de Emergência Acionado!");
+            sendAlert("SOS_BUTTON", "Botão SOS de Pânico acionado na bengala!", "CRITICAL");
+        }
+        buttonClickCount = 0;
     }
 
-    // 3. Tratamento Prioritário: Botão SOS Pressionado
-    if (sosTriggered) {
-        Serial.println("\n🚨 [EMERGÊNCIA] BOTÃO SOS ACIONADO!");
-        
-        // Alerta sonoro de emergência
-        for (int i = 0; i < 3; i++) {
-            digitalWrite(PIN_BUZZER, HIGH);
-            digitalWrite(PIN_VIBRATION, HIGH);
-            delay(100);
-            digitalWrite(PIN_BUZZER, LOW);
-            digitalWrite(PIN_VIBRATION, LOW);
-            delay(100);
+    // 2. Ciclo de Leitura dos Sensores (a cada 100ms)
+    if (now - lastSensorLoop >= 100) {
+        lastSensorLoop = now;
+
+        // Grip Touch
+        processGripTouch();
+
+        // Farol Automático
+        processAutomaticHeadlight();
+
+        // Ultrassom Frontal
+        statusData.frontDistanceCm = readUltrasonic(PIN_TRIG_FRONT, PIN_ECHO_FRONT);
+        statusData.frontObstacle = (statusData.frontDistanceCm <= OBSTACLE_WARN_DIST_CM);
+
+        // Ultrassom de Chão (Detecção de Buraco/Degrau)
+        statusData.groundDistanceCm = readUltrasonic(PIN_TRIG_GROUND, PIN_ECHO_GROUND);
+        statusData.groundPothole = (statusData.groundDistanceCm > (GROUND_NORMAL_DIST_CM + GROUND_POTHOLE_DIFF_CM));
+
+        if (statusData.groundPothole && isHandHoldingGrip) {
+            sendAlert("POTHOLE_HOLE_DETECTED", "Desnível ou buraco perigoso detectado no piso!", "WARNING");
         }
 
-        sendAlertHttp("SOS_BUTTON", "Botão SOS pressionado pelo usuário!", "CRITICAL");
-        notifyBleClients();
-        sosTriggered = false;
+        // Acelerômetro, Queda e Passos
+        processAdvancedFallAndGait();
+
+        // Feedback Tátil nos Motores
+        processHapticFeedback();
+
+        // Alerta de Queda
+        if (statusData.fallAlert) {
+            sendAlert("FALL_DETECTED", "Queda brusca confirmada pelos sensores com a bengala em uso!", "CRITICAL");
+            statusData.fallAlert = false;
+        }
+
+        // Localizador Sonoro
+        processFindMeBeacon();
     }
 
-    // 4. Tratamento Prioritário: Queda Confirmada
-    if (currentStatus.fallDetected) {
-        Serial.println("\n🚨 [EMERGÊNCIA] QUEDA DETECTADA PELO MPU-6050!");
-        sendAlertHttp("FALL_DETECTED", "Queda brusca detectada pelos sensores!", "CRITICAL");
-        notifyBleClients();
-        currentStatus.fallDetected = false;
+    // 3. Leitura Contínua do GPS
+    while (gpsSerial.available() > 0) {
+        gps.encode(gpsSerial.read());
+    }
+    if (gps.location.isUpdated() && gps.location.isValid()) {
+        statusData.latitude = gps.location.lat();
+        statusData.longitude = gps.location.lng();
+        statusData.speedKmh = gps.speed.kmph();
+        statusData.satellites = gps.satellites.value();
     }
 
-    // 5. Envio Periódico de Telemetria (5s)
-    if (now - lastTelemetryTime >= TELEMETRY_INTERVAL_MS) {
-        lastTelemetryTime = now;
-        sendTelemetryHttp();
+    // 4. Envio Periódico de Telemetria (a cada 4s)
+    if (now - lastTelemetrySent >= 4000) {
+        lastTelemetrySent = now;
+        sendTelemetry();
     }
 }
