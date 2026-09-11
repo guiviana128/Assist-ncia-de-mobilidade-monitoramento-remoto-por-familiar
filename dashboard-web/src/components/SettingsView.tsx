@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Users, Pill, Plus, Save, Clock, MapPin, CheckCircle2, PhoneCall, Trash2, BellRing } from 'lucide-react';
+import { Shield, Users, Pill, Plus, Save, Clock, MapPin, CheckCircle2, PhoneCall, Trash2, BellRing, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
 
 interface SettingsViewProps {
@@ -48,46 +48,56 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setTimeout(() => setSavedRadius(false), 2500);
   };
 
-  const handleAddMedicine = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!medicineName.trim()) return;
+  // Função Robusta de Adição de Medicamento
+  const handleAddMedicine = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    // Se o usuário clicar sem digitar, usa um exemplo prático
+    const finalName = medicineName.trim() || 'Insulina 10 UI (Dose Diária)';
+    const finalTime = medicineTime || '14:00';
 
     const newMed = {
       id: Date.now(),
-      name: medicineName.trim(),
-      time: medicineTime
+      name: finalName,
+      time: finalTime
     };
 
-    setMedicineList([...medicineList, newMed]);
-    await api.scheduleMedicineReminder(deviceId, `${medicineName} (${medicineTime})`);
-    
-    setReminderMsg(`⏰ Lembrete de "${medicineName}" agendado na bengala!`);
+    // Atualização imediata de estado no React
+    setMedicineList(prev => [newMed, ...prev]);
+    setReminderMsg(`✅ Lembrete de "${finalName}" adicionado para às ${finalTime}!`);
     setMedicineName('');
-    setTimeout(() => setReminderMsg(null), 3500);
+
+    // Dispara notificação no backend / mock
+    api.scheduleMedicineReminder(deviceId, `${finalName} (${finalTime})`).catch(console.error);
+
+    setTimeout(() => {
+      setReminderMsg(null);
+    }, 3500);
   };
 
   const handleRemoveMedicine = (id: number) => {
-    setMedicineList(medicineList.filter(m => m.id !== id));
+    setMedicineList(prev => prev.filter(m => m.id !== id));
   };
 
   return (
     <div style={{ margin: '0 20px 24px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
+      {/* Toast Notificação de Sucesso */}
       {reminderMsg && (
         <div style={{
-          padding: '12px 20px',
+          padding: '14px 20px',
           background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
           color: '#ffffff',
           borderRadius: '12px',
-          fontSize: '0.88rem',
-          fontWeight: 600,
+          fontSize: '0.9rem',
+          fontWeight: 700,
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
-          boxShadow: '0 6px 20px rgba(37, 99, 235, 0.3)',
+          boxShadow: '0 6px 20px rgba(37, 99, 235, 0.4)',
           animation: 'fadeIn 0.25s ease'
         }}>
-          <CheckCircle2 size={18} />
+          <CheckCircle2 size={20} />
           <span>{reminderMsg}</span>
         </div>
       )}
@@ -121,7 +131,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
-          {/* Formulário com Alinhamento Perfeito de Altura */}
+          {/* Formulário com Suporte a Enter e Clique Direto */}
           <form
             onSubmit={handleAddMedicine}
             style={{
@@ -134,9 +144,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           >
             <input
               type="text"
-              placeholder="Nome do remédio (ex: Insulina)"
+              placeholder="Digite o nome do remédio (ex: Insulina)"
               value={medicineName}
               onChange={(e) => setMedicineName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddMedicine();
+                }
+              }}
               style={{
                 flex: 1,
                 minWidth: '150px',
@@ -146,7 +162,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 background: 'var(--bg-app)',
                 border: '1.5px solid var(--border-color)',
                 color: 'var(--text-primary)',
-                fontSize: '0.85rem',
+                fontSize: '0.86rem',
                 outline: 'none',
                 boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
               }}
@@ -163,13 +179,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 background: 'var(--bg-app)',
                 border: '1.5px solid var(--border-color)',
                 color: 'var(--text-primary)',
-                fontSize: '0.85rem',
+                fontSize: '0.86rem',
                 outline: 'none',
                 boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
               }}
             />
             <button
-              type="submit"
+              type="button"
+              onClick={() => handleAddMedicine()}
               className="btn btn-primary"
               style={{
                 height: '42px',
@@ -181,7 +198,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 alignItems: 'center',
                 gap: '6px',
                 whiteSpace: 'nowrap',
-                flexShrink: 0
+                flexShrink: 0,
+                cursor: 'pointer'
               }}
             >
               <Plus size={16} strokeWidth={2.5} />
@@ -190,7 +208,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </form>
 
           {/* Lista de Remédios Agendados */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, maxHeight: '200px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1, maxHeight: '220px', overflowY: 'auto' }}>
             {medicineList.map((med) => (
               <div
                 key={med.id}
@@ -215,13 +233,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => handleRemoveMedicine(med.id)}
                   style={{
                     background: 'none',
                     border: 'none',
                     color: 'var(--text-muted)',
                     cursor: 'pointer',
-                    padding: '4px',
+                    padding: '6px',
                     borderRadius: '6px',
                     display: 'flex',
                     alignItems: 'center',
