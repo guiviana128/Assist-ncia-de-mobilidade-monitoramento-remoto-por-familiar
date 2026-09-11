@@ -4,15 +4,38 @@ import { TelemetryCards } from './components/TelemetryCards';
 import { MapTracker } from './components/MapTracker';
 import { AlertCenter } from './components/AlertCenter';
 import { RadarWidget } from './components/RadarWidget';
+import { AdvancedTelemetryView } from './components/AdvancedTelemetryView';
+import { SettingsView } from './components/SettingsView';
 import { SimulatorModal } from './components/SimulatorModal';
 import { api } from './services/api';
-import { Alert, DashboardSummary, DeviceStatus, TelemetryPoint } from './types';
+import { DashboardSummary, DeviceStatus, TelemetryPoint } from './types';
 
 export const App: React.FC = () => {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [routeHistory, setRouteHistory] = useState<TelemetryPoint[]>([]);
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'monitor' | 'telemetry' | 'settings'>('monitor');
+  const [geofenceRadius, setGeofenceRadius] = useState(500);
+
+  // Gerenciamento de Tema Escuro / Claro
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('assistmob_theme');
+    return saved !== 'light';
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.body.classList.remove('light-mode');
+      localStorage.setItem('assistmob_theme', 'dark');
+    } else {
+      document.body.classList.add('light-mode');
+      localStorage.setItem('assistmob_theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  const toggleTheme = () => {
+    setIsDarkMode(prev => !prev);
+  };
 
   const fetchData = async () => {
     try {
@@ -25,14 +48,12 @@ export const App: React.FC = () => {
       }
     } catch (e) {
       console.error('Falha ao atualizar dados:', e);
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 4000); // Polling dinâmico a cada 4s
+    const interval = setInterval(fetchData, 3500);
     return () => clearInterval(interval);
   }, []);
 
@@ -45,43 +66,70 @@ export const App: React.FC = () => {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Barra de Navegação Superior com Alternador de Tema */}
       <Navbar
         isOnline={currentDevice?.isOnline ?? true}
         pendingAlertsCount={summary?.pendingAlertsCount ?? 0}
+        isDarkMode={isDarkMode}
+        onToggleTheme={toggleTheme}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
         onOpenSimulator={() => setIsSimulatorOpen(true)}
       />
 
       <main style={{ flex: 1 }}>
-        <TelemetryCards device={currentDevice} />
+        {/* Aba 1: Painel Geral de Monitoramento */}
+        {activeTab === 'monitor' && (
+          <>
+            <TelemetryCards device={currentDevice} />
 
-        {/* Grade Principal: Mapa em Tempo Real + Radar e Alertas */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1.2fr)',
-          gap: '20px',
-          margin: '0 20px 20px 20px'
-        }}>
-          {/* Coluna Esquerda: Mapa com GPS e Geofence */}
-          <div>
-            <MapTracker device={currentDevice} routeHistory={routeHistory} />
-          </div>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1.2fr)',
+              gap: '16px',
+              margin: '0 20px 20px 20px'
+            }}>
+              {/* Mapa com Suporte a Tema Dark / Light */}
+              <div>
+                <MapTracker
+                  device={currentDevice}
+                  routeHistory={routeHistory}
+                  isDarkMode={isDarkMode}
+                  geofenceRadius={geofenceRadius}
+                />
+              </div>
 
-          {/* Coluna Direita: Radar Sonar Frontal + Feed de Alertas */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ flex: 1 }}>
-              <RadarWidget distanceCm={currentDevice?.lastDistanceCm ?? 120} />
+              {/* Radar Sonar e Central de Alertas */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ flex: 1 }}>
+                  <RadarWidget distanceCm={currentDevice?.lastDistanceCm ?? 120} />
+                </div>
+                <div style={{ flex: 1.3 }}>
+                  <AlertCenter
+                    alerts={summary?.recentAlerts ?? []}
+                    onResolve={handleResolveAlert}
+                  />
+                </div>
+              </div>
             </div>
-            <div style={{ flex: 1.4 }}>
-              <AlertCenter
-                alerts={summary?.recentAlerts ?? []}
-                onResolve={handleResolveAlert}
-              />
-            </div>
-          </div>
-        </div>
+          </>
+        )}
+
+        {/* Aba 2: Telemetria Avançada & Diagnóstico dos Sensores IMU */}
+        {activeTab === 'telemetry' && (
+          <AdvancedTelemetryView device={currentDevice} />
+        )}
+
+        {/* Aba 3: Configurações de Cerca Virtual e Contatos */}
+        {activeTab === 'settings' && (
+          <SettingsView
+            geofenceRadius={geofenceRadius}
+            onUpdateGeofenceRadius={setGeofenceRadius}
+          />
+        )}
       </main>
 
-      {/* Modal de Simulação de Hardware */}
+      {/* Modal de Simulação com Presets de Queda, Obstáculo e SOS */}
       <SimulatorModal
         isOpen={isSimulatorOpen}
         onClose={() => setIsSimulatorOpen(false)}
