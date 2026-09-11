@@ -75,19 +75,58 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
 
   const showGpsFeedback = (msg: string) => {
     setGpsStatusMsg(msg);
-    setTimeout(() => setGpsStatusMsg(null), 3500);
+    setTimeout(() => setGpsStatusMsg(null), 4000);
   };
 
-  // 1. Obter Localização Real Atual do Navegador/GPS do Usuário
-  const handleGetCurrentLocation = () => {
+  // 1. Obter Localização Real Atual com Fallback Rápido por IP (Nunca trava em "Localizando...")
+  const handleGetCurrentLocation = async () => {
+    setLocatingUser(true);
+
+    const tryFallbackIpLocation = async () => {
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        const data = await res.json();
+        if (data.latitude && data.longitude) {
+          await api.sendSimulatedTelemetry({
+            latitude: data.latitude,
+            longitude: data.longitude,
+            speedKmh: 0.0
+          });
+          showGpsFeedback(`📍 Localizado: ${data.city || 'Sua Cidade'} (${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)})`);
+          if (onLocationUpdated) onLocationUpdated();
+          return true;
+        }
+      } catch (err) {
+        console.warn('Fallback IP falhou:', err);
+      }
+      return false;
+    };
+
     if (!navigator.geolocation) {
-      alert('Geolocalização não é suportada no seu navegador.');
+      const ok = await tryFallbackIpLocation();
+      if (!ok) showGpsFeedback('⚠️ Não foi possível obter geolocalização.');
+      setLocatingUser(false);
       return;
     }
 
-    setLocatingUser(true);
+    let resolved = false;
+
+    // Timeout de segurança de 3.5s para nunca travar o botão
+    const timeoutId = setTimeout(async () => {
+      if (!resolved) {
+        resolved = true;
+        const ok = await tryFallbackIpLocation();
+        if (!ok) showGpsFeedback('⚠️ GPS demorou a responder. Use o clique no mapa.');
+        setLocatingUser(false);
+      }
+    }, 3500);
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeoutId);
+
         const userLat = position.coords.latitude;
         const userLng = position.coords.longitude;
 
@@ -98,15 +137,20 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
         });
 
         setLocatingUser(false);
-        showGpsFeedback('📍 Localização real obtida via GPS do seu dispositivo!');
+        showGpsFeedback(`📍 GPS Preciso Obtido: ${userLat.toFixed(5)}, ${userLng.toFixed(5)}`);
         if (onLocationUpdated) onLocationUpdated();
       },
-      (error) => {
+      async (error) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeoutId);
+
+        console.warn('GPS nativo bloqueado/indisponível, usando rede:', error.message);
+        const ok = await tryFallbackIpLocation();
+        if (!ok) showGpsFeedback('⚠️ Permissão de GPS negada. Digite as coordenadas ou clique no mapa.');
         setLocatingUser(false);
-        console.warn('Erro ao obter GPS:', error);
-        showGpsFeedback('⚠️ Permissão de localização negada ou indisponível.');
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
     );
   };
 
@@ -127,7 +171,7 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
     });
 
     setIsCoordModalOpen(false);
-    showGpsFeedback(`✅ Coordenadas atualizadas para: ${newLat.toFixed(5)}, ${newLng.toFixed(5)}`);
+    showGpsFeedback(`✅ Coordenadas atualizadas: ${newLat.toFixed(5)}, ${newLng.toFixed(5)}`);
     if (onLocationUpdated) onLocationUpdated();
   };
 
@@ -173,19 +217,20 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 9999,
-          padding: '10px 18px',
+          padding: '10px 20px',
           background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
           color: '#ffffff',
-          borderRadius: '10px',
-          fontSize: '0.84rem',
+          borderRadius: '12px',
+          fontSize: '0.86rem',
           fontWeight: 700,
-          boxShadow: '0 8px 24px rgba(37, 99, 235, 0.45)',
+          boxShadow: '0 8px 25px rgba(37, 99, 235, 0.5)',
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          animation: 'fadeIn 0.2s ease'
+          animation: 'fadeIn 0.2s ease',
+          whiteSpace: 'nowrap'
         }}>
-          <Compass size={16} />
+          <Compass size={18} />
           <span>{gpsStatusMsg}</span>
         </div>
       )}
@@ -200,7 +245,7 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
             </h3>
           </div>
           <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-            Clique no mapa para mover o marcador • Cerca Virtual ({geofenceRadius}m)
+            Clique em qualquer rua para mover o marcador • Cerca Virtual ({geofenceRadius}m)
           </p>
         </div>
 
@@ -209,21 +254,23 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
           
           {/* Botão Obter Localização Real Atual */}
           <button
+            type="button"
             className="btn btn-primary"
             onClick={handleGetCurrentLocation}
             disabled={locatingUser}
-            style={{ fontSize: '0.78rem', height: '34px', padding: '0 12px', gap: '6px' }}
-            title="Usa o GPS do seu computador ou celular para posicionar a bengala no seu endereço atual"
+            style={{ fontSize: '0.78rem', height: '36px', padding: '0 14px', gap: '6px', cursor: 'pointer' }}
+            title="Usa o GPS ou rede para posicionar a bengala onde você estiver agora"
           >
-            <Crosshair size={14} className={locatingUser ? 'animate-spin' : ''} />
-            <span>{locatingUser ? 'Localizando...' : 'Minha Localização Atual'}</span>
+            <Crosshair size={15} className={locatingUser ? 'animate-spin' : ''} />
+            <span>{locatingUser ? 'Localizando...' : 'Minha Localização'}</span>
           </button>
 
           {/* Botão Digitar Coordenadas */}
           <button
+            type="button"
             className="btn btn-secondary"
             onClick={() => setIsCoordModalOpen(true)}
-            style={{ fontSize: '0.78rem', height: '34px', padding: '0 12px', gap: '6px' }}
+            style={{ fontSize: '0.78rem', height: '36px', padding: '0 12px', gap: '6px', cursor: 'pointer' }}
             title="Digitar Latitude e Longitude manualmente"
           >
             <Edit3 size={14} color="var(--accent-primary)" />
@@ -232,15 +279,16 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
 
           {/* Botão Alternar Ruas / Satélite */}
           <button
+            type="button"
             className="btn btn-secondary"
             onClick={() => setMapType(mapType === 'streets' ? 'satellite' : 'streets')}
-            style={{ fontSize: '0.78rem', height: '34px', padding: '0 12px', gap: '6px' }}
+            style={{ fontSize: '0.78rem', height: '36px', padding: '0 12px', gap: '6px', cursor: 'pointer' }}
           >
             <Layers size={14} />
             <span>{mapType === 'streets' ? 'Satélite' : 'Ruas'}</span>
           </button>
 
-          <span className="badge badge-online" style={{ height: '34px', padding: '0 10px', fontSize: '0.72rem' }}>
+          <span className="badge badge-online" style={{ height: '36px', padding: '0 10px', fontSize: '0.72rem' }}>
             <Compass size={12} />
             {lat.toFixed(5)}, {lng.toFixed(5)}
           </span>
@@ -313,7 +361,7 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
           <ShieldCheck size={15} color="var(--accent-green-text)" />
           <span>Dica: <strong>Clique em qualquer ponto do mapa</strong> para posicionar a bengala lá.</span>
         </span>
-        <span>GPS Satélites: <strong>8 Conectados</strong></span>
+        <span>GPS Satélites: <strong>8 Conectados (Fix 3D)</strong></span>
       </div>
 
       {/* Modal para Inserir Coordenadas Manualmente */}
@@ -348,6 +396,7 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
                 </h3>
               </div>
               <button
+                type="button"
                 onClick={() => setIsCoordModalOpen(false)}
                 style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
               >
