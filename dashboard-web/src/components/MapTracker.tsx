@@ -339,7 +339,7 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
           <Marker position={[lat, lng]} icon={stickIcon}>
             <Popup>
               <div style={{ color: '#0f172a', padding: '6px', minWidth: '170px' }}>
-                <strong style={{ fontSize: '0.95rem' }}>{device?.name || 'Bengala AssistMob Pro'}</strong>
+                <strong style={{ fontSize: '0.95rem' }}>{device?.name || 'Bengala Amparo'}</strong>
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#475569' }}>
                   📍 Lat: <strong>{lat.toFixed(5)}</strong><br />
                   📍 Lng: <strong>{lng.toFixed(5)}</strong><br />

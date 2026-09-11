@@ -108,7 +108,7 @@ export const SimulatorModal: React.FC<SimulatorModalProps> = ({ isOpen, onClose,
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Sparkles size={20} color="var(--accent-primary)" />
             <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
-              Bancada de Testes ESP32 Pro
+              Simulador da Bengala Amparo
             </h2>
           </div>
           <button

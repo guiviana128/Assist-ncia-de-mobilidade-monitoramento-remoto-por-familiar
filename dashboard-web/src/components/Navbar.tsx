@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Radio, Sun, Moon, Sparkles, Bell, LayoutDashboard, Activity, Settings, Share2, Check, Volume2 } from 'lucide-react';
+import { Radio, Sun, Moon, Sparkles, LayoutDashboard, Activity, Settings, Share2, Check, Volume2 } from 'lucide-react';
 import { api } from '../services/api';
 
 interface NavbarProps {
@@ -49,32 +49,40 @@ export const Navbar: React.FC<NavbarProps> = ({
       <header className="glass-panel" style={{ margin: '14px 20px 10px 20px', padding: '10px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
           
-          {/* Marca e Logo */}
+          {/* Nova Marca e Logotipo Exclusivo "Amparo" */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-              width: '42px',
-              height: '42px',
-              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #0284c7 0%, #1e40af 100%)',
+              width: '44px',
+              height: '44px',
+              borderRadius: '13px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 0 20px rgba(59, 130, 246, 0.4)'
+              boxShadow: '0 4px 14px rgba(2, 132, 199, 0.35)',
+              position: 'relative'
             }}>
-              <Shield size={24} color="#ffffff" />
+              {/* Logo SVG Customizado: Arco de Cuidado + Conexão */}
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                {/* Linha de pulso e apoio */}
+                <path d="M4.5 16.5c1.5 1.5 3.5 2.5 6 2.5 4.5 0 8-3.5 8-8 0-2.5-1-4.5-2.5-6" />
+                <path d="M3 12h4l2-4 3 8 2-4h4" />
+                <circle cx="12" cy="4" r="1.5" fill="#38bdf8" stroke="none" />
+              </svg>
             </div>
+
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h1 style={{ fontSize: '1.2rem', fontWeight: 800, margin: 0 }}>
-                  AssistMob <span style={{ color: 'var(--accent-primary)', fontWeight: 500 }}>Pro Guardian</span>
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, letterSpacing: '-0.03em', color: 'var(--text-primary)' }}>
+                  Amparo <span style={{ color: 'var(--accent-primary)', fontWeight: 600, fontSize: '0.95rem' }}>Telecuidado</span>
                 </h1>
                 <span className={`badge ${isOnline ? 'badge-online' : 'badge-alert'}`}>
                   <Radio size={12} className={isOnline ? 'animate-pulse' : ''} />
-                  {isOnline ? 'ESP32 Online' : 'Offline'}
+                  {isOnline ? 'Bengala Conectada' : 'Offline'}
                 </span>
               </div>
-              <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                Assistência de Mobilidade & Monitoramento Médico Familiar
+              <p style={{ margin: '1px 0 0 0', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                Central de Proteção e Mobilidade Familiar
               </p>
             </div>
           </div>
@@ -109,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
 
-          {/* Ações Rápidas Perfeitamente Alinhadas */}
+          {/* Ações Rápidas */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             
             {/* Botão Achar Bengala */}
@@ -127,7 +135,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 alignItems: 'center',
                 gap: '6px'
               }}
-              title="Faz a bengala apitar e piscar o LED para encontrá-la dentro de casa"
+              title="Faz a bengala emitir bipes e piscar o LED para encontrá-la dentro de casa"
             >
               <Volume2 size={15} color="var(--accent-yellow-text)" />
               <span>{finding ? 'Apitando...' : 'Achar Bengala'}</span>

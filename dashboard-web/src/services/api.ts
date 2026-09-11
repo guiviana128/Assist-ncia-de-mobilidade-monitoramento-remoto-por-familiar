@@ -4,7 +4,7 @@ const API_BASE_URL = 'http://localhost:8080/api/v1';
 
 let mockDevice: DeviceStatus = {
   deviceId: 'ESP32-MOB-001',
-  name: 'Bengala Inteligente AssistMob Pro (José)',
+  name: 'Bengala Amparo (José Silva)',
   isOnline: true,
   currentLatitude: -23.550520,
   currentLongitude: -46.633308,
