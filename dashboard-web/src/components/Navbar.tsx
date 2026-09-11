@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Radio, Sun, Moon, Sparkles, Bell, LayoutDashboard, Activity, Settings, Search, Share2, Check, Volume2 } from 'lucide-react';
+import { Shield, Radio, Sun, Moon, Sparkles, Bell, LayoutDashboard, Activity, Settings, Share2, Check, Volume2 } from 'lucide-react';
 import { api } from '../services/api';
 
 interface NavbarProps {
@@ -46,7 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="glass-panel" style={{ margin: '14px 20px 10px 20px', padding: '12px 20px' }}>
+      <header className="glass-panel" style={{ margin: '14px 20px 10px 20px', padding: '10px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
           
           {/* Marca e Logo */}
@@ -84,6 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               className={`nav-tab ${activeTab === 'monitor' ? 'active' : ''}`}
               onClick={() => onSelectTab('monitor')}
+              style={{ height: '34px' }}
             >
               <LayoutDashboard size={15} />
               <span>Painel Geral</span>
@@ -92,6 +93,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               className={`nav-tab ${activeTab === 'telemetry' ? 'active' : ''}`}
               onClick={() => onSelectTab('telemetry')}
+              style={{ height: '34px' }}
             >
               <Activity size={15} />
               <span>Saúde & IMU</span>
@@ -100,13 +102,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               className={`nav-tab ${activeTab === 'settings' ? 'active' : ''}`}
               onClick={() => onSelectTab('settings')}
+              style={{ height: '34px' }}
             >
               <Settings size={15} />
               <span>Cercas & Remédios</span>
             </button>
           </div>
 
-          {/* Ações Rápidas: Localizador, Compartilhar e Dark Mode */}
+          {/* Ações Rápidas Perfeitamente Alinhadas */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             
             {/* Botão Achar Bengala */}
@@ -114,18 +117,36 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="btn btn-secondary"
               onClick={handleFindCane}
               disabled={finding}
-              style={{ fontSize: '0.78rem', padding: '7px 12px' }}
+              style={{
+                height: '38px',
+                padding: '0 14px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                borderRadius: '9px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
               title="Faz a bengala apitar e piscar o LED para encontrá-la dentro de casa"
             >
               <Volume2 size={15} color="var(--accent-yellow-text)" />
               <span>{finding ? 'Apitando...' : 'Achar Bengala'}</span>
             </button>
 
-            {/* Botão Compartilhar com SAMU/Família */}
+            {/* Botão Compartilhar */}
             <button
               className="btn btn-secondary"
               onClick={handleShareLink}
-              style={{ fontSize: '0.78rem', padding: '7px 12px' }}
+              style={{
+                height: '38px',
+                padding: '0 14px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                borderRadius: '9px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
               title="Copiar link de rastreamento em tempo real para enviar no WhatsApp"
             >
               {copiedLink ? <Check size={15} color="var(--accent-green-text)" /> : <Share2 size={15} />}
@@ -136,16 +157,33 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               className="theme-toggle-btn"
               onClick={onToggleTheme}
-              style={{ padding: '7px 12px' }}
+              style={{
+                height: '38px',
+                padding: '0 12px',
+                borderRadius: '9px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title={isDarkMode ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}
             >
-              {isDarkMode ? <Sun size={15} color="#fbbf24" /> : <Moon size={15} color="#3b82f6" />}
+              {isDarkMode ? <Sun size={16} color="#fbbf24" /> : <Moon size={16} color="#3b82f6" />}
             </button>
 
             {/* Botão Simulador */}
             <button 
               className="btn btn-primary"
               onClick={onOpenSimulator}
-              style={{ fontSize: '0.78rem', padding: '7px 14px' }}
+              style={{
+                height: '38px',
+                padding: '0 16px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                borderRadius: '9px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
             >
               <Sparkles size={15} />
               <span>Simulador</span>
@@ -155,11 +193,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* Notificação Flutuante de Localização da Bengala */}
+      {/* Notificação Flutuante */}
       {findMsg && (
         <div style={{
           margin: '0 20px 10px 20px',
-          padding: '10px 16px',
+          padding: '12px 18px',
           background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
           color: '#ffffff',
           borderRadius: '10px',
