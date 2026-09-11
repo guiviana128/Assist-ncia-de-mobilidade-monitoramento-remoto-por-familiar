@@ -96,6 +96,7 @@ export const App: React.FC = () => {
                   routeHistory={routeHistory}
                   isDarkMode={isDarkMode}
                   geofenceRadius={geofenceRadius}
+                  onLocationUpdated={fetchData}
                 />
               </div>
 

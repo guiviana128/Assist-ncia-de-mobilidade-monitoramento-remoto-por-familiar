@@ -1,34 +1,45 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { MapPin, Navigation, Compass, Layers, ShieldCheck } from 'lucide-react';
+import { MapPin, Navigation, Compass, Layers, ShieldCheck, Crosshair, Edit3, Check, X, Sparkles, Map } from 'lucide-react';
 import { DeviceStatus, TelemetryPoint } from '../types';
+import { api } from '../services/api';
 
-// Ícone animado da bengala com pulso
+// Ícone animado da bengala com pulso neon
 const stickIcon = L.divIcon({
   className: 'custom-stick-pin',
   html: `<div style="
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     background: #2563eb;
-    border: 3px solid #ffffff;
+    border: 3.5px solid #ffffff;
     border-radius: 50%;
-    box-shadow: 0 0 20px #3b82f6;
+    box-shadow: 0 0 22px #3b82f6, 0 4px 8px rgba(0,0,0,0.3);
     display: flex;
     align-items: center;
     justify-content: center;
     animation: pulse-blue-glow 1.5s infinite;
   "><div style="width: 8px; height: 8px; background: #ffffff; border-radius: 50%;"></div></div>`,
-  iconSize: [26, 26],
-  iconAnchor: [13, 13]
+  iconSize: [28, 28],
+  iconAnchor: [14, 14]
 });
 
 // Componente para recentralizar o mapa
 const RecenterMap = ({ lat, lng }: { lat: number; lng: number }) => {
   const map = useMap();
   useEffect(() => {
-    map.flyTo([lat, lng], map.getZoom(), { duration: 1.2 });
+    map.flyTo([lat, lng], map.getZoom(), { duration: 1.0 });
   }, [lat, lng, map]);
+  return null;
+};
+
+// Componente para permitir clicar no mapa e mover o GPS
+const MapClickHandler = ({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) => {
+  useMapEvents({
+    click(e) {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    }
+  });
   return null;
 };
 
@@ -37,76 +48,217 @@ interface MapTrackerProps {
   routeHistory: TelemetryPoint[];
   isDarkMode: boolean;
   geofenceRadius?: number;
+  onLocationUpdated?: () => void;
 }
 
 export const MapTracker: React.FC<MapTrackerProps> = ({
   device,
   routeHistory,
   isDarkMode,
-  geofenceRadius = 500
+  geofenceRadius = 500,
+  onLocationUpdated
 }) => {
   const lat = device?.currentLatitude ?? -23.550520;
   const lng = device?.currentLongitude ?? -46.633308;
+
   const [mapType, setMapType] = useState<'streets' | 'satellite'>('streets');
+  const [isCoordModalOpen, setIsCoordModalOpen] = useState(false);
+  const [customLat, setCustomLat] = useState(lat.toString());
+  const [customLng, setCustomLng] = useState(lng.toString());
+  const [gpsStatusMsg, setGpsStatusMsg] = useState<string | null>(null);
+  const [locatingUser, setLocatingUser] = useState(false);
+
+  useEffect(() => {
+    setCustomLat(lat.toFixed(6));
+    setCustomLng(lng.toFixed(6));
+  }, [lat, lng]);
+
+  const showGpsFeedback = (msg: string) => {
+    setGpsStatusMsg(msg);
+    setTimeout(() => setGpsStatusMsg(null), 3500);
+  };
+
+  // 1. Obter Localização Real Atual do Navegador/GPS do Usuário
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocalização não é suportada no seu navegador.');
+      return;
+    }
+
+    setLocatingUser(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const userLat = position.coords.latitude;
+        const userLng = position.coords.longitude;
+
+        await api.sendSimulatedTelemetry({
+          latitude: userLat,
+          longitude: userLng,
+          speedKmh: 0.0
+        });
+
+        setLocatingUser(false);
+        showGpsFeedback('📍 Localização real obtida via GPS do seu dispositivo!');
+        if (onLocationUpdated) onLocationUpdated();
+      },
+      (error) => {
+        setLocatingUser(false);
+        console.warn('Erro ao obter GPS:', error);
+        showGpsFeedback('⚠️ Permissão de localização negada ou indisponível.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // 2. Salvar Coordenadas Customizadas
+  const handleSaveCustomCoords = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const newLat = parseFloat(customLat);
+    const newLng = parseFloat(customLng);
+
+    if (isNaN(newLat) || isNaN(newLng)) {
+      alert('Por favor, insira coordenadas válidas.');
+      return;
+    }
+
+    await api.sendSimulatedTelemetry({
+      latitude: newLat,
+      longitude: newLng
+    });
+
+    setIsCoordModalOpen(false);
+    showGpsFeedback(`✅ Coordenadas atualizadas para: ${newLat.toFixed(5)}, ${newLng.toFixed(5)}`);
+    if (onLocationUpdated) onLocationUpdated();
+  };
+
+  // 3. Mover o GPS clicando diretamente no Mapa
+  const handleMapClick = async (clickedLat: number, clickedLng: number) => {
+    await api.sendSimulatedTelemetry({
+      latitude: clickedLat,
+      longitude: clickedLng
+    });
+    showGpsFeedback(`📍 Marcador movido para: ${clickedLat.toFixed(5)}, ${clickedLng.toFixed(5)}`);
+    if (onLocationUpdated) onLocationUpdated();
+  };
+
+  // 4. Presets de Cidades
+  const setCityPreset = async (name: string, pLat: number, pLng: number) => {
+    setCustomLat(pLat.toString());
+    setCustomLng(pLng.toString());
+    await api.sendSimulatedTelemetry({ latitude: pLat, longitude: pLng });
+    setIsCoordModalOpen(false);
+    showGpsFeedback(`📍 Localização definida: ${name}`);
+    if (onLocationUpdated) onLocationUpdated();
+  };
 
   const routePositions = routeHistory.map(pt => [pt.latitude, pt.longitude] as [number, number]);
 
-  // Tile URL dependendo do tema escuro/claro
+  // Provedores de Mapa 100% Gratuitos e SEM Marca d'água de API Key
   const getTileUrl = () => {
     if (mapType === 'satellite') {
       return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
     }
-    return isDarkMode
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    // OpenStreetMap Oficial (Limpo, Rápido, Sem Marca d'água)
+    return 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   };
 
   return (
-    <div className="glass-panel" style={{ padding: '18px', height: '100%', minHeight: '480px', display: 'flex', flexDirection: 'column' }}>
+    <div className="glass-panel" style={{ padding: '18px', height: '100%', minHeight: '480px', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       
-      {/* Cabeçalho do Mapa */}
+      {/* Toast de Notificação GPS */}
+      {gpsStatusMsg && (
+        <div style={{
+          position: 'absolute',
+          top: '16px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 9999,
+          padding: '10px 18px',
+          background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+          color: '#ffffff',
+          borderRadius: '10px',
+          fontSize: '0.84rem',
+          fontWeight: 700,
+          boxShadow: '0 8px 24px rgba(37, 99, 235, 0.45)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          animation: 'fadeIn 0.2s ease'
+        }}>
+          <Compass size={16} />
+          <span>{gpsStatusMsg}</span>
+        </div>
+      )}
+
+      {/* Cabeçalho do Mapa com Ferramentas GPS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <MapPin size={20} color="var(--accent-primary)" />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>
               Localização GPS em Tempo Real
             </h3>
           </div>
-          <p style={{ margin: '2px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            São Paulo, SP • Cerca Virtual Ativa ({geofenceRadius}m de raio)
+          <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+            Clique no mapa para mover o marcador • Cerca Virtual ({geofenceRadius}m)
           </p>
         </div>
 
-        {/* Controles do Mapa */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Barra de Ferramentas do GPS */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          
+          {/* Botão Obter Localização Real Atual */}
+          <button
+            className="btn btn-primary"
+            onClick={handleGetCurrentLocation}
+            disabled={locatingUser}
+            style={{ fontSize: '0.78rem', height: '34px', padding: '0 12px', gap: '6px' }}
+            title="Usa o GPS do seu computador ou celular para posicionar a bengala no seu endereço atual"
+          >
+            <Crosshair size={14} className={locatingUser ? 'animate-spin' : ''} />
+            <span>{locatingUser ? 'Localizando...' : 'Minha Localização Atual'}</span>
+          </button>
+
+          {/* Botão Digitar Coordenadas */}
+          <button
+            className="btn btn-secondary"
+            onClick={() => setIsCoordModalOpen(true)}
+            style={{ fontSize: '0.78rem', height: '34px', padding: '0 12px', gap: '6px' }}
+            title="Digitar Latitude e Longitude manualmente"
+          >
+            <Edit3 size={14} color="var(--accent-primary)" />
+            <span>Editar Coords</span>
+          </button>
+
+          {/* Botão Alternar Ruas / Satélite */}
           <button
             className="btn btn-secondary"
             onClick={() => setMapType(mapType === 'streets' ? 'satellite' : 'streets')}
-            style={{ fontSize: '0.75rem', padding: '6px 12px' }}
+            style={{ fontSize: '0.78rem', height: '34px', padding: '0 12px', gap: '6px' }}
           >
             <Layers size={14} />
             <span>{mapType === 'streets' ? 'Satélite' : 'Ruas'}</span>
           </button>
 
-          <span className="badge badge-online">
+          <span className="badge badge-online" style={{ height: '34px', padding: '0 10px', fontSize: '0.72rem' }}>
             <Compass size={12} />
             {lat.toFixed(5)}, {lng.toFixed(5)}
           </span>
         </div>
       </div>
 
-      {/* Contêiner Leaflet */}
-      <div style={{ flex: 1, position: 'relative', borderRadius: '14px', overflow: 'hidden', minHeight: '400px' }}>
+      {/* Contêiner do Mapa com OpenStreetMap Limpo */}
+      <div style={{ flex: 1, position: 'relative', borderRadius: '14px', overflow: 'hidden', minHeight: '410px' }}>
         <MapContainer
           center={[lat, lng]}
           zoom={16}
           scrollWheelZoom={true}
-          style={{ width: '100%', height: '100%', minHeight: '400px' }}
+          style={{ width: '100%', height: '100%', minHeight: '410px' }}
         >
+          {/* Camada OpenStreetMap Oficial 100% Gratuita e Sem Marca d'água */}
           <TileLayer
-            key={isDarkMode ? 'dark' : 'light'}
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
+            key={mapType}
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url={getTileUrl()}
           />
 
@@ -115,52 +267,206 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
             center={[lat, lng]}
             radius={geofenceRadius}
             pathOptions={{
-              color: isDarkMode ? '#60a5fa' : '#2563eb',
-              fillColor: isDarkMode ? '#3b82f6' : '#2563eb',
-              fillOpacity: isDarkMode ? 0.12 : 0.08,
+              color: '#2563eb',
+              fillColor: '#3b82f6',
+              fillOpacity: 0.12,
               weight: 2,
               dashArray: '6 6'
             }}
           />
 
-          {/* Traçado da Rota Histórica */}
+          {/* Trajeto Histórico */}
           {routePositions.length > 1 && (
             <Polyline
               positions={routePositions}
               pathOptions={{
-                color: isDarkMode ? '#38bdf8' : '#0284c7',
+                color: '#0284c7',
                 weight: 4,
                 opacity: 0.85
               }}
             />
           )}
 
-          {/* Marcador do Usuário */}
+          {/* Marcador Principal da Bengala */}
           <Marker position={[lat, lng]} icon={stickIcon}>
             <Popup>
-              <div style={{ color: '#0f172a', padding: '6px', minWidth: '160px' }}>
-                <strong style={{ fontSize: '0.95rem' }}>{device?.name || 'Bengala AssistMob'}</strong>
+              <div style={{ color: '#0f172a', padding: '6px', minWidth: '170px' }}>
+                <strong style={{ fontSize: '0.95rem' }}>{device?.name || 'Bengala AssistMob Pro'}</strong>
                 <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: '#475569' }}>
+                  📍 Lat: <strong>{lat.toFixed(5)}</strong><br />
+                  📍 Lng: <strong>{lng.toFixed(5)}</strong><br />
                   🔋 Bateria: <strong>{device?.batteryPercent?.toFixed(0)}%</strong><br />
-                  🛰️ GPS NEO-6M Ativo<br />
-                  🛡️ Dentro do perímetro seguro
+                  🛰️ GPS NEO-6M Conectado
                 </p>
               </div>
             </Popup>
           </Marker>
 
           <RecenterMap lat={lat} lng={lng} />
+          <MapClickHandler onMapClick={handleMapClick} />
         </MapContainer>
       </div>
 
-      {/* Barra de Status Inferior do Mapa */}
-      <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+      {/* Barra Inferior Informativa */}
+      <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-secondary)', flexWrap: 'wrap', gap: '8px' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <ShieldCheck size={15} color="var(--accent-green-text)" />
-          Área de segurança monitorada
+          <span>Dica: <strong>Clique em qualquer ponto do mapa</strong> para posicionar a bengala lá.</span>
         </span>
-        <span>Último pacote GPS: {device?.lastUpdate ? new Date(device.lastUpdate).toLocaleTimeString('pt-BR') : 'Agora'}</span>
+        <span>GPS Satélites: <strong>8 Conectados</strong></span>
       </div>
+
+      {/* Modal para Inserir Coordenadas Manualmente */}
+      {isCoordModalOpen && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '16px'
+        }}>
+          <div className="glass-panel" style={{
+            background: 'var(--bg-card)',
+            width: '100%',
+            maxWidth: '440px',
+            padding: '22px',
+            border: '1.5px solid var(--border-hover)',
+            boxShadow: 'var(--shadow-float)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MapPin size={20} color="var(--accent-primary)" />
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>
+                  Definir Coordenadas GPS
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsCoordModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Presets Rápidos */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                Locais Rápidos Pré-definidos
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setCityPreset('Av. Paulista, SP', -23.561414, -46.655881)}
+                  style={{ fontSize: '0.75rem', padding: '6px 8px' }}
+                >
+                  🏢 Av. Paulista (SP)
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setCityPreset('Copacabana, RJ', -22.969442, -43.186845)}
+                  style={{ fontSize: '0.75rem', padding: '6px 8px' }}
+                >
+                  🏖️ Copacabana (RJ)
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setCityPreset('Esplanada, Brasília', -15.798889, -47.866667)}
+                  style={{ fontSize: '0.75rem', padding: '6px 8px' }}
+                >
+                  🏛️ Brasília (DF)
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setCityPreset('Jardim Botânico, Curitiba', -25.442778, -49.239444)}
+                  style={{ fontSize: '0.75rem', padding: '6px 8px' }}
+                >
+                  🌲 Curitiba (PR)
+                </button>
+              </div>
+            </div>
+
+            {/* Formulário de Latitude / Longitude */}
+            <form onSubmit={handleSaveCustomCoords} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                  Latitude (ex: -23.550520)
+                </label>
+                <input
+                  type="text"
+                  value={customLat}
+                  onChange={(e) => setCustomLat(e.target.value)}
+                  placeholder="-23.550520"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-app)',
+                    border: '1.5px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.88rem',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                  Longitude (ex: -46.633308)
+                </label>
+                <input
+                  type="text"
+                  value={customLng}
+                  onChange={(e) => setCustomLng(e.target.value)}
+                  placeholder="-46.633308"
+                  style={{
+                    width: '100%',
+                    height: '40px',
+                    padding: '0 12px',
+                    borderRadius: '8px',
+                    background: 'var(--bg-app)',
+                    border: '1.5px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.88rem',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setIsCoordModalOpen(false)}
+                  style={{ fontSize: '0.82rem' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ fontSize: '0.82rem' }}
+                >
+                  <Check size={15} />
+                  <span>Salvar Coordenadas</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
