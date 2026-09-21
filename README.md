@@ -94,3 +94,10 @@ Abra o aplicativo **Expo Go** no seu smartphone ou inicie no emulador Android/iO
    ```
 3. Conecte o ESP32 via USB e clique em **Upload** / `pio run -t upload`.
 4. Consulte o guia [SCHEMATIC_README.md](file:///c:/TEMP/Assistência de mobilidade + monitoramento remoto por familiar/firmware-esp32/SCHEMATIC_README.md) para a montagem dos sensores.
+
+### 6. Colaboradores
+Guilherme Viana Santos- 104865        
+Gustavo Ribeiro - 130363
+Juan Pablo - 39511
+João Vitor da Silva Batista - 97021
+
