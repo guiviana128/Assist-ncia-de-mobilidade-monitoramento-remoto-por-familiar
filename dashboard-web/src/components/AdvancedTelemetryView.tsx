@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Footprints, ShieldCheck, HeartHandshake, Zap, Cpu, Wifi, Radio, BatteryCharging, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Activity, Footprints, HeartHandshake, Zap, Cpu } from 'lucide-react';
 import { DeviceStatus } from '../types';
 
 interface AdvancedTelemetryViewProps {
@@ -21,6 +21,7 @@ export const AdvancedTelemetryView: React.FC<AdvancedTelemetryViewProps> = ({ de
   return (
     <div style={{ margin: '0 20px 20px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
       
+      <p className="section-notice" role="note">Visualização demonstrativa: gráfico IMU, tremores e diagnósticos abaixo são exemplos visuais, sem confirmação de leitura dos sensores.</p>
       {/* 1. Métricas de Saúde & Autonomia Motora */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
         
@@ -100,10 +101,10 @@ export const AdvancedTelemetryView: React.FC<AdvancedTelemetryViewProps> = ({ de
             <div>
               <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Activity size={18} color="var(--accent-primary)" />
-                Ondas do Acelerômetro MPU-6050 (Tempo Real)
+                Ondas do Acelerômetro MPU-6050 (Exemplo visual)
               </h3>
               <p style={{ margin: '2px 0 0 0', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                Taxa de amostragem: 100ms • Gravidade de referência: 1.0g
+                Curvas ilustrativas • não representam amostragem em tempo real
               </p>
             </div>
             <span className="badge badge-online">Estável</span>
@@ -162,3 +163,4 @@ export const AdvancedTelemetryView: React.FC<AdvancedTelemetryViewProps> = ({ de
     </div>
   );
 };
+

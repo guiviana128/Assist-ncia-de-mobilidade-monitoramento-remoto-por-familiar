@@ -9,7 +9,11 @@ export type AlertType =
   | 'CHECKIN_SAFE'
   | 'TREMOR_DETECTED'
   | 'FATIGUE_WARNING'
-  | 'MEDICATION_REMINDER';
+  | 'MEDICATION_REMINDER'
+  | 'SUSPICIOUS_PERSON_DETECTED'
+  | 'SUSPICIOUS_PROXIMITY_ALERT'
+  | 'THREAT_STALKING_WARNING'
+  | 'HAND_GESTURE_SOS';
 
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 export type AlertStatus = 'PENDING' | 'ACKNOWLEDGED' | 'RESOLVED';
@@ -65,3 +69,4 @@ export interface DashboardSummary {
   recentAlerts: Alert[];
   devices: DeviceStatus[];
 }
+

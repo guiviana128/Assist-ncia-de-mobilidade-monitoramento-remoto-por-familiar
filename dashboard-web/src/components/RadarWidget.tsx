@@ -10,7 +10,6 @@ export const RadarWidget: React.FC<RadarWidgetProps> = ({ distanceCm }) => {
 
   const isCritical = distanceCm <= 40;
   const isWarning = distanceCm > 40 && distanceCm <= 100;
-  const isSafe = distanceCm > 100;
 
   const getRadarColor = () => {
     if (isCritical) return '#ef4444';
@@ -144,3 +143,4 @@ export const RadarWidget: React.FC<RadarWidgetProps> = ({ distanceCm }) => {
     </div>
   );
 };
+

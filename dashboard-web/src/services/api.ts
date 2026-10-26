@@ -2,6 +2,9 @@ import { Alert, DashboardSummary, DeviceStatus, TelemetryPoint } from '../types'
 
 const API_BASE_URL = 'http://localhost:8080/api/v1';
 
+let summaryDemo = false;
+let routeDemo = false;
+
 let mockDevice: DeviceStatus = {
   deviceId: 'ESP32-MOB-001',
   name: 'Bengala Amparo (José Silva)',
@@ -48,12 +51,17 @@ let mockAlerts: Alert[] = [
 ];
 
 export const api = {
+  isDemoSummary: () => summaryDemo,
+  isDemoRoute: () => routeDemo,
   async getDashboardSummary(): Promise<DashboardSummary> {
     try {
       const res = await fetch(`${API_BASE_URL}/dashboard/summary`);
       if (!res.ok) throw new Error('API Error');
-      return await res.json();
+      const data = await res.json();
+      summaryDemo = false;
+      return data;
     } catch {
+      summaryDemo = true;
       return {
         totalDevices: 1,
         onlineDevices: mockDevice.isOnline ? 1 : 0,
@@ -68,8 +76,11 @@ export const api = {
     try {
       const res = await fetch(`${API_BASE_URL}/telemetry/route/${deviceId}?hours=12`);
       if (!res.ok) throw new Error('API Error');
-      return await res.json();
+      const data = await res.json();
+      routeDemo = false;
+      return data;
     } catch {
+      routeDemo = true;
       return [
         { deviceId, latitude: -23.5520, longitude: -46.6350, speedKmh: 3.2, batteryPercent: 92, recordedAt: new Date(Date.now() - 1000 * 60 * 20).toISOString() },
         { deviceId, latitude: -23.5515, longitude: -46.6342, speedKmh: 2.8, batteryPercent: 90, recordedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString() },
@@ -167,7 +178,7 @@ export const api = {
         body: JSON.stringify({
           deviceId: mockDevice.deviceId,
           alertType,
-          severity: alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED' ? 'CRITICAL' : alertType === 'CHECKIN_SAFE' || alertType === 'MEDICATION_REMINDER' ? 'INFO' : 'WARNING',
+          severity: alertType === 'HAND_GESTURE_SOS' || alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED' ? 'CRITICAL' : alertType === 'CHECKIN_SAFE' || alertType === 'MEDICATION_REMINDER' ? 'INFO' : 'WARNING',
           message,
           latitude: mockDevice.currentLatitude,
           longitude: mockDevice.currentLongitude,
@@ -179,7 +190,7 @@ export const api = {
         id: Date.now(),
         deviceId: mockDevice.deviceId,
         alertType,
-        severity: alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED' ? 'CRITICAL' : alertType === 'CHECKIN_SAFE' || alertType === 'MEDICATION_REMINDER' ? 'INFO' : 'WARNING',
+        severity: alertType === 'HAND_GESTURE_SOS' || alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED' ? 'CRITICAL' : alertType === 'CHECKIN_SAFE' || alertType === 'MEDICATION_REMINDER' ? 'INFO' : 'WARNING',
         status: alertType === 'CHECKIN_SAFE' ? 'RESOLVED' : 'PENDING',
         message,
         latitude: mockDevice.currentLatitude,
@@ -192,3 +203,4 @@ export const api = {
     }
   }
 };
+

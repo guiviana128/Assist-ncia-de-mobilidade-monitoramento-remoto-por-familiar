@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Users, Pill, Plus, Save, Clock, MapPin, CheckCircle2, PhoneCall, Trash2, BellRing, Sparkles } from 'lucide-react';
+import { Shield, Users, Pill, Plus, Clock, MapPin, CheckCircle2, PhoneCall, Trash2 } from 'lucide-react';
 import { api } from '../services/api';
 
 interface SettingsViewProps {
@@ -17,12 +17,10 @@ interface GeofenceZone {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
-  geofenceRadius,
-  onUpdateGeofenceRadius,
   deviceId = 'ESP32-MOB-001'
 }) => {
-  const [radius, setRadius] = useState(geofenceRadius);
-  const [savedRadius, setSavedRadius] = useState(false);
+  
+  
 
   // Lembrete de Medicamentos
   const [medicineName, setMedicineName] = useState('');
@@ -35,25 +33,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [reminderMsg, setReminderMsg] = useState<string | null>(null);
 
   // Múltiplas Áreas Seguras
-  const [safeZones, setSafeZones] = useState<GeofenceZone[]>([
+  const [safeZones] = useState<GeofenceZone[]>([
     { id: '1', name: '🏠 Residência Principal', lat: -23.550520, lng: -46.633308, radius: 250 },
     { id: '2', name: '🌳 Praça do Bairro / Caminhada', lat: -23.552200, lng: -46.635100, radius: 150 },
     { id: '3', name: '💊 Farmácia São Paulo', lat: -23.548900, lng: -46.631000, radius: 100 },
     { id: '4', name: '🏥 Posto de Saúde Central', lat: -23.553500, lng: -46.637000, radius: 200 }
   ]);
 
-  const handleSaveRadius = () => {
-    onUpdateGeofenceRadius(radius);
-    setSavedRadius(true);
-    setTimeout(() => setSavedRadius(false), 2500);
-  };
+
 
   // Função Robusta de Adição de Medicamento
   const handleAddMedicine = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
     // Se o usuário clicar sem digitar, usa um exemplo prático
-    const finalName = medicineName.trim() || 'Insulina 10 UI (Dose Diária)';
+    const finalName = medicineName.trim();
+    if (!finalName) { setReminderMsg('Informe o nome do medicamento.'); return; }
     const finalTime = medicineTime || '14:00';
 
     const newMed = {
@@ -126,7 +121,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Lembrete de Remédios na Bengala
               </h3>
               <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                A bengala emite bip suave e vibra no horário do medicamento
+                Lista desta sessão; o envio à API não confirma agendamento na bengala
               </p>
             </div>
           </div>
@@ -413,7 +408,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 Áreas Seguras (Multi-Cerca)
               </h3>
               <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                Perímetros configurados no GPS
+                Áreas de exemplo; sem confirmação de configuração no dispositivo
               </p>
             </div>
           </div>
@@ -451,3 +446,4 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     </div>
   );
 };
+

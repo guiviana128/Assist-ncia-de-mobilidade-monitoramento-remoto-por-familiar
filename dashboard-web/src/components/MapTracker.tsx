@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { MapPin, Navigation, Compass, Layers, ShieldCheck, Crosshair, Edit3, Check, X, Sparkles, Map } from 'lucide-react';
+import { MapPin, Compass, Layers, ShieldCheck, Crosshair, Edit3, Check, X } from 'lucide-react';
 import { DeviceStatus, TelemetryPoint } from '../types';
 import { api } from '../services/api';
 
@@ -54,10 +54,10 @@ interface MapTrackerProps {
 export const MapTracker: React.FC<MapTrackerProps> = ({
   device,
   routeHistory,
-  isDarkMode,
   geofenceRadius = 500,
   onLocationUpdated
 }) => {
+  const [editing, setEditing] = useState(false);
   const lat = device?.currentLatitude ?? -23.550520;
   const lng = device?.currentLongitude ?? -46.633308;
 
@@ -245,13 +245,15 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
             </h3>
           </div>
           <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-            Clique em qualquer rua para mover o marcador • Cerca Virtual ({geofenceRadius}m)
+            Última posição recebida • Perímetro ilustrativo de {geofenceRadius}m (acompanha o marcador)
           </p>
         </div>
 
         {/* Barra de Ferramentas do GPS */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           
+          <button className="btn btn-secondary" aria-pressed={editing} onClick={() => setEditing(value => !value)}>{editing ? 'Encerrar edição de teste' : 'Editar posição de teste'}</button>
+          {editing && <>
           {/* Botão Obter Localização Real Atual */}
           <button
             type="button"
@@ -277,6 +279,7 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
             <span>Editar Coords</span>
           </button>
 
+          </>}
           {/* Botão Alternar Ruas / Satélite */}
           <button
             type="button"
@@ -344,14 +347,14 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
                   📍 Lat: <strong>{lat.toFixed(5)}</strong><br />
                   📍 Lng: <strong>{lng.toFixed(5)}</strong><br />
                   🔋 Bateria: <strong>{device?.batteryPercent?.toFixed(0)}%</strong><br />
-                  🛰️ GPS NEO-6M Conectado
+                  🛰️ Posição informada pelo dispositivo
                 </p>
               </div>
             </Popup>
           </Marker>
 
           <RecenterMap lat={lat} lng={lng} />
-          <MapClickHandler onMapClick={handleMapClick} />
+          {editing && <MapClickHandler onMapClick={handleMapClick} />}
         </MapContainer>
       </div>
 
@@ -359,9 +362,9 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
       <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-secondary)', flexWrap: 'wrap', gap: '8px' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <ShieldCheck size={15} color="var(--accent-green-text)" />
-          <span>Dica: <strong>Clique em qualquer ponto do mapa</strong> para posicionar a bengala lá.</span>
+          <span>{editing ? "Modo de teste: cliques enviam uma posição simulada à API." : "Acompanhamento: edição de posição desativada."}</span>
         </span>
-        <span>GPS Satélites: <strong>8 Conectados (Fix 3D)</strong></span>
+        <span>Precisão e satélites: <strong>não informados</strong></span>
       </div>
 
       {/* Modal para Inserir Coordenadas Manualmente */}
@@ -519,3 +522,5 @@ export const MapTracker: React.FC<MapTrackerProps> = ({
     </div>
   );
 };
+
+

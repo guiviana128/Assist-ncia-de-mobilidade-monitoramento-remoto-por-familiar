@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Flame, ShieldAlert, Battery, Eye, Navigation, Send, Sparkles, CheckCircle2, Footprints, Volume2, Pill } from 'lucide-react';
+import { X, Flame, ShieldAlert, Battery, Eye, Navigation, Send, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
 
 interface SimulatorModalProps {
@@ -243,3 +243,4 @@ export const SimulatorModal: React.FC<SimulatorModalProps> = ({ isOpen, onClose,
     </div>
   );
 };
+
