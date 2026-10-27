@@ -23,9 +23,12 @@ firebase:
   enabled: false # Mudar para true ao fornecer o serviceAccountKey.json
   config-path: classpath:firebase-service-account.json
 
-# Parâmetros de monitoramento
+# Parâmetros de monitoramento e IA local
 assistmob:
   geofence:
     default-radius-meters: 500.0
     safe-zone-latitude: -23.550520
     safe-zone-longitude: -46.633308
+  ai:
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    model: ${OLLAMA_MODEL:llama3.2:3b}
