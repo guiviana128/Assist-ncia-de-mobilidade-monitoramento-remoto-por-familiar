@@ -64,5 +64,14 @@ public class VisionDetectionEvent {
     @Column(nullable = false)
     private Boolean automaticEmergencyCall;
 
+    @Builder.Default
+    @Column(length = 24)
+    private String reviewStatus = "PENDING";
+
+    private LocalDateTime reviewedAt;
+
+    @Column(length = 120)
+    private String reviewedBy;
+
     private Long agentActionId;
 }

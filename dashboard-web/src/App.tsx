@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { LiveMonitoringView } from './components/LiveMonitoringView';
+import { VisionEventHistory } from './components/VisionEventHistory';
 import { Navbar } from './components/Navbar';
 import { TelemetryCards } from './components/TelemetryCards';
 import { MapTracker } from './components/MapTracker';
@@ -119,7 +120,7 @@ export const App: React.FC = () => {
                 <div className="monitor-aside"><AlertCenter alerts={summary?.recentAlerts ?? []} onResolve={handleResolveAlert} />{device.lastDistanceCm != null && <RadarWidget distanceCm={device.lastDistanceCm} />}</div>
               </div>
             </>}
-            {activeTab === 'live' && <LiveMonitoringView device={device} onTriggerAlert={() => { void fetchData(); }} />}
+            {activeTab === 'live' && <><LiveMonitoringView device={device} onTriggerAlert={() => { void fetchData(); }} /><VisionEventHistory deviceId={device.deviceId} /></>}
             {activeTab === 'telemetry' && <AdvancedTelemetryView device={device} />}
             {activeTab === 'settings' && <><p className="section-notice">Preferências desta sessão: listas de medicamentos e áreas de exemplo não são um cadastro persistente.</p><SettingsView geofenceRadius={geofenceRadius} onUpdateGeofenceRadius={setGeofenceRadius} deviceId={device.deviceId} /></>}
           </>}

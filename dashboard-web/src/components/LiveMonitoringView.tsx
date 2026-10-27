@@ -557,7 +557,7 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
                   <div>
                     <span>✋ SINAL COM A MÃO RECONHECIDO NA CÂMERA!</span>
                     <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', fontWeight: 500 }}>
-                      Chamada de emergência em andamento e vídeo gravado como evidência.
+                      Revisão humana pendente. Nenhuma chamada automática foi iniciada.
                     </p>
                   </div>
                 </div>
@@ -566,7 +566,7 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
                   className="btn btn-primary"
                   style={{ background: '#ffffff', color: '#dc2626', fontWeight: 800, padding: '6px 14px', borderRadius: '8px' }}
                 >
-                  Abrir Ligação
+                  Ver revisão
                 </button>
               </div>
             )}

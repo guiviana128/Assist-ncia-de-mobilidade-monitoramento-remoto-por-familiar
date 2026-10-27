@@ -2,6 +2,7 @@ package com.assistmob.service;
 
 import com.assistmob.dto.AgentActionResponseDTO;
 import com.assistmob.dto.VisionEventRequestDTO;
+import com.assistmob.dto.VisionEventHistoryDTO;
 import com.assistmob.dto.VisionEventResponseDTO;
 import com.assistmob.model.AgentAction;
 import com.assistmob.model.VisionDetectionEvent;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Locale;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -85,6 +87,50 @@ public class VisionEventService {
                 .message("Metadados aceitos; ação criada para revisão do familiar")
                 .supervisedAction(AgentActionResponseDTO.fromEntity(savedAction))
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<VisionEventHistoryDTO> getRecent(String deviceId) {
+        return visionEventRepository.findTop50ByDeviceIdOrderByReceivedAtDesc(deviceId)
+                .stream()
+                .map(VisionEventHistoryDTO::fromEntity)
+                .toList();
+    }
+
+    @Transactional
+    public VisionEventHistoryDTO review(String eventId, String decision, String reviewedBy) {
+        VisionDetectionEvent event = visionEventRepository.findByEventId(eventId)
+                .orElseThrow(() -> new IllegalArgumentException("Evento visual não encontrado"));
+
+        String normalizedDecision = decision == null ? "" : decision.trim().toUpperCase(Locale.ROOT);
+        if (!List.of("FALSE_POSITIVE", "CANCELED").contains(normalizedDecision)) {
+            throw new IllegalArgumentException("Decisão deve ser FALSE_POSITIVE ou CANCELED");
+        }
+        if (event.getReviewStatus() != null && !"PENDING".equals(event.getReviewStatus())) {
+            throw new IllegalArgumentException("Este evento já foi revisado");
+        }
+
+        LocalDateTime reviewedAt = LocalDateTime.now();
+        String reviewer = reviewedBy == null || reviewedBy.isBlank() ? "Familiar" : reviewedBy.trim();
+        event.setReviewStatus(normalizedDecision);
+        event.setReviewedAt(reviewedAt);
+        event.setReviewedBy(reviewer);
+
+        if (event.getAgentActionId() != null) {
+            agentActionRepository.findById(event.getAgentActionId()).ifPresent(action -> {
+                if (action.getStatus() == AgentActionStatus.PENDING_APPROVAL) {
+                    action.setStatus(AgentActionStatus.REJECTED);
+                    action.setReviewedAt(reviewedAt);
+                    action.setReviewedBy(reviewer);
+                    action.setReviewerNote(normalizedDecision.equals("FALSE_POSITIVE")
+                            ? "Detecção marcada como falso positivo pelo familiar."
+                            : "Proposta cancelada pelo familiar.");
+                    agentActionRepository.save(action);
+                }
+            });
+        }
+
+        return VisionEventHistoryDTO.fromEntity(visionEventRepository.save(event));
     }
 
     private void validateSafetyContract(VisionEventRequestDTO request) {
