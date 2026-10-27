@@ -106,7 +106,7 @@ public class VisionEventService {
         if (!List.of("FALSE_POSITIVE", "CANCELED").contains(normalizedDecision)) {
             throw new IllegalArgumentException("Decisão deve ser FALSE_POSITIVE ou CANCELED");
         }
-        if (!"PENDING".equals(event.getReviewStatus())) {
+        if (event.getReviewStatus() != null && !"PENDING".equals(event.getReviewStatus())) {
             throw new IllegalArgumentException("Este evento já foi revisado");
         }
 
