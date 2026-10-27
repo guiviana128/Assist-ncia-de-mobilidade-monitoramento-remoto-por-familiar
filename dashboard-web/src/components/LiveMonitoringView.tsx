@@ -353,9 +353,6 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
     };
   }, [cameraActive, device?.deviceId, isHandGestureEnabled, sensitivity, triggerHandGestureEmergency]);
 
-  return () => cancelAnimationFrame(animationFrameId);
-  }, [cameraActive, isRecording, recordingTime, isHandGestureEnabled, sensitivity, nightVisionEnhance, userAddress, triggerHandGestureEmergency]);
-
   return (
     <div style={{ margin: '0 20px 24px 20px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
       
