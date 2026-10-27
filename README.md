@@ -15,10 +15,10 @@ Composto por uma **bengala inteligente (ESP32)**, **backend em nuvem (Java / Spr
 │   ├── platformio.ini    # Gerenciador de dependências e compilação
 │   └── SCHEMATIC_README.md # Diagrama de fiação e pinagem do circuito
 │
-├── backend/              # API REST Spring Boot 3 + PostgreSQL + FCM
+├── backend/              # API REST Spring Boot 3 + PostgreSQL + Ollama
 │   ├── src/main/java/    # Controladores, Serviços, Modelos JPA e DTOs
 │   ├── pom.xml           # Dependências Maven
-│   └── docker-compose.yml# Banco de dados PostgreSQL 16
+│   └── docker-compose.yml# PostgreSQL 16 + IA local Ollama
 │
 ├── dashboard-web/        # Painel Web do Familiar (React + TypeScript + Vite)
 │   ├── src/              # Mapa Leaflet, Radar Ultrassônico, Alertas em Tempo Real
@@ -33,13 +33,18 @@ Composto por uma **bengala inteligente (ESP32)**, **backend em nuvem (Java / Spr
 
 ## ⚡ Guia Rápido de Execução
 
-### 1. 🗄️ Iniciar o Banco de Dados (PostgreSQL)
+### 1. 🗄️ Iniciar PostgreSQL e a IA local
 Certifique-se de ter o Docker instalado e execute:
 ```bash
 cd backend
 docker compose up -d
 ```
-O PostgreSQL estará disponível em `localhost:5432` com as credenciais `postgres` / `postgres123`.
+O PostgreSQL estará em `localhost:5432`. O Ollama estará em `localhost:11434` e o contêiner de inicialização baixará o modelo `llama3.2:3b` na primeira execução.
+
+Para usar outro modelo:
+```bash
+OLLAMA_MODEL=qwen2.5:3b docker compose up -d
+```
 
 ---
 
@@ -57,6 +62,21 @@ A API REST estará rodando em: `http://localhost:8080`
 - `GET /api/v1/alerts/recent/{deviceId}`: Lista os últimos alertas gerados.
 - `PATCH /api/v1/alerts/{alertId}/resolve`: Familiar confirma ciência e resolve o alerta.
 - `GET /api/v1/dashboard/summary`: Sumário consolidado de métricas e dispositivos para o painel.
+- `GET /api/v1/ai/status`: Verifica se a IA local e o modelo estão disponíveis.
+- `POST /api/v1/ai/analyze`: Analisa telemetrias e alertas recentes de um dispositivo.
+
+Exemplo de análise local:
+```bash
+curl -X POST http://localhost:8080/api/v1/ai/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"deviceId":"ESP32-MOB-001","question":"Existe algum risco agora?","telemetryLimit":10}'
+```
+
+A resposta informa o modelo local utilizado e quantas amostras de telemetria e alertas entraram no contexto. Nenhuma informação é enviada para serviços de IA externos. A análise é apenas apoio ao familiar e não substitui avaliação médica ou atendimento de emergência.
+
+Configuração opcional por variáveis de ambiente:
+- `OLLAMA_BASE_URL` (padrão: `http://localhost:11434`)
+- `OLLAMA_MODEL` (padrão: `llama3.2:3b`)
 
 ---
 
@@ -93,11 +113,10 @@ Abra o aplicativo **Expo Go** no seu smartphone ou inicie no emulador Android/iO
    #define SERVER_BASE_URL "http://SEU_IP_LOCAL:8080/api/v1"
    ```
 3. Conecte o ESP32 via USB e clique em **Upload** / `pio run -t upload`.
-4. Consulte o guia [SCHEMATIC_README.md](file:///c:/TEMP/Assistência de mobilidade + monitoramento remoto por familiar/firmware-esp32/SCHEMATIC_README.md) para a montagem dos sensores.
+4. Consulte `firmware-esp32/SCHEMATIC_README.md` para a montagem dos sensores.
 
 ### 6. Colaboradores
 Guilherme Viana Santos- 104865        
 Gustavo Ribeiro - 130363
 Juan Pablo - 39511
 João Vitor da Silva Batista - 97021
-
