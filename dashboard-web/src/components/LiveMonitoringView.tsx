@@ -576,10 +576,10 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               
-              {/* Botão de Disparo Manual de Teste do Sinal de Mão */}
+              {/* Protocolo de resposta, sem simular uma detecção */}
               <button
                 className="btn btn-danger"
-                onClick={triggerHandGestureEmergency}
+                onClick={() => setShowEmergencyCallModal(true)}
                 style={{
                   padding: '10px 18px',
                   fontSize: '0.86rem',
@@ -592,7 +592,7 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
                 }}
               >
                 <Hand size={18} />
-                <span>✋ Fazer Sinal com a Mão (Ligar)</span>
+                <span>Ver protocolo de resposta</span>
               </button>
 
               {/* Botão Alternar Câmera Frontal / Traseira */}
