@@ -18,6 +18,12 @@ target/
 *.bin
 *.hex
 
+# Python
+__pycache__/
+.pytest_cache/
+.venv/
+*.pyc
+
 # IDEs & System
 .idea/
 .vscode/

@@ -15,6 +15,10 @@ Composto por uma **dispositivo inteligente de assistência à mobilidade (ESP32)
 │   ├── platformio.ini    # Gerenciador de dependências e compilação
 │   └── SCHEMATIC_README.md # Diagrama de fiação e pinagem do circuito
 │
+├── vision-service/       # OpenCV + MediaPipe: metadados do Signal for Help
+│   ├── app/              # Detector temporal e API FastAPI
+│   └── tests/            # Testes da sequência de duas etapas
+│
 ├── backend/              # API REST Spring Boot 3 + PostgreSQL + Ollama
 │   ├── src/main/java/    # Controladores, Serviços, Modelos JPA e DTOs
 │   ├── pom.xml           # Dependências Maven
@@ -39,7 +43,7 @@ Certifique-se de ter o Docker instalado e execute:
 cd backend
 docker compose up -d
 ```
-O PostgreSQL estará em `localhost:5432`. O Ollama estará em `localhost:11434` e o contêiner de inicialização baixará o modelo `llama3.2:3b` na primeira execução.
+O PostgreSQL estará em `localhost:5432`. A Vision API estará em `localhost:8001`. O Ollama estará em `localhost:11434` e o contêiner de inicialização baixará o modelo `llama3.2:3b` na primeira execução.
 
 Para usar outro modelo:
 ```bash
@@ -68,6 +72,8 @@ A API REST estará rodando em: `http://localhost:8080`
 - `GET /api/v1/ai/agent/actions/{actionId}`: Consulta uma proposta e seu estado.
 - `GET /api/v1/ai/agent/actions/device/{deviceId}`: Lista o histórico auditável do agente.
 - `PATCH /api/v1/ai/agent/actions/{actionId}/decision`: Aprova ou rejeita a proposta.
+- `POST http://localhost:8001/api/v1/vision/analyze`: Analisa um quadro e retorna somente metadados.
+- `POST /api/v1/vision/events`: Registra uma confirmação visual e cria uma proposta supervisionada.
 
 Exemplo de análise local:
 ```bash
@@ -78,6 +84,17 @@ curl -X POST http://localhost:8080/api/v1/ai/analyze \
 
 A resposta informa o modelo local utilizado e quantas amostras de telemetria e alertas entraram no contexto. Nenhuma informação é enviada para serviços de IA externos. A análise é apenas apoio ao familiar e não substitui avaliação médica ou atendimento de emergência.
 
+
+
+### Detecção local do Signal for Help
+
+A câmera envia quadros reduzidos para o serviço local OpenCV. O detector usa pontos da mão e exige a sequência temporal oficial: palma aberta, polegar recolhido e dedos fechando sobre o polegar. Uma mão apenas aberta não dispara o evento.
+
+Os metadados incluem fase, confiança, progresso da sequência, qualidade da imagem, caixa delimitadora normalizada e regras de segurança. Imagens e landmarks não são persistidos. Uma confirmação cria somente uma proposta `CONTACT_PERSON` pendente de aprovação humana; nenhuma ligação é iniciada.
+
+> A detecção é um auxílio e pode apresentar falsos positivos ou falsos negativos. O gesto indica que a pessoa deseja um contato seguro; não comprova violência nem substitui avaliação humana.
+
+Referências: [Signal for Help — Canadian Women’s Foundation](https://canadianwomen.org/signal-for-help/), [OpenCV imdecode](https://docs.opencv.org/4.x/d4/da8/group__imgcodecs.html) e [MediaPipe Hand Landmarker](https://ai.google.dev/edge/api/mediapipe/python/mp/tasks/vision/HandLandmarker).
 
 ### Agente local supervisionado
 
