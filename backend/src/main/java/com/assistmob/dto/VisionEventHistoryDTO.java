@@ -29,7 +29,7 @@ public record VisionEventHistoryDTO(
                 event.getConfirmed(),
                 event.getCapturedAt(),
                 event.getReceivedAt(),
-                event.getReviewStatus(),
+                event.getReviewStatus() == null ? "PENDING" : event.getReviewStatus(),
                 event.getReviewedAt(),
                 event.getReviewedBy(),
                 event.getAgentActionId()
