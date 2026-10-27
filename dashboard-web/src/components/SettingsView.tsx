@@ -100,7 +100,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* Grid Principal Perfeitamente Balanceado */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
         
-        {/* Card 1: Lembrete de Medicamentos na Bengala */}
+        {/* Card 1: Lembrete de Medicamentos na Dispositivo */}
         <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
             <div style={{
@@ -118,10 +118,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
             <div>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0 }}>
-                Lembrete de Remédios na Bengala
+                Lembrete de Remédios na Dispositivo
               </h3>
               <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                Lista desta sessão; o envio à API não confirma agendamento na bengala
+                Lista desta sessão; o envio à API não confirma agendamento na dispositivo de assistência
               </p>
             </div>
           </div>

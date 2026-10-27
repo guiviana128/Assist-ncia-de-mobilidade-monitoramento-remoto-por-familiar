@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,15 +32,25 @@ public class OllamaClient {
     }
 
     public Generation chat(String systemPrompt, String userPrompt) {
-        OllamaRequest request = new OllamaRequest(
-                configuredModel,
-                List.of(
-                        new OllamaMessage("system", systemPrompt),
-                        new OllamaMessage("user", userPrompt)
-                ),
-                false,
-                Map.of("temperature", 0.2)
-        );
+        return execute(systemPrompt, userPrompt, false);
+    }
+
+    public Generation chatJson(String systemPrompt, String userPrompt) {
+        return execute(systemPrompt, userPrompt, true);
+    }
+
+    private Generation execute(String systemPrompt, String userPrompt, boolean jsonMode) {
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("model", configuredModel);
+        request.put("messages", List.of(
+                Map.of("role", "system", "content", systemPrompt),
+                Map.of("role", "user", "content", userPrompt)
+        ));
+        request.put("stream", false);
+        request.put("options", Map.of("temperature", 0.1));
+        if (jsonMode) {
+            request.put("format", "json");
+        }
 
         OllamaResponse response = restClient.post()
                 .uri("/api/chat")
@@ -65,13 +76,6 @@ public class OllamaClient {
     }
 
     private record OllamaMessage(String role, String content) {
-    }
-
-    private record OllamaRequest(
-            String model,
-            List<OllamaMessage> messages,
-            boolean stream,
-            Map<String, Object> options) {
     }
 
     private record OllamaResponse(String model, OllamaMessage message) {

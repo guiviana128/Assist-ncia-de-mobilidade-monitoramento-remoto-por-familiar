@@ -13,7 +13,7 @@ export type AlertType =
   | 'SUSPICIOUS_PERSON_DETECTED'
   | 'SUSPICIOUS_PROXIMITY_ALERT'
   | 'THREAT_STALKING_WARNING'
-  | 'HAND_GESTURE_SOS';
+  | 'HAND_GESTURE_SOS'\n  | 'AGENT_RECOMMENDATION';
 
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 export type AlertStatus = 'PENDING' | 'ACKNOWLEDGED' | 'RESOLVED';

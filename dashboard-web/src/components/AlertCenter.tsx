@@ -28,10 +28,11 @@ export const AlertCenter: React.FC<AlertCenterProps> = ({ alerts, onResolve }) =
   };
 
   const handleCopyLocation = (alert: Alert) => {
+    if (!Number.isFinite(alert.latitude) || !Number.isFinite(alert.longitude)) return;
     const coords = `${alert.latitude.toFixed(6)}, ${alert.longitude.toFixed(6)}`;
-    navigator.clipboard.writeText(coords);
+    void navigator.clipboard.writeText(coords);
     setCopiedId(alert.id);
-    setTimeout(() => setCopiedId(null), 2000);
+    window.setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
@@ -133,8 +134,9 @@ export const AlertCenter: React.FC<AlertCenterProps> = ({ alerts, onResolve }) =
                   <button
                     className="btn btn-secondary"
                     onClick={() => handleCopyLocation(alert)}
+                    disabled={!Number.isFinite(alert.latitude) || !Number.isFinite(alert.longitude)}
                     style={{ fontSize: '0.72rem', padding: '4px 8px', gap: '4px' }}
-                    title="Copiar Coordenadas GPS"
+                    title={Number.isFinite(alert.latitude) && Number.isFinite(alert.longitude) ? 'Copiar coordenadas GPS' : 'Localização não informada'}
                   >
                     {copiedId === alert.id ? <Check size={13} color="var(--accent-green-text)" /> : <Copy size={13} />}
                     <span>{copiedId === alert.id ? 'Copiado!' : 'Copiar GPS'}</span>

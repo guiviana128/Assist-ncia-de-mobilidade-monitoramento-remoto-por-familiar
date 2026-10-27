@@ -7,7 +7,7 @@ let routeDemo = false;
 
 let mockDevice: DeviceStatus = {
   deviceId: 'ESP32-MOB-001',
-  name: 'Bengala Amparo (José Silva)',
+  name: 'Dispositivo Amparo (José Silva)',
   isOnline: true,
   currentLatitude: -23.550520,
   currentLongitude: -46.633308,
@@ -111,9 +111,9 @@ export const api = {
     try {
       const res = await fetch(`${API_BASE_URL}/devices/${deviceId}/find`, { method: 'POST' });
       if (!res.ok) throw new Error('API Error');
-      return { success: true, message: 'Comando de localização sonoro e luminoso emitido para a bengala!' };
+      return { success: true, message: 'Comando de localização sonoro e luminoso emitido para a dispositivo de assistência!' };
     } catch {
-      return { success: true, message: '🔔 Bengala Localizada! Alarme sonoro e farol LED ativados por 10s.' };
+      return { success: true, message: '🔔 Dispositivo Localizada! Alarme sonoro e farol LED ativados por 10s.' };
     }
   },
 

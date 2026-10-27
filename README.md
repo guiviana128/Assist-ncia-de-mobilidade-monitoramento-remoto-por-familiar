@@ -2,7 +2,7 @@
 
 Sistema IoT completo de ponta a ponta voltado para acessibilidade, segurança e assistência na mobilidade de idosos e pessoas com deficiência visual ou motora. 
 
-Composto por uma **bengala inteligente (ESP32)**, **backend em nuvem (Java / Spring Boot + PostgreSQL)**, **painel web de monitoramento para a família (React + TypeScript)** e **aplicativo móvel (React Native + TypeScript)**.
+Composto por uma **dispositivo inteligente de assistência à mobilidade (ESP32)**, **backend em nuvem (Java / Spring Boot + PostgreSQL)**, **painel web de monitoramento para a família (React + TypeScript)** e **aplicativo móvel (React Native + TypeScript)**.
 
 ---
 
@@ -64,6 +64,10 @@ A API REST estará rodando em: `http://localhost:8080`
 - `GET /api/v1/dashboard/summary`: Sumário consolidado de métricas e dispositivos para o painel.
 - `GET /api/v1/ai/status`: Verifica se a IA local e o modelo estão disponíveis.
 - `POST /api/v1/ai/analyze`: Analisa telemetrias e alertas recentes de um dispositivo.
+- `POST /api/v1/ai/agent/run`: Executa o agente e cria uma proposta pendente de aprovação.
+- `GET /api/v1/ai/agent/actions/{actionId}`: Consulta uma proposta e seu estado.
+- `GET /api/v1/ai/agent/actions/device/{deviceId}`: Lista o histórico auditável do agente.
+- `PATCH /api/v1/ai/agent/actions/{actionId}/decision`: Aprova ou rejeita a proposta.
 
 Exemplo de análise local:
 ```bash
@@ -73,6 +77,31 @@ curl -X POST http://localhost:8080/api/v1/ai/analyze \
 ```
 
 A resposta informa o modelo local utilizado e quantas amostras de telemetria e alertas entraram no contexto. Nenhuma informação é enviada para serviços de IA externos. A análise é apenas apoio ao familiar e não substitui avaliação médica ou atendimento de emergência.
+
+
+### Agente local supervisionado
+
+O agente observa telemetrias e alertas, avalia o risco e propõe uma única ação. Toda proposta é gravada como `PENDING_APPROVAL`. Ele nunca liga para serviços de emergência e nunca entra em contato com alguém automaticamente.
+
+Criar uma proposta:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/ai/agent/run \
+  -H "Content-Type: application/json" \
+  -d '{"deviceId":"ESP32-MOB-001","objective":"Avalie os riscos atuais","telemetryLimit":10}'
+```
+
+Ações permitidas: `NO_ACTION`, `CHECK_PERSON`, `CONTACT_PERSON`, `CHARGE_DEVICE`, `REVIEW_LOCATION`, `CREATE_FAMILY_ALERT` e `CALL_EMERGENCY`.
+
+Aprovar ou rejeitar:
+
+```bash
+curl -X PATCH http://localhost:8080/api/v1/ai/agent/actions/1/decision \
+  -H "Content-Type: application/json" \
+  -d '{"approved":true,"reviewedBy":"Maria","note":"Confirmei a situação por telefone"}'
+```
+
+Somente `CREATE_FAMILY_ALERT` produz um efeito automático depois da aprovação: cria um alerta interno para a família. `CALL_EMERGENCY` permanece apenas como orientação e exige ação humana fora do sistema.
 
 Configuração opcional por variáveis de ambiente:
 - `OLLAMA_BASE_URL` (padrão: `http://localhost:11434`)
