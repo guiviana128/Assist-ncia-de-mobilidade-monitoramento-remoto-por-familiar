@@ -4,6 +4,7 @@ import {
   MapPin, Hand, PhoneCall, X, Phone
 } from 'lucide-react';
 import { api } from '../services/api';
+import { visionApi, VisionMetadata } from '../services/visionApi';
 import { DeviceStatus } from '../types';
 
 interface LiveMonitoringViewProps {
@@ -24,7 +25,7 @@ interface RecordedClip {
 }
 
 export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
-
+  device,
   userAddress = 'Av. Paulista, 1000 - Bela Vista, São Paulo - SP',
   onTriggerAlert
 }) => {
@@ -44,13 +45,12 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
   const [handHoldProgress, setHandHoldProgress] = useState(0); // 0 a 100
   const [isHandDetected, setIsHandDetected] = useState(false);
   const [sensitivity, setSensitivity] = useState<'ultra' | 'balanced' | 'low'>('ultra');
-  const [autoDialDirectly, setAutoDialDirectly] = useState(true);
   const [showEmergencyCallModal, setShowEmergencyCallModal] = useState(false);
 
   // Ajustes de Vigilância
-  const [isAudioAlarmEnabled] = useState(true);
   const [nightVisionEnhance, setNightVisionEnhance] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
+  const [visionMetadata, setVisionMetadata] = useState<VisionMetadata | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -58,45 +58,18 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const handHoldCountRef = useRef(0);
   const emergencyTriggeredRef = useRef(false);
+  const visionBusyRef = useRef(false);
+  const visionSessionIdRef = useRef(
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `vision-${Date.now()}`
+  );
 
   const showToast = (msg: string) => {
     setFeedbackToast(msg);
     setTimeout(() => setFeedbackToast(null), 3500);
   };
-
-  // Tocar Alarme Sonoro
-  const playSirenAlarm = useCallback((frequency = 1000) => {
-    if (!isAudioAlarmEnabled) return;
-    try {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      const ctx = audioContextRef.current;
-      if (ctx.state === 'suspended') {
-        ctx.resume();
-      }
-
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(frequency, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(frequency + 500, ctx.currentTime + 0.25);
-      osc.frequency.exponentialRampToValueAtTime(frequency, ctx.currentTime + 0.5);
-
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.55);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.6);
-    } catch (e) {
-      console.warn('Erro áudio:', e);
-    }
-  }, [isAudioAlarmEnabled]);
 
   // Inicializar Câmera Real do Notebook ou Celular
   const startRealCamera = async (facing: 'user' | 'environment' = cameraFacing) => {
@@ -127,12 +100,7 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
 
       setCameraActive(true);
       setCameraFacing(facing);
-      showToast('📷 Câmera conectada! Levante a mão aberta ✋ para acionar o socorro.');
-
-      // Inicia a gravação contínua do vídeo real
-      setTimeout(() => {
-        startRecording();
-      }, 700);
+      showToast('📷 Câmera conectada. Faça a sequência completa do Signal for Help para solicitar uma verificação segura.');
 
     } catch (err: any) {
       console.error('Erro câmera:', err);
@@ -214,47 +182,37 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
     setIsRecording(false);
   };
 
-  // Disparo Automático da Emergência pelo Sinal com a Mão
-  const triggerHandGestureEmergency = useCallback(() => {
+  // Confirmação supervisionada do Signal for Help
+  const triggerHandGestureEmergency = useCallback(async (metadata: VisionMetadata) => {
     if (emergencyTriggeredRef.current) return;
     emergencyTriggeredRef.current = true;
-
     setIsHandDetected(true);
-    playSirenAlarm(1100);
 
-    // Salva o clipe de vídeo da ocorrência
     if (isRecording && mediaRecorderRef.current) {
       mediaRecorderRef.current.requestData();
-    } else {
-      startRecording();
     }
 
-    // Registra alerta no backend
-    api.sendSimulatedAlert(
-      'HAND_GESTURE_SOS',
-      `✋ [SINAL COM A MÃO RECONHECIDO] Gesto de socorro detectado na câmera do dispositivo! Chamando familiares e SAMU 192.`
-    );
-
-    if (onTriggerAlert) {
-      onTriggerAlert('HAND_GESTURE_SOS', 'Sinal com a mão detectado na câmera!');
+    try {
+      const result = await api.registerVisionEvent(
+        device?.deviceId ?? metadata.deviceId ?? 'ESP32-MOB-001',
+        metadata
+      );
+      onTriggerAlert?.('HAND_GESTURE_SOS', 'Signal for Help confirmado; revisão humana pendente.');
+      setShowEmergencyCallModal(true);
+      const actionId = result.supervisedAction?.id;
+      showToast(
+        actionId
+          ? `🛡️ Sinal confirmado. Proposta supervisionada #${actionId} aguarda revisão.`
+          : '🛡️ Sinal confirmado. Aguardando revisão humana.'
+      );
+    } catch {
+      showToast('⚠️ O gesto foi reconhecido, mas não foi possível registrar a proposta supervisionada.');
+    } finally {
+      window.setTimeout(() => {
+        emergencyTriggeredRef.current = false;
+      }, 8000);
     }
-
-    setShowEmergencyCallModal(true);
-    showToast('🚨 SINAL VISUAL DETECTADO! Use o botão para abrir o discador de emergência.');
-
-    // Auto discagem se configurado
-    if (autoDialDirectly) {
-      try {
-        const telLink = document.createElement('a');
-        telLink.href = 'tel:192';
-        // Não redireciona a página inteira, apenas abre o discador
-      } catch (e) {}
-    }
-
-    setTimeout(() => {
-      emergencyTriggeredRef.current = false;
-    }, 8000);
-  }, [playSirenAlarm, isRecording, onTriggerAlert, autoDialDirectly]);
+  }, [device?.deviceId, isRecording, onTriggerAlert]);
 
   // Capturar Foto Snapshot da Câmera Real
   const takeSnapshot = () => {
@@ -281,170 +239,120 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
     };
   }, []);
 
-  // Processamento Óptico em Tempo Real (60 FPS) do Sinal com a Mão nos Pixels da Câmera
+  // Renderização local da câmera e dos metadados retornados pelo OpenCV
   useEffect(() => {
-    let animationFrameId: number;
-    let tick = 0;
+    let animationFrameId = 0;
 
     const renderLoop = () => {
-      tick++;
       const canvas = canvasRef.current;
       const video = videoRef.current;
       if (!canvas) {
         animationFrameId = requestAnimationFrame(renderLoop);
         return;
       }
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      const ctx = canvas.getContext('2d');
       if (!ctx) return;
+      const { width, height } = canvas;
 
-      const w = canvas.width;
-      const h = canvas.height;
-
-      // 1. Desenha a Imagem Real da Câmera
       if (video && video.readyState >= 2) {
-        ctx.drawImage(video, 0, 0, w, h);
-
-        // 2. Classificador Óptico Multi-Color Space (YCbCr + HSV + RGB) para Detecção de Mão
-        if (isHandGestureEnabled && tick % 4 === 0) {
-          try {
-            // Analisa toda a área da câmera com amostragem rápida
-            const imgData = ctx.getImageData(0, 0, w, h);
-            const data = imgData.data;
-            let handPixelCount = 0;
-            let minX = w, maxX = 0, minY = h, maxY = 0;
-
-            // Limiares conforme a sensibilidade selecionada
-            const minRequiredPixels = sensitivity === 'ultra' ? 350 : (sensitivity === 'balanced' ? 700 : 1200);
-
-            for (let i = 0; i < data.length; i += 24) { // Passo de 6 pixels (altamente otimizado)
-              const r = data[i];
-              const g = data[i + 1];
-              const b = data[i + 2];
-
-              // Conversão para YCbCr (padrão ouro em visão computacional)
-              
-              const Cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
-              const Cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
-
-              // Condição de pele humana / mão aberta
-              const isSkin = (Cr >= 130 && Cr <= 175 && Cb >= 75 && Cb <= 135) ||
-                             (r > 80 && g > 35 && b > 20 && r > g && r > b && (r - g) > 10);
-
-              // Foca principalmente na metade superior/central da câmera (onde as pessoas erguem a mão)
-              const pxIndex = (i / 4);
-              const pxX = pxIndex % w;
-              const pxY = Math.floor(pxIndex / w);
-
-              if (isSkin && pxY < h * 0.85) {
-                handPixelCount++;
-                if (pxX < minX) minX = pxX;
-                if (pxX > maxX) maxX = pxX;
-                if (pxY < minY) minY = pxY;
-                if (pxY > maxY) maxY = pxY;
-              }
-            }
-
-            // Calcula porcentagem de confiança
-            const calculatedConf = Math.min(100, Math.round((handPixelCount / (minRequiredPixels * 2.5)) * 100));
-            setHandConfidence(calculatedConf);
-
-            if (handPixelCount >= minRequiredPixels && maxX - minX > 40 && maxY - minY > 40) {
-              // Mão encontrada! Incrementa contador de sustentação do gesto
-              handHoldCountRef.current = Math.min(20, handHoldCountRef.current + 2);
-              const progressPct = Math.round((handHoldCountRef.current / 12) * 100);
-              setHandHoldProgress(progressPct);
-
-              // Desenha Bounding Box Dinâmico com Efeito Neon
-              const isTriggered = progressPct >= 100;
-              const boxColor = isTriggered ? '#ef4444' : '#10b981';
-
-              ctx.strokeStyle = boxColor;
-              ctx.lineWidth = isTriggered ? 4 : 3;
-              ctx.strokeRect(minX - 10, minY - 10, (maxX - minX) + 20, (maxY - minY) + 20);
-
-              // Banner OpenCV sobre a mão
-              ctx.fillStyle = boxColor;
-              ctx.fillRect(minX - 10, Math.max(10, minY - 32), 220, 24);
-              ctx.fillStyle = '#ffffff';
-              ctx.font = 'bold 11px sans-serif';
-              ctx.fillText(
-                isTriggered ? '✋ SINAL DE SOCORRO ATIVADO!' : `✋ MÃO DETECTADA: ${calculatedConf}% (${progressPct}%)`,
-                minX - 4,
-                Math.max(26, minY - 16)
-              );
-
-              // Se o gesto for sustentado por ~0.6 segundos, dispara a emergência AUTOMATICAMENTE!
-              if (handHoldCountRef.current >= 12 && !emergencyTriggeredRef.current) {
-                triggerHandGestureEmergency();
-              }
-
-            } else {
-              // Mão não detectada, decai o contador suavemente
-              handHoldCountRef.current = Math.max(0, handHoldCountRef.current - 1);
-              setHandHoldProgress(Math.round((handHoldCountRef.current / 12) * 100));
-              if (handHoldCountRef.current === 0 && !emergencyTriggeredRef.current) {
-                setIsHandDetected(false);
-              }
-            }
-          } catch (e) {
-            // Buffer read protection
-          }
-        }
-
+        ctx.drawImage(video, 0, 0, width, height);
       } else {
-        // Tela de aguardo
         ctx.fillStyle = '#090d16';
-        ctx.fillRect(0, 0, w, h);
+        ctx.fillRect(0, 0, width, height);
         ctx.fillStyle = '#94a3b8';
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('Aguardando câmera do notebook / celular...', w / 2, h / 2 - 10);
-        ctx.font = '12px sans-serif';
-        ctx.fillText('Clique em "Ativar Câmera" para iniciar o reconhecimento de gestos.', w / 2, h / 2 + 15);
+        ctx.fillText('Aguardando câmera do notebook ou celular…', width / 2, height / 2);
         ctx.textAlign = 'start';
       }
 
-      // 3. Efeito Visão Noturna
+      if (visionMetadata?.boundingBox) {
+        const box = visionMetadata.boundingBox;
+        const color = visionMetadata.gesture.confirmed ? '#ef4444' : '#10b981';
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(box.x * width, box.y * height, box.width * width, box.height * height);
+        ctx.fillStyle = color;
+        ctx.fillRect(box.x * width, Math.max(38, box.y * height - 24), 270, 22);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(
+          `Signal for Help: ${visionMetadata.gesture.phase} · ${Math.round(visionMetadata.gesture.confidence * 100)}%`,
+          box.x * width + 5,
+          Math.max(53, box.y * height - 9)
+        );
+      }
+
       if (nightVisionEnhance) {
         ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
-        ctx.fillRect(0, 0, w, h);
+        ctx.fillRect(0, 0, width, height);
       }
 
-      // 4. HUD Superior da Gravação ao Vivo
       ctx.fillStyle = 'rgba(10, 15, 30, 0.88)';
-      ctx.fillRect(0, 0, w, 36);
-
-      // Status Gravando ao Vivo
-      if (isRecording) {
-        ctx.fillStyle = '#ef4444';
-        ctx.beginPath();
-        ctx.arc(18, 18, 6, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 11px sans-serif';
-        const mins = Math.floor(recordingTime / 60).toString().padStart(2, '0');
-        const secs = (recordingTime % 60).toString().padStart(2, '0');
-        ctx.fillText(`● REC ${mins}:${secs} - CÂMERA REAL (JAVACV + OPENCV)`, 32, 22);
-      } else {
-        ctx.fillStyle = '#10b981';
-        ctx.beginPath();
-        ctx.arc(18, 18, 5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.fillText('CÂMERA REAL ATIVA - RECONHECENDO GESTO ✋', 32, 22);
-      }
-
-      // Endereço Residencial no Topo do Vídeo
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '10px sans-serif';
-      ctx.fillText(`LOCAL: ${userAddress.slice(0, 36)}...`, w - 260, 22);
+      ctx.fillRect(0, 0, width, 36);
+      ctx.fillStyle = isRecording ? '#ef4444' : '#10b981';
+      ctx.beginPath();
+      ctx.arc(18, 18, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(
+        isRecording ? '● REC LOCAL · OPENCV ATIVO' : 'OPENCV LOCAL · METADADOS SEM ARMAZENAR IMAGEM',
+        32,
+        22
+      );
 
       animationFrameId = requestAnimationFrame(renderLoop);
     };
 
     animationFrameId = requestAnimationFrame(renderLoop);
     return () => cancelAnimationFrame(animationFrameId);
+  }, [isRecording, nightVisionEnhance, visionMetadata]);
+
+  // Envia quadros reduzidos somente ao serviço local de visão
+  useEffect(() => {
+    if (!cameraActive || !isHandGestureEnabled) return;
+
+    let active = true;
+    const analyze = async () => {
+      const canvas = canvasRef.current;
+      if (!canvas || visionBusyRef.current) return;
+      visionBusyRef.current = true;
+
+      try {
+        const metadata = await visionApi.analyzeFrame(
+          canvas,
+          visionSessionIdRef.current,
+          device?.deviceId ?? 'ESP32-MOB-001'
+        );
+        if (!active) return;
+
+        setVisionMetadata(metadata);
+        setHandConfidence(Math.round(metadata.gesture.confidence * 100));
+        setHandHoldProgress(Math.round(metadata.gesture.sequenceProgress * 100));
+        setIsHandDetected(metadata.gesture.confirmed);
+
+        if (metadata.gesture.confirmed) {
+          await triggerHandGestureEmergency(metadata);
+        }
+      } catch {
+        // A câmera continua funcionando mesmo se o serviço local estiver indisponível.
+      } finally {
+        visionBusyRef.current = false;
+      }
+    };
+
+    void analyze();
+    const intervalMs = sensitivity === 'ultra' ? 450 : sensitivity === 'balanced' ? 650 : 900;
+    const intervalId = window.setInterval(() => void analyze(), intervalMs);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [cameraActive, device?.deviceId, isHandGestureEnabled, sensitivity, triggerHandGestureEmergency]);
+
+  return () => cancelAnimationFrame(animationFrameId);
   }, [cameraActive, isRecording, recordingTime, isHandGestureEnabled, sensitivity, nightVisionEnhance, userAddress, triggerHandGestureEmergency]);
 
   return (
@@ -494,12 +402,12 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
             </div>
             <div>
               <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                Detector de Sinal com a Mão (SOS)
+                Detector local do Signal for Help
               </h4>
               <p style={{ margin: '2px 0 0 0', fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
                 {handConfidence > 30 
-                  ? `✋ Mão Identificada na Câmera! Progresso: ${handHoldProgress}%` 
-                  : 'Levante a mão aberta na frente da câmera para disparar a ligação de emergência'}
+                  ? `✋ Etapa visual identificada! Progresso: ${handHoldProgress}%` 
+                  : 'Faça: palma aberta, polegar recolhido e dedos fechando sobre o polegar'}
               </p>
             </div>
           </div>
@@ -871,17 +779,9 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
                 />
               </label>
 
-              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Abrir Discador de Emergência
-                </span>
-                <input
-                  type="checkbox"
-                  checked={autoDialDirectly}
-                  onChange={(e) => setAutoDialDirectly(e.target.checked)}
-                  style={{ width: '16px', height: '16px', accentColor: 'var(--accent-red)' }}
-                />
-              </label>
+              <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
+                🛡️ Revisão humana obrigatória · nenhuma ligação automática
+              </div>
             </div>
           </div>
 
@@ -901,7 +801,7 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
                   Linhas Diretas de Emergência
                 </h4>
                 <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                  Acionamento instantâneo pelo sinal de mão
+                  Contatos disponíveis somente para decisão humana
                 </p>
               </div>
             </div>
@@ -956,7 +856,7 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
 
       </div>
 
-      {/* Modal de Chamada de Emergência ao Fazer Sinal com a Mão */}
+      {/* Revisão humana após confirmação do Signal for Help */}
       {showEmergencyCallModal && (
         <div style={{
           position: 'fixed',
@@ -994,7 +894,7 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
                     Sinal visual de socorro detectado!
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Acionamento Óptico por Sinal com a Mão ✋
+                    Metadados confirmados pelo OpenCV · revisão humana pendente
                   </p>
                 </div>
               </div>
@@ -1020,7 +920,7 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
               gap: '12px'
             }}>
               <span style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--accent-red-text)' }}>
-                Abra o discador para solicitar atendimento:
+                Confirme o contexto com segurança. Se houver perigo imediato, escolha manualmente um contato:
               </span>
 
               {/* Ligar para SAMU 192 */}
@@ -1062,7 +962,7 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                Vídeo gravado automaticamente como evidência.
+                A imagem e os landmarks não foram armazenados pelo serviço de visão.
               </span>
               <button
                 className="btn btn-secondary"

@@ -1,4 +1,5 @@
 import { Alert, DashboardSummary, DeviceStatus, TelemetryPoint } from '../types';
+import { VisionMetadata } from './visionApi';
 
 const API_BASE_URL = 'http://localhost:8080/api/v1';
 
@@ -168,6 +169,18 @@ export const api = {
         lastUpdate: new Date().toISOString()
       };
     }
+  },
+
+  async registerVisionEvent(deviceId: string, metadata: VisionMetadata): Promise<{ supervisedAction?: { id: number } }> {
+    const response = await fetch(`${API_BASE_URL}/vision/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...metadata, deviceId })
+    });
+    if (!response.ok) {
+      throw new Error(`Vision event API respondeu ${response.status}`);
+    }
+    return response.json();
   },
 
   async sendSimulatedAlert(alertType: Alert['alertType'], message: string): Promise<void> {
