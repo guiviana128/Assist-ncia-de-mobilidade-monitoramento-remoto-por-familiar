@@ -74,6 +74,9 @@ A API REST estará rodando em: `http://localhost:8080`
 - `PATCH /api/v1/ai/agent/actions/{actionId}/decision`: Aprova ou rejeita a proposta.
 - `POST http://localhost:8001/api/v1/vision/analyze`: Analisa um quadro e retorna somente metadados.
 - `POST /api/v1/vision/events`: Registra uma confirmação visual e cria uma proposta supervisionada.
+- `GET /api/v1/vision/events?deviceId=...`: Lista os últimos 50 eventos visuais e as decisões do familiar.
+- `PATCH /api/v1/vision/events/{eventId}/review?decision=FALSE_POSITIVE`: Marca uma detecção como falso positivo.
+- `PATCH /api/v1/vision/events/{eventId}/review?decision=CANCELED`: Cancela a proposta pendente ligada ao evento.
 
 Exemplo de análise local:
 ```bash
