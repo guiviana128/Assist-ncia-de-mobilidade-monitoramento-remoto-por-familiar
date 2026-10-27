@@ -105,7 +105,7 @@ export const App: React.FC = () => {
         </section>}
         {error && <p className="feedback-error" role="alert">{error}</p>}
         {loading ? <div className="empty-state" aria-busy="true">Carregando dispositivos e alertas…</div> :
-          !device ? <div className="empty-state"><h3>Nenhum dispositivo disponível</h3><p>Verifique o cadastro e a conexão da bengala.</p></div> : <>
+          !device ? <div className="empty-state"><h3>Nenhum dispositivo disponível</h3><p>Verifique o cadastro e a conexão da dispositivo de assistência.</p></div> : <>
             <section className="person-strip" aria-label="Dispositivo acompanhado">
               <div className="person-avatar" aria-hidden="true">A</div>
               <div><strong>{device.name}</strong><p className="muted">{device.deviceId}</p></div>
