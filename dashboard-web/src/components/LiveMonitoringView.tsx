@@ -4,7 +4,8 @@ import {
   MapPin, Hand, PhoneCall, X, Phone
 } from 'lucide-react';
 import { api } from '../services/api';
-import { visionApi, VisionMetadata } from '../services/visionApi';
+import { visionApi } from '../services/visionApi';
+import type { VisionMetadata } from '../services/visionApi';
 import { DeviceStatus } from '../types';
 
 interface LiveMonitoringViewProps {

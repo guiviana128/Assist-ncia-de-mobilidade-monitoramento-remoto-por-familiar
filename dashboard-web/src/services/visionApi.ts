@@ -40,8 +40,12 @@ export interface VisionMetadata {
   };
 }
 
+const visionEnvironment = (import.meta as ImportMeta & {
+  readonly env?: Record<string, string | undefined>;
+}).env;
+
 const VISION_API_URL =
-  import.meta.env.VITE_VISION_API_URL ?? 'http://localhost:8001';
+  visionEnvironment?.VITE_VISION_API_URL ?? 'http://localhost:8001';
 
 export const visionApi = {
   analyzeFrame(

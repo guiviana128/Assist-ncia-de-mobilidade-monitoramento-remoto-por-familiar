@@ -1,5 +1,5 @@
 import { Alert, DashboardSummary, DeviceStatus, TelemetryPoint } from '../types';
-import { VisionMetadata } from './visionApi';
+import type { VisionMetadata } from './visionApi';
 
 const API_BASE_URL = 'http://localhost:8080/api/v1';
 
