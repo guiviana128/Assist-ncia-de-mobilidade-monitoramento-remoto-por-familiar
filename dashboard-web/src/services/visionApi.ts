@@ -40,6 +40,21 @@ export interface VisionMetadata {
   };
 }
 
+export interface VisionEventHistoryItem {
+  eventId: string;
+  deviceId: string;
+  gestureName: string;
+  phase: string;
+  confidence: number;
+  confirmed: boolean;
+  capturedAt: string;
+  receivedAt: string;
+  reviewStatus: 'PENDING' | 'FALSE_POSITIVE' | 'CANCELED';
+  reviewedAt?: string;
+  reviewedBy?: string;
+  agentActionId?: number;
+}
+
 const visionEnvironment = (import.meta as ImportMeta & {
   readonly env?: Record<string, string | undefined>;
 }).env;
@@ -79,5 +94,25 @@ export const visionApi = {
         }
       }, 'image/jpeg', 0.72);
     });
+  },
+  async getEventHistory(deviceId: string): Promise<VisionEventHistoryItem[]> {
+    const response = await fetch(
+      `http://localhost:8080/api/v1/vision/events?deviceId=${encodeURIComponent(deviceId)}`
+    );
+    if (!response.ok) throw new Error(`Histórico respondeu ${response.status}`);
+    return response.json();
+  },
+
+  async reviewEvent(
+    eventId: string,
+    decision: 'FALSE_POSITIVE' | 'CANCELED'
+  ): Promise<VisionEventHistoryItem> {
+    const query = new URLSearchParams({ decision, reviewedBy: 'Familiar' });
+    const response = await fetch(
+      `http://localhost:8080/api/v1/vision/events/${encodeURIComponent(eventId)}/review?${query}`,
+      { method: 'PATCH' }
+    );
+    if (!response.ok) throw new Error(`Revisão respondeu ${response.status}`);
+    return response.json();
   }
 };
