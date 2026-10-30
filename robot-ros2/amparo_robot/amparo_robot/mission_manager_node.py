@@ -26,6 +26,7 @@ from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from rclpy.time import Time
 from sensor_msgs.msg import LaserScan
+from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformException, TransformListener
 
 from .backend_client import BackendClient, BackendError
@@ -143,6 +144,10 @@ class MissionManager(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.nav = ActionClient(self, NavigateToPose, "navigate_to_pose")
+        # O action server existe antes de o Nav2 ser ativado e recusa objetivos até lá: quem sabe é o lifecycle manager
+        self.nav2_active = self.create_client(Trigger, "lifecycle_manager_navigation/is_active")
+        self.nav2_check = None
+        self.nav2_check_at = 0.0
         self.create_subscription(LaserScan, "scan", self.on_scan, qos_profile_sensor_data)
 
         self.pose = (0.0, 0.0, 0.0)
@@ -169,12 +174,23 @@ class MissionManager(Node):
         yaw = math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
         self.pose = (t.transform.translation.x, t.transform.translation.y, yaw)
 
+    def nav2_is_active(self, now: float) -> bool:
+        """Pergunta (sem bloquear) ao lifecycle manager se todos os nós do Nav2 já estão ativos."""
+        if self.nav2_check is not None and self.nav2_check.done():
+            result, self.nav2_check = self.nav2_check.result(), None
+            if result is not None and result.success:
+                return self.nav.server_is_ready()
+        if self.nav2_check is None and now - self.nav2_check_at >= 1.0 and self.nav2_active.service_is_ready():
+            self.nav2_check_at = now
+            self.nav2_check = self.nav2_active.call_async(Trigger.Request())
+        return False
+
     # ------------------------------------------------------------ laço principal (10 Hz)
     def loop(self) -> None:
         now = time.monotonic()
         self.read_pose()
 
-        if not self.started and self.nav.server_is_ready():
+        if not self.started and self.nav2_is_active(now):
             self.started = True
             self.get_logger().info("Nav2 pronto: iniciando comportamento padrão")
             self.ctx.start(now)

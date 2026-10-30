@@ -82,7 +82,9 @@ cd ~/amparo_ws && colcon test --packages-select amparo_robot && colcon test-resu
 | Sintoma | Causa provável e solução |
 |---|---|
 | `TURTLEBOT3_MODEL` não definido | `export TURTLEBOT3_MODEL=waffle` |
-| Robô não se mexe, mas o Nav2 diz que planejou | Tipo do `/cmd_vel` diferente (Twist × TwistStamped). Veja `ros2 topic info /cmd_vel -v`. Se o bridge do TurtleBot3 usar `Twist`, rode com `ros2 param set /controller_server enable_stamped_cmd_vel false` (e também em `/velocity_smoother`, `/behavior_server`, `/collision_monitor`) |
+| Robô não se mexe, mas o Nav2 diz que planejou | Tipo do `/cmd_vel` diferente (Twist × TwistStamped). Veja `ros2 topic info /cmd_vel -v`. O bridge do TurtleBot3 Jazzy usa `TwistStamped` e o Nav2 Jazzy publica `Twist` por padrão; por isso o `casa_amparo_sim.launch.py` liga `enable_stamped_cmd_vel` em `STAMPED_CMD_VEL_NODES`. Se o seu bridge usar `Twist`, troque `"True"` por `"False"` ali (o `ros2 param set` não adianta: o tipo é escolhido quando o nó sobe) |
+| Nav2: `Goal Coordinates ... was outside bounds` e o robô fica preso num cômodo | O costmap global ficou do tamanho do mapa do SLAM (só o que o LiDAR já viu). O launch usa janela móvel de 20 m (`GLOBAL_COSTMAP`); confira com `ros2 param get /global_costmap/global_costmap rolling_window` (tem que ser `True`). Se der `False`, o container do Nav2 não recebeu o `params_file` |
+| Simulação fecha sozinha / PC trava | Falta de RAM (veja `journalctl -k \| grep -i oom`). Feche o que não precisar (navegador, extensões Java do VS Code) e rode com `gui:=false rviz:=false` |
 | "Sem backend" no log do nó | Backend fora do ar ou `backend_url` errado em `config/amparo_robot.yaml` |
 | HTTP 401/403 no log do nó | `api_key` diferente de `ASSISTMOB_DEVICE_API_KEY` do backend |
 | Mapa não aparece no RViz | Em *Fixed Frame*, escolha `map`. O SLAM leva alguns segundos para publicar |
