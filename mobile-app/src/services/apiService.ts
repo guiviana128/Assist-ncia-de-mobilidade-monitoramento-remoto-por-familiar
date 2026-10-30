@@ -1,5 +1,10 @@
 const API_BASE_URL = 'http://10.0.2.2:8080/api/v1'; // 10.0.2.2 para emulador Android, ou IP local
 
+// O app do usuário da bengala se autentica como dispositivo (mesma chave do ESP32).
+// Igual a ASSISTMOB_DEVICE_API_KEY no backend; troque fora do ambiente de aula.
+const DEVICE_API_KEY = 'dev-device-key-troque-em-producao';
+const authHeaders = { 'X-API-Key': DEVICE_API_KEY };
+
 export interface MobileAlert {
   id: number;
   alertType: string;
@@ -14,7 +19,7 @@ export const apiService = {
     try {
       await fetch(`${API_BASE_URL}/alerts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         body: JSON.stringify({
           deviceId,
           alertType: 'SOS_BUTTON',
@@ -32,7 +37,7 @@ export const apiService = {
 
   async fetchDeviceAlerts(deviceId: string): Promise<MobileAlert[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/alerts/recent/${deviceId}`);
+      const res = await fetch(`${API_BASE_URL}/alerts/recent/${deviceId}`, { headers: authHeaders });
       if (!res.ok) throw new Error('API Error');
       return await res.json();
     } catch {

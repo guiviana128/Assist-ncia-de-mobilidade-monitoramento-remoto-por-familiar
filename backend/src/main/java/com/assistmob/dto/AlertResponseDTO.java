@@ -21,6 +21,7 @@ public class AlertResponseDTO {
     private Double latitude;
     private Double longitude;
     private Float batteryLevel;
+    private String indoorRoom;
     private LocalDateTime createdAt;
     private LocalDateTime resolvedAt;
 
@@ -35,6 +36,7 @@ public class AlertResponseDTO {
                 .latitude(alert.getLatitude())
                 .longitude(alert.getLongitude())
                 .batteryLevel(alert.getBatteryLevel())
+                .indoorRoom(alert.getIndoorRoom())
                 .createdAt(alert.getCreatedAt())
                 .resolvedAt(alert.getResolvedAt())
                 .build();

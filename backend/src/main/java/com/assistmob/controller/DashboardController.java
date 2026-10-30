@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class DashboardController {
 
     private final DeviceService deviceService;

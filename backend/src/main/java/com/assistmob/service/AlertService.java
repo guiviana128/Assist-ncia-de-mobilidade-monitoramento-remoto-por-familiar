@@ -2,6 +2,7 @@ package com.assistmob.service;
 
 import com.assistmob.dto.AlertRequestDTO;
 import com.assistmob.dto.AlertResponseDTO;
+import com.assistmob.event.AlertCreatedEvent;
 import com.assistmob.model.Alert;
 import com.assistmob.model.Device;
 import com.assistmob.model.enums.AlertSeverity;
@@ -11,6 +12,7 @@ import com.assistmob.repository.DeviceRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,9 @@ public class AlertService {
     private final AlertRepository alertRepository;
     private final DeviceRepository deviceRepository;
     private final FcmNotificationService fcmNotificationService;
+    private final HouseLayoutService houseLayoutService;
+    private final PersonLocationTracker personLocationTracker;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public AlertResponseDTO createAlert(AlertRequestDTO dto) {
@@ -44,10 +49,15 @@ public class AlertService {
                 .latitude(dto.getLatitude())
                 .longitude(dto.getLongitude())
                 .batteryLevel(dto.getBatteryLevel())
+                .indoorRoom(houseLayoutService.findRoom(dto.getIndoorRoom()).map(room -> room.id()).orElse(null))
                 .createdAt(LocalDateTime.now())
                 .build();
 
         Alert saved = alertRepository.save(alert);
+        personLocationTracker.update(saved.getDeviceId(), saved.getIndoorRoom());
+
+        // Observer: avisa quem estiver interessado (ex.: o robô assistente) sem acoplar os serviços.
+        eventPublisher.publishEvent(new AlertCreatedEvent(saved));
 
         // Notificar cuidadores / familiares registrados
         Optional<Device> deviceOpt = deviceRepository.findByDeviceId(dto.getDeviceId());

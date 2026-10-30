@@ -14,7 +14,9 @@ export type AlertType =
   | 'SUSPICIOUS_PROXIMITY_ALERT'
   | 'THREAT_STALKING_WARNING'
   | 'HAND_GESTURE_SOS'
-  | 'AGENT_RECOMMENDATION';
+  | 'AGENT_RECOMMENDATION'
+  | 'ROBOT_ARRIVED'
+  | 'ROBOT_MISSION_FAILED';
 
 export type AlertSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 export type AlertStatus = 'PENDING' | 'ACKNOWLEDGED' | 'RESOLVED';
@@ -29,6 +31,7 @@ export interface Alert {
   latitude: number;
   longitude: number;
   batteryLevel?: number;
+  indoorRoom?: string | null;
   createdAt: string;
   resolvedAt?: string;
 }

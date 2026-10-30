@@ -431,3 +431,70 @@ body.light-mode { --bg-gradient:none; --bg-app:#f5f7fb; --bg-card:#fff; }
 .emergency-actions { display:flex; flex-wrap:wrap; gap:12px; margin:18px 0 10px; }
 .emergency-actions a { text-decoration:none; min-height:48px; }
 
+
+/* ===================== Casa 3D / AR (robô assistente) ===================== */
+.house3d { display:grid; grid-template-columns:minmax(0,1.75fr) minmax(300px,1fr); gap:24px; align-items:start; }
+.house3d-main { padding:18px; display:flex; flex-direction:column; gap:12px; min-width:0; }
+.house3d-toolbar { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+.house3d-toolbar h3, .house3d-card h3 { display:flex; align-items:center; gap:8px; font-size:1rem; margin:0 0 4px; }
+.house3d-toolbar-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.house3d-canvas { position:relative; height:min(62vh, 620px); min-height:380px; border-radius:14px; overflow:hidden; border:1px solid var(--border-color); touch-action:none; }
+.house3d-canvas > canvas { display:block; width:100%; height:100%; cursor:crosshair; }
+.house3d-labels { position:absolute; inset:0; pointer-events:none; }
+.house3d-label { font:600 11px/1.2 var(--font-body); padding:4px 8px; border-radius:999px; background:var(--bg-card); color:var(--text-primary); border:1px solid var(--border-hover); white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.18); }
+.house3d-label-room { background:transparent; border:none; box-shadow:none; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.08em; font-size:10px; }
+.house3d-label-robot { border-width:2px; max-width:260px; overflow:hidden; text-overflow:ellipsis; }
+.house3d-label-person.is-emergency { background:var(--accent-red); color:#fff; border-color:var(--accent-red); }
+.house3d-alert { position:absolute; top:12px; left:12px; right:12px; z-index:2; display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:10px; background:var(--accent-red-bg); border:1px solid var(--accent-red-border); color:var(--accent-red-text); font-size:.85rem; backdrop-filter:blur(6px); }
+.house3d-legend { position:absolute; bottom:10px; left:10px; z-index:2; display:flex; gap:10px; flex-wrap:wrap; list-style:none; margin:0; padding:6px 10px; border-radius:8px; background:var(--bg-card); font-size:.72rem; color:var(--text-secondary); }
+.house3d-legend i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
+.house3d-canvas .empty-state { position:absolute; inset:0; display:grid; place-items:center; z-index:3; }
+.house3d-confirm { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 14px; border-radius:10px; background:var(--accent-yellow-bg); border:1px solid var(--accent-yellow-border); font-size:.85rem; }
+.house3d-confirm span { flex:1; min-width:200px; }
+.house3d-feedback { color:var(--accent-green-text); font-size:.85rem; margin:0; }
+.house3d-side { display:flex; flex-direction:column; gap:16px; min-width:0; }
+.house3d-card { padding:16px; }
+.house3d-eyes { position:relative; aspect-ratio:16/10; border-radius:10px; overflow:hidden; background:#0b1220; margin-top:8px; }
+.house3d-eyes canvas { display:block; width:100%; height:100%; }
+.house3d-eyes-tag { position:absolute; top:8px; left:8px; font-size:.68rem; font-weight:700; color:#fecaca; background:rgba(0,0,0,.45); padding:3px 8px; border-radius:6px; letter-spacing:.04em; }
+.house3d-stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0; }
+.house3d-stats div { background:var(--bg-input); border:1px solid var(--border-color); border-radius:10px; padding:8px 10px; min-width:0; }
+.house3d-stats dt { font-size:.68rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.06em; }
+.house3d-stats dd { margin:4px 0 0; font-weight:700; overflow-wrap:anywhere; }
+.house3d-mission { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:10px; border-radius:10px; background:var(--accent-glow); font-size:.82rem; margin-top:8px; }
+.house3d-mission span { flex:1; min-width:150px; }
+.house3d-mission.is-emergency { background:var(--accent-red-bg); color:var(--accent-red-text); }
+.house3d-mission .btn { min-height:36px; padding:6px 10px; font-size:.78rem; }
+.house3d-rooms { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:10px 0; }
+.house3d-rooms .btn { font-size:.8rem; justify-content:center; }
+.house3d-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.house3d-actions .btn { flex:1; justify-content:center; }
+.house3d-missions { list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:8px; }
+.house3d-missions li { display:grid; grid-template-columns:auto 1fr; gap:2px 8px; font-size:.8rem; align-items:center; }
+.house3d-missions small { grid-column:2; color:var(--text-secondary); overflow-wrap:anywhere; }
+.house3d-status { font-size:.66rem; font-weight:700; padding:2px 7px; border-radius:999px; background:var(--bg-input); border:1px solid var(--border-color); }
+.status-in_progress { color:var(--accent-primary); border-color:var(--border-active); }
+.status-completed { color:var(--accent-green-text); border-color:var(--accent-green-border); }
+.status-failed { color:var(--accent-red-text); border-color:var(--accent-red-border); }
+.status-cancelled { color:var(--text-muted); }
+.house3d-ar-overlay { position:fixed; left:16px; right:16px; bottom:24px; z-index:10; padding:14px; border-radius:14px; background:rgba(15,23,42,.8); color:#fff; display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
+.house3d-ar-overlay[hidden] { display:none; }
+.sim-select { width:100%; margin-top:6px; min-height:42px; padding:8px 10px; border-radius:10px; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-hover); font:inherit; }
+
+/* Login do familiar */
+.login-shell { min-height:100vh; display:grid; place-items:center; padding:24px 16px; background:var(--bg-gradient); }
+.login-card { width:100%; max-width:400px; padding:28px; display:flex; flex-direction:column; gap:14px; }
+.login-card h2 { display:flex; align-items:center; gap:8px; font-size:1.15rem; margin:10px 0 0; }
+.login-card label { display:flex; flex-direction:column; gap:6px; font-size:.82rem; font-weight:600; color:var(--text-secondary); }
+.login-card input { min-height:44px; padding:10px 12px; border-radius:10px; background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border-hover); font:inherit; }
+.login-card .btn { justify-content:center; }
+
+@media (max-width: 1080px) {
+  .house3d { grid-template-columns:1fr; }
+  .house3d-canvas { height:56vh; min-height:320px; }
+}
+@media (max-width: 560px) {
+  .house3d-main { padding:12px; }
+  .house3d-stats { grid-template-columns:1fr; }
+  .house3d-legend { display:none; }
+}

@@ -45,6 +45,9 @@ public class Alert {
 
     private Float batteryLevel;
 
+    /** Cômodo da casa onde a pessoa estava (id do HouseLayout), quando conhecido. */
+    private String indoorRoom;
+
     private LocalDateTime resolvedAt;
 
     private String resolvedBy;

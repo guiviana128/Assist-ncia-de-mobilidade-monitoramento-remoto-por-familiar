@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { LiveMonitoringView } from './components/LiveMonitoringView';
-import { Navbar } from './components/Navbar';
+import { AppTab, Navbar } from './components/Navbar';
+import { HouseView3D } from './components/HouseView3D';
+import { LoginScreen } from './components/LoginScreen';
+import { auth, AuthRequiredError } from './services/auth';
+import { roomName, FALLBACK_LAYOUT } from './robot/houseLayout';
 import { TelemetryCards } from './components/TelemetryCards';
 import { MapTracker } from './components/MapTracker';
 import { AlertCenter } from './components/AlertCenter';
@@ -15,7 +19,9 @@ export const App: React.FC = () => {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [routeHistory, setRouteHistory] = useState<TelemetryPoint[]>([]);
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'monitor' | 'live' | 'telemetry' | 'settings'>('monitor');
+  const [activeTab, setActiveTab] = useState<AppTab>('house');
+  const [needsLogin, setNeedsLogin] = useState(false);
+  const [username, setUsername] = useState<string | null>(auth.username);
   const [geofenceRadius, setGeofenceRadius] = useState(500);
   const [loading, setLoading] = useState(true);
   const [demo, setDemo] = useState(false);
@@ -47,7 +53,11 @@ export const App: React.FC = () => {
       setRouteHistory(route);
       setUpdated(new Date());
       setError('');
-    } catch {
+    } catch (e) {
+      if (e instanceof AuthRequiredError) {
+        if (mounted.current) setNeedsLogin(true);
+        return;
+      }
       if (mounted.current) setError('Não foi possível atualizar. Os dados anteriores podem estar desatualizados.');
     } finally {
       busy.current = false;
@@ -62,13 +72,23 @@ export const App: React.FC = () => {
     return () => { mounted.current = false; window.clearInterval(interval); };
   }, [fetchData]);
 
+  useEffect(() => auth.onChange(() => {
+    setUsername(auth.username);
+    if (!auth.isLoggedIn()) setNeedsLogin(true);
+  }), []);
+
   const handleResolveAlert = async (id: number) => {
     try { await api.resolveAlert(id); await fetchData(); }
     catch { setError('Não foi possível confirmar a resolução do alerta. Tente novamente.'); }
   };
   const device = summary?.devices[0];
   const emergency = summary?.recentAlerts.find(alert => alert.status === 'PENDING' && (alert.alertType === 'HAND_GESTURE_SOS' || alert.alertType === 'SOS_BUTTON' || alert.alertType === 'FALL_DETECTED'));
-  const titles = { live: 'Câmera e sinal de socorro', monitor: 'Acompanhamento familiar', telemetry: 'Telemetria e sensores', settings: 'Preferências de cuidado' };
+  const titles: Record<AppTab, string> = { house: 'Casa inteligente e robô assistente', live: 'Câmera e sinal de socorro', monitor: 'Acompanhamento familiar', telemetry: 'Telemetria e sensores', settings: 'Preferências de cuidado' };
+
+  if (needsLogin) {
+    return <LoginScreen onLoggedIn={() => { setNeedsLogin(false); setLoading(true); void fetchData(); }}
+      onContinueDemo={() => setNeedsLogin(false)} />;
+  }
 
   return (
     <div className="app-shell">
@@ -76,7 +96,8 @@ export const App: React.FC = () => {
       <Navbar isOnline={!loading && !demo && !!device?.isOnline}
         pendingAlertsCount={summary?.pendingAlertsCount ?? 0} isDarkMode={isDarkMode}
         onToggleTheme={() => setIsDarkMode(value => !value)} activeTab={activeTab}
-        onSelectTab={setActiveTab} onOpenSimulator={() => setIsSimulatorOpen(true)} deviceId={device?.deviceId} />
+        onSelectTab={setActiveTab} onOpenSimulator={() => setIsSimulatorOpen(true)} deviceId={device?.deviceId}
+        username={username} onLogout={() => { void auth.logout(); }} />
       <main id="main-content" className="workspace">
         <section className="page-heading">
           <div><p className="eyebrow">AMPARO / CENTRAL DE CUIDADO</p>
@@ -92,13 +113,15 @@ export const App: React.FC = () => {
         </div>
         {emergency && <section className="emergency-panel" aria-label="Socorro pendente">
           <div role="alert"><span className="eyebrow">{demo ? 'SIMULAÇÃO DE SOCORRO' : 'SOCORRO RECEBIDO'}</span>
-            <h2>{emergency.alertType === 'SOS_BUTTON' ? 'Pedido de SOS acionado' : 'Alerta de queda recebido'}</h2>
+            <h2>{emergency.alertType === 'FALL_DETECTED' ? 'Alerta de queda recebido' : emergency.alertType === 'HAND_GESTURE_SOS' ? 'Gesto de socorro na câmera' : 'Pedido de SOS acionado'}</h2>
             <p>{emergency.message}</p>
             <p>Dispositivo: {emergency.deviceId} · {new Date(emergency.createdAt).toLocaleString('pt-BR')}</p>
-            <p>Localização informada: {emergency.latitude.toFixed(6)}, {emergency.longitude.toFixed(6)}</p>
+            {emergency.indoorRoom && <p>Cômodo: <strong>{roomName(FALLBACK_LAYOUT, emergency.indoorRoom)}</strong> · o robô assistente foi enviado automaticamente</p>}
+            {Number.isFinite(emergency.latitude) && Number.isFinite(emergency.longitude) && <p>Localização informada: {emergency.latitude.toFixed(6)}, {emergency.longitude.toFixed(6)}</p>}
           </div>
           <div className="emergency-actions">
             {demo ? <span className="badge badge-warning">Teste: nenhuma ligação será iniciada</span> : <a className="btn btn-danger" href="tel:192">Ligar para emergência · SAMU 192</a>}
+            <button className="btn btn-secondary" onClick={() => setActiveTab('house')}>Ver robô e casa em 3D</button>
             <button className="btn btn-secondary" onClick={() => setActiveTab('monitor')}>Ver ocorrência no painel</button>
           </div>
           <p className="muted">{demo ? 'O botão de ligação fica disponível para ocorrências recebidas da API.' : 'Abre o discador do aparelho. A chamada depende da confirmação e do suporte do dispositivo.'}</p>
@@ -112,6 +135,7 @@ export const App: React.FC = () => {
               <div className="person-status"><span className="eyebrow">ÚLTIMA TELEMETRIA</span><p>{device.lastUpdate ? new Date(device.lastUpdate).toLocaleString('pt-BR') : 'Sem data informada'}</p></div>
               <span className="badge badge-warning">{summary?.pendingAlertsCount ?? 0} alertas pendentes</span>
             </section>
+            {activeTab === 'house' && <HouseView3D alerts={summary?.recentAlerts ?? []} isDarkMode={isDarkMode} />}
             {activeTab === 'monitor' && <>
               <TelemetryCards device={device} />
               <div className="monitor-grid">

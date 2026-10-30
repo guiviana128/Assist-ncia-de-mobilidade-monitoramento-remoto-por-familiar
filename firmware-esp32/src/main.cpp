@@ -294,6 +294,7 @@ void sendAlert(const char* type, const char* msg, const char* severity) {
     HTTPClient http;
     http.begin(ALERT_ENDPOINT);
     http.addHeader("Content-Type", "application/json");
+    http.addHeader("X-API-Key", DEVICE_API_KEY);
 
     JsonDocument doc;
     doc["deviceId"] = DEVICE_ID;
@@ -319,6 +320,7 @@ void sendTelemetry() {
     HTTPClient http;
     http.begin(TELEMETRY_ENDPOINT);
     http.addHeader("Content-Type", "application/json");
+    http.addHeader("X-API-Key", DEVICE_API_KEY);
 
     JsonDocument doc;
     doc["deviceId"] = DEVICE_ID;

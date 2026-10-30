@@ -2,6 +2,7 @@ package com.assistmob.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 @Data
@@ -25,4 +26,8 @@ public class TelemetryRequestDTO {
     private Boolean obstacleDetected;
     private Float batteryPercent;
     private Boolean fallDetected;
+
+    /** Cômodo atual dentro de casa (beacon BLE ou simulador). Opcional. */
+    @Size(max = 40)
+    private String indoorRoom;
 }

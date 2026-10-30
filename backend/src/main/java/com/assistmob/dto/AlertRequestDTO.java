@@ -4,6 +4,7 @@ import com.assistmob.model.enums.AlertSeverity;
 import com.assistmob.model.enums.AlertType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 @Data
@@ -23,4 +24,8 @@ public class AlertRequestDTO {
     private Double latitude;
     private Double longitude;
     private Float batteryLevel;
+
+    /** Cômodo da casa (sala, cozinha, quarto, banheiro, escritorio). Opcional. */
+    @Size(max = 40)
+    private String indoorRoom;
 }

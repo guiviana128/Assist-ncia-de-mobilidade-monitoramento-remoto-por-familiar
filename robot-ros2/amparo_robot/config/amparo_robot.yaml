@@ -1,0 +1,13 @@
+amparo_mission_manager:
+  ros__parameters:
+    backend_url: "http://localhost:8080/api/v1"
+    robot_id: "AMPARO-BOT-01"
+    # Chave do dispositivo (igual a ASSISTMOB_DEVICE_API_KEY no backend).
+    # Se a variável de ambiente ASSISTMOB_DEVICE_API_KEY existir, prefira removê-la daqui.
+    api_key: "dev-device-key-troque-em-producao"
+    map_frame: "map"
+    base_frame: "base_footprint"
+    backend_period: 0.5
+    check_duration: 45.0      # segundos parado ao lado da pessoa após um socorro
+    max_retries: 2            # novas tentativas do Nav2 antes de desistir
+    autostart_patrol: true    # patrulhar a casa assim que o Nav2 ficar pronto

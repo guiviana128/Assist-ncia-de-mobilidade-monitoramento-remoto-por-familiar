@@ -1,24 +1,11 @@
 package com.assistmob.config;
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-@Configuration
-public class CorsConfig {
-
-    @Bean
-    public WebMvcConfigurer corsConfigurer() {
-        return new WebMvcConfigurer() {
-            @Override
-            public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/**")
-                        .allowedOriginPatterns("*")
-                        .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                        .allowedHeaders("*")
-                        .allowCredentials(false);
-            }
-        };
+/*
+ * O CORS agora é configurado em com.assistmob.security.SecurityConfig (correção V-04 do pentest).
+ * A configuração antiga liberava qualquer origem ("*") e foi removida.
+ * Este arquivo pode ser apagado com segurança.
+ */
+final class CorsConfig {
+    private CorsConfig() {
     }
 }

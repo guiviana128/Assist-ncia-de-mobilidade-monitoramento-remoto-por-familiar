@@ -7,9 +7,10 @@ services:
     environment:
       POSTGRES_DB: assistmob_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
+      # Correção V-03: senha vem do ambiente e o banco só escuta no próprio PC (não fica exposto na rede)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -23,7 +24,8 @@ services:
     image: ollama/ollama:latest
     container_name: assistmob-ollama
     ports:
-      - "11434:11434"
+      # Correção V-03: a API do Ollama não tem autenticação, então só aceita conexões locais
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     restart: unless-stopped

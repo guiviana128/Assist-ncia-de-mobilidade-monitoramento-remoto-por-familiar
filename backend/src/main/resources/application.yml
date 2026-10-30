@@ -29,6 +29,17 @@ assistmob:
     default-radius-meters: 500.0
     safe-zone-latitude: -23.550520
     safe-zone-longitude: -46.633308
+  robot:
+    default-id: ${ASSISTMOB_ROBOT_ID:AMPARO-BOT-01}
+    default-person-room: sala
+  security:
+    # false = API aberta como antes do pentest (somente para reproduzir os ataques do relatório)
+    enabled: ${ASSISTMOB_SECURITY_ENABLED:true}
+    device-api-key: ${ASSISTMOB_DEVICE_API_KEY:dev-device-key-troque-em-producao}
+    family-username: ${ASSISTMOB_FAMILY_USER:familia}
+    family-password: ${ASSISTMOB_FAMILY_PASSWORD:amparo2050}
+    token-ttl-minutes: 480
+    cors-origins: ${ASSISTMOB_CORS_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
   ai:
     base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
     model: ${OLLAMA_MODEL:llama3.2:3b}

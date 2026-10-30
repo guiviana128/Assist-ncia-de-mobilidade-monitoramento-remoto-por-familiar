@@ -1,7 +1,8 @@
 import { Alert, DashboardSummary, DeviceStatus, TelemetryPoint } from '../types';
 import type { VisionMetadata } from './visionApi';
 
-const API_BASE_URL = 'http://localhost:8080/api/v1';
+import { AuthRequiredError, apiFetch } from './auth';
+import { robotApi } from './robotApi';
 
 let summaryDemo = false;
 let routeDemo = false;
@@ -56,12 +57,13 @@ export const api = {
   isDemoRoute: () => routeDemo,
   async getDashboardSummary(): Promise<DashboardSummary> {
     try {
-      const res = await fetch(`${API_BASE_URL}/dashboard/summary`);
+      const res = await apiFetch(`/dashboard/summary`);
       if (!res.ok) throw new Error('API Error');
       const data = await res.json();
       summaryDemo = false;
       return data;
-    } catch {
+    } catch (error) {
+      if (error instanceof AuthRequiredError) throw error;
       summaryDemo = true;
       return {
         totalDevices: 1,
@@ -75,7 +77,7 @@ export const api = {
 
   async getRecentRoute(deviceId: string): Promise<TelemetryPoint[]> {
     try {
-      const res = await fetch(`${API_BASE_URL}/telemetry/route/${deviceId}?hours=12`);
+      const res = await apiFetch(`/telemetry/route/${deviceId}?hours=12`);
       if (!res.ok) throw new Error('API Error');
       const data = await res.json();
       routeDemo = false;
@@ -93,7 +95,7 @@ export const api = {
 
   async resolveAlert(alertId: number, resolvedBy: string = 'Familiar'): Promise<Alert> {
     try {
-      const res = await fetch(`${API_BASE_URL}/alerts/${alertId}/resolve?resolvedBy=${encodeURIComponent(resolvedBy)}`, {
+      const res = await apiFetch(`/alerts/${alertId}/resolve?resolvedBy=${encodeURIComponent(resolvedBy)}`, {
         method: 'PATCH'
       });
       if (!res.ok) throw new Error('API Error');
@@ -110,7 +112,7 @@ export const api = {
 
   async findMyCane(deviceId: string): Promise<{ success: boolean; message: string }> {
     try {
-      const res = await fetch(`${API_BASE_URL}/devices/${deviceId}/find`, { method: 'POST' });
+      const res = await apiFetch(`/devices/${deviceId}/find`, { method: 'POST' });
       if (!res.ok) throw new Error('API Error');
       return { success: true, message: 'Comando de localização sonoro e luminoso emitido para a dispositivo de assistência!' };
     } catch {
@@ -120,7 +122,7 @@ export const api = {
 
   async scheduleMedicineReminder(deviceId: string, medicineName: string): Promise<void> {
     try {
-      await fetch(`${API_BASE_URL}/devices/${deviceId}/reminder`, {
+      await apiFetch(`/devices/${deviceId}/reminder`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ medicineName })
@@ -141,9 +143,9 @@ export const api = {
     }
   },
 
-  async sendSimulatedTelemetry(data: Partial<TelemetryPoint>): Promise<void> {
+  async sendSimulatedTelemetry(data: Partial<TelemetryPoint> & { indoorRoom?: string }): Promise<void> {
     try {
-      await fetch(`${API_BASE_URL}/telemetry`, {
+      await apiFetch(`/telemetry`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -155,10 +157,12 @@ export const api = {
           obstacleDistanceCm: data.obstacleDistanceCm ?? 120,
           obstacleDetected: data.obstacleDetected ?? false,
           batteryPercent: data.batteryPercent ?? mockDevice.batteryPercent,
-          fallDetected: data.fallDetected ?? false
+          fallDetected: data.fallDetected ?? false,
+          indoorRoom: data.indoorRoom
         })
       });
     } catch {
+      robotApi.demo().setPersonRoom(data.indoorRoom);
       mockDevice = {
         ...mockDevice,
         currentLatitude: data.latitude ?? mockDevice.currentLatitude,
@@ -172,7 +176,7 @@ export const api = {
   },
 
   async registerVisionEvent(deviceId: string, metadata: VisionMetadata): Promise<{ supervisedAction?: { id: number } }> {
-    const response = await fetch(`${API_BASE_URL}/vision/events`, {
+    const response = await apiFetch(`/vision/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...metadata, deviceId })
@@ -183,9 +187,9 @@ export const api = {
     return response.json();
   },
 
-  async sendSimulatedAlert(alertType: Alert['alertType'], message: string): Promise<void> {
+  async sendSimulatedAlert(alertType: Alert['alertType'], message: string, indoorRoom?: string): Promise<void> {
     try {
-      await fetch(`${API_BASE_URL}/alerts`, {
+      await apiFetch(`/alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -195,7 +199,8 @@ export const api = {
           message,
           latitude: mockDevice.currentLatitude,
           longitude: mockDevice.currentLongitude,
-          batteryLevel: mockDevice.batteryPercent
+          batteryLevel: mockDevice.batteryPercent,
+          indoorRoom
         })
       });
     } catch {
@@ -210,9 +215,14 @@ export const api = {
         longitude: mockDevice.currentLongitude,
         batteryLevel: mockDevice.batteryPercent,
         createdAt: new Date().toISOString(),
-        resolvedAt: alertType === 'CHECKIN_SAFE' ? new Date().toISOString() : undefined
+        resolvedAt: alertType === 'CHECKIN_SAFE' ? new Date().toISOString() : undefined,
+        indoorRoom
       };
       mockAlerts = [newAlert, ...mockAlerts];
+      if (alertType === 'HAND_GESTURE_SOS' || alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED') {
+        // Sem backend: o robô simulado no navegador reage ao alerta como o robô real reagiria
+        robotApi.demo().emergency(indoorRoom, alertType === 'FALL_DETECTED' ? 'Queda detectada pela bengala' : alertType === 'SOS_BUTTON' ? 'Botão SOS acionado' : 'Gesto de socorro na câmera', newAlert.id);
+      }
     }
   }
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Flame, ShieldAlert, Battery, Eye, Navigation, Send, Sparkles } from 'lucide-react';
 import { api } from '../services/api';
+import { FALLBACK_LAYOUT } from '../robot/houseLayout';
 
 interface SimulatorModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export const SimulatorModal: React.FC<SimulatorModalProps> = ({ isOpen, onClose,
   const [longitude, setLongitude] = useState(-46.633308);
   const [loading, setLoading] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+  const [indoorRoom, setIndoorRoom] = useState('quarto');
 
   if (!isOpen) return null;
 
@@ -31,7 +33,8 @@ export const SimulatorModal: React.FC<SimulatorModalProps> = ({ isOpen, onClose,
       batteryPercent: batteryLevel,
       latitude,
       longitude,
-      speedKmh: 3.2
+      speedKmh: 3.2,
+      indoorRoom
     });
     setLoading(false);
     showFeedback('✅ Telemetria de sensores enviada com sucesso!');
@@ -40,17 +43,17 @@ export const SimulatorModal: React.FC<SimulatorModalProps> = ({ isOpen, onClose,
 
   const handleTriggerSos = async () => {
     setLoading(true);
-    await api.sendSimulatedAlert('SOS_BUTTON', '🚨 Botão SOS de Pânico acionado na bengala!');
+    await api.sendSimulatedAlert('SOS_BUTTON', '🚨 Botão SOS de Pânico acionado na bengala!', indoorRoom);
     setLoading(false);
-    showFeedback('🚨 Alerta SOS enviado com prioridade máxima!');
+    showFeedback('🚨 Alerta SOS enviado! O robô assistente foi despachado para o cômodo.');
     onRefresh();
   };
 
   const handleTriggerFall = async () => {
     setLoading(true);
-    await api.sendSimulatedAlert('FALL_DETECTED', '🚨 Queda confirmada com sensor de empunhadura ativo!');
+    await api.sendSimulatedAlert('FALL_DETECTED', '🚨 Queda confirmada com sensor de empunhadura ativo!', indoorRoom);
     setLoading(false);
-    showFeedback('🚨 Queda registrada no sistema e cuidadores notificados!');
+    showFeedback('🚨 Queda registrada! Família notificada e robô a caminho.');
     onRefresh();
   };
 
@@ -142,6 +145,16 @@ export const SimulatorModal: React.FC<SimulatorModalProps> = ({ isOpen, onClose,
               🔔 Localizar Bengala
             </button>
           </div>
+        </div>
+
+        {/* Cômodo da pessoa dentro de casa (na bengala real: beacons BLE por cômodo) */}
+        <div style={{ marginBottom: '16px' }}>
+          <label htmlFor="sim-room" style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+            Cômodo onde a pessoa está
+          </label>
+          <select id="sim-room" value={indoorRoom} onChange={e => setIndoorRoom(e.target.value)} className="sim-select">
+            {FALLBACK_LAYOUT.rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+          </select>
         </div>
 
         {/* 2. Disparos de Emergência */}

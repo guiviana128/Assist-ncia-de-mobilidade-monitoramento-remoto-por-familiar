@@ -28,6 +28,8 @@ public class TelemetryService {
     private final TelemetryRepository telemetryRepository;
     private final DeviceRepository deviceRepository;
     private final AlertService alertService;
+    private final HouseLayoutService houseLayoutService;
+    private final PersonLocationTracker personLocationTracker;
 
     @Value("${assistmob.geofence.safe-zone-latitude:-23.550520}")
     private Double safeZoneLat;
@@ -60,6 +62,9 @@ public class TelemetryService {
 
         Telemetry saved = telemetryRepository.save(telemetry);
 
+        String indoorRoom = houseLayoutService.findRoom(dto.getIndoorRoom()).map(room -> room.id()).orElse(null);
+        personLocationTracker.update(dto.getDeviceId(), indoorRoom);
+
         // 2. Atualizar status instantâneo do dispositivo
         Device device = deviceRepository.findByDeviceId(dto.getDeviceId())
                 .orElseGet(() -> Device.builder()
@@ -86,6 +91,7 @@ public class TelemetryService {
                     .latitude(dto.getLatitude())
                     .longitude(dto.getLongitude())
                     .batteryLevel(dto.getBatteryPercent())
+                    .indoorRoom(indoorRoom)
                     .build());
         }
 

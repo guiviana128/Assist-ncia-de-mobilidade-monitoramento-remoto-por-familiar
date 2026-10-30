@@ -35,3 +35,9 @@ Thumbs.db
 .env
 .env.local
 firebase-service-account.json
+
+# ROS 2 (colcon)
+robot-ros2/**/build/
+robot-ros2/**/install/
+robot-ros2/**/log/
+__pycache__/

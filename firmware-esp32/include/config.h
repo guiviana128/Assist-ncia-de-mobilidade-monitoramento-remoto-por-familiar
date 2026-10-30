@@ -15,6 +15,10 @@
 #define WIFI_PASSWORD "SUA_SENHA_WIFI"
 
 #define SERVER_BASE_URL "http://192.168.1.100:8080/api/v1"
+
+// Chave do dispositivo enviada no cabeçalho X-API-Key (correção V-01 do pentest).
+// Deve ser igual a ASSISTMOB_DEVICE_API_KEY no backend. Troque fora do ambiente de aula.
+#define DEVICE_API_KEY "dev-device-key-troque-em-producao"
 #define TELEMETRY_ENDPOINT SERVER_BASE_URL "/telemetry"
 #define ALERT_ENDPOINT SERVER_BASE_URL "/alerts"
 #define COMMAND_POLL_ENDPOINT SERVER_BASE_URL "/devices/" DEVICE_ID "/command"

@@ -13,7 +13,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,7 +30,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/ai")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class AiController {
 
     private final AiAnalysisService aiAnalysisService;

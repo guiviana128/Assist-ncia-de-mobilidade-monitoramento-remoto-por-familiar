@@ -16,7 +16,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/devices")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class DeviceController {
 
     private final DeviceService deviceService;
