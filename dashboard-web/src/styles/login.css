@@ -1,0 +1,99 @@
+/* Login (Figma 31:2210 / 31:2298 computador, 34:2229 / 38:3513 celular). */
+
+.login { display: flex; min-height: 100vh; padding: 16px; gap: 0; background: var(--superficie-fundo); }
+
+/* Lado da casa (ilustração) */
+.login-casa {
+  position: relative; flex: 1; min-width: 0; min-height: calc(100vh - 32px); overflow: hidden;
+  border-radius: 24px; background: var(--superficie-rebaixada); padding: 40px;
+}
+.login-marca { display: flex; align-items: center; gap: 12px; }
+.login-frase { margin-top: 34px; }
+.login-frase .frase-apoio { display: block; }
+.login-planta {
+  position: absolute; left: 40px; top: 230px; width: 1149px; height: 768px; padding-left: 72px;
+  border-radius: 20px; background: var(--superficie-fundo); overflow: hidden;
+}
+.login-planta .planta { width: 947px; max-width: none; }
+
+/* Formulário */
+.login-formulario { display: flex; align-items: center; justify-content: center; width: 620px; flex-shrink: 0; padding: 32px 24px; }
+.login-caixa { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 400px; }
+.login-titulos { display: flex; flex-direction: column; gap: 6px; }
+.login-titulo { font-size: 32px; line-height: 40px; }
+.login-titulos .texto-secundario { font-size: 15px; line-height: 22px; font-weight: 500; }
+.login .campo { gap: 8px; }
+
+.campo-caixa {
+  display: flex; align-items: center; gap: 10px; padding: 0 14px; min-height: 48px;
+  border: 1px solid var(--borda-forte); border-radius: 12px; background: var(--superficie-base); color: var(--texto-secundario);
+}
+.campo-caixa svg { flex-shrink: 0; }
+.campo-caixa .campo-entrada {
+  flex: 1; min-width: 0; min-height: 46px; padding: 0; border: none; background: transparent;
+  font-weight: 500; color: var(--texto-principal);
+}
+.campo-caixa .campo-entrada:focus-visible { outline: none; }
+.campo-caixa:focus-within { border-color: var(--acento); box-shadow: 0 0 0 4px rgba(37, 99, 235, .14); }
+.campo-caixa.is-erro { border: 2px solid var(--perigo); padding: 0 13px; box-shadow: 0 0 0 4px rgba(219, 38, 38, .14); }
+.campo-acao {
+  min-height: 44px; padding: 0 2px 0 8px; font-size: 13px; line-height: 18px; font-weight: 700; color: var(--acento-forte);
+}
+.campo-acao:hover { text-decoration: underline; }
+
+/* Caixa de seleção */
+.caixa-selecao { position: relative; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; line-height: 20px; font-weight: 500; cursor: pointer; align-self: flex-start; }
+.caixa-selecao input { position: absolute; opacity: 0; width: 20px; height: 20px; margin: 0; }
+.caixa-selecao-marca {
+  display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0;
+  border: 1.5px solid var(--borda-forte); background: var(--superficie-base); color: transparent;
+}
+.caixa-selecao input:checked + .caixa-selecao-marca { background: var(--acento); border-color: var(--acento); color: var(--texto-invertido); }
+.caixa-selecao input:focus-visible + .caixa-selecao-marca { outline: 2px solid var(--acento); outline-offset: 2px; }
+
+.login .btn-grande { min-height: 48px; font-size: 15px; }
+.carregando.is-claro { border-color: rgba(255, 255, 255, .35); border-top-color: var(--texto-invertido); width: 18px; height: 18px; }
+.login-seguranca { font-size: 12px; line-height: 16px; }
+.login-seguranca-curta { display: none; }
+.login .nota .btn-link { min-height: 36px; padding: 0; margin-top: 2px; }
+
+@media (max-width: 1100px) {
+  .login-formulario { width: 480px; }
+}
+
+/* Tablet: formulário por cima, ilustração some */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .login-casa { display: none; }
+  .login-formulario { width: 100%; }
+}
+
+/* Celular */
+@media (max-width: 767px) {
+  .login { flex-direction: column; padding: 0; }
+  .login-casa {
+    min-height: 0; overflow: visible; border-radius: 0; background: transparent;
+    padding: calc(24px + env(safe-area-inset-top)) 16px 0;
+  }
+  .login-marca .marca-simbolo { width: 44px; height: 44px; }
+  .login-marca .marca-nome { font-size: 22px; }
+  .login-marca .marca-nome small { display: none; }
+  .login-frase { margin-top: 28px; }
+  .login-frase .frase-apoio { display: inline; }
+  .login-planta {
+    position: relative; left: auto; top: auto; width: auto; height: 172px; padding: 0; margin-top: 24px;
+    border-radius: 12px 12px 0 0; background: transparent;
+  }
+  .login-planta .planta-simples { padding-bottom: 60px; }
+  .login-formulario { width: 100%; padding: 32px 16px calc(24px + env(safe-area-inset-bottom)); align-items: flex-start; }
+  .login-caixa { max-width: none; }
+  .login-titulos, .login-esqueceu { display: none; }
+  .campo-caixa { min-height: 56px; border-radius: 14px; padding: 0 16px; }
+  .campo-caixa.is-erro { padding: 0 15px; }
+  .campo-caixa .campo-entrada { font-size: 17px; min-height: 52px; }
+  .campo-acao { font-size: 15px; }
+  .campo-rotulo { font-size: 15px; font-weight: 600; }
+  .login .btn-grande { min-height: 52px; border-radius: 14px; font-size: 17px; }
+  .login-seguranca { background: none; padding: 0; font-size: 13px; line-height: 18px; }
+  .login-seguranca svg, .login-seguranca-longa { display: none; }
+  .login-seguranca-curta { display: inline; }
+}

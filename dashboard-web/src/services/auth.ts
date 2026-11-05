@@ -1,5 +1,6 @@
 // Sessão do familiar (correção V-01 do pentest: a API agora exige login).
 // O token fica em sessionStorage: some ao fechar a aba e não é enviado automaticamente como cookie.
+// Com "Manter conectado neste aparelho" ele vai para localStorage (a sessão do backend continua expirando em 8 h).
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1';
 const STORAGE_KEY = 'amparo_session';
@@ -33,11 +34,16 @@ interface Session {
 
 const readSession = (): Session | null => {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(STORAGE_KEY);
     return raw ? (JSON.parse(raw) as Session) : null;
   } catch {
     return null;
   }
+};
+
+const clearStored = () => {
+  try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* armazenamento indisponível */ }
+  try { localStorage.removeItem(STORAGE_KEY); } catch { /* armazenamento indisponível */ }
 };
 
 let session: Session | null = readSession();
@@ -54,7 +60,7 @@ export const auth = {
     listeners.add(listener);
     return () => { listeners.delete(listener); };
   },
-  async login(username: string, password: string): Promise<void> {
+  async login(username: string, password: string, keepSignedIn = false): Promise<void> {
     const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -67,13 +73,14 @@ export const auth = {
     }
     const body = await res.json() as { token: string; username: string };
     session = { token: body.token, username: body.username };
-    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session)); } catch { /* armazenamento indisponível */ }
+    clearStored();
+    try { (keepSignedIn ? localStorage : sessionStorage).setItem(STORAGE_KEY, JSON.stringify(session)); } catch { /* armazenamento indisponível */ }
     notify();
   },
   async logout(): Promise<void> {
     const token = session?.token;
     session = null;
-    try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* armazenamento indisponível */ }
+    clearStored();
     notify();
     if (token) {
       await fetch(`${API_BASE_URL}/auth/logout`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => undefined);
@@ -93,7 +100,7 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   if (res.status === 401) {
     if (session) {
       session = null;
-      try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* armazenamento indisponível */ }
+      clearStored();
     }
     notify();
     throw new AuthRequiredError();
