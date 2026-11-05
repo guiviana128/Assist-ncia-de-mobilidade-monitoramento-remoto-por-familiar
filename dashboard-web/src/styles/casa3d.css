@@ -75,7 +75,8 @@
 
 /* Falha do WebGL / sem conexão */
 .casa3d-falha, .casa3d-offline {
-  position: absolute; left: 50%; top: 50%; z-index: 3; transform: translate(-50%, -50%);
+  /* centralizado sem transform (o Motion anima o deslocamento do cartão) */
+  position: absolute; inset: 0; margin: auto; height: max-content; z-index: 3;
   display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(350px, calc(100% - 32px));
   padding: 24px; border-radius: 16px; background: var(--superficie-base); box-shadow: var(--sombra-flutuante); text-align: center;
 }
@@ -83,8 +84,10 @@
 .casa3d-falha p, .casa3d-offline p { font-size: 13px; line-height: 18px; color: var(--texto-secundario); }
 .casa3d-falha-icone, .casa3d-offline-icone { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; background: var(--aviso-fundo); color: var(--aviso-texto); }
 .casa3d-falha-icone { background: var(--superficie-rebaixada); color: var(--texto-secundario); }
-.casa3d.is-offline .casa3d-canvas { filter: grayscale(1); opacity: .45; }
-.casa3d.is-offline .casa3d-olhos-video { filter: grayscale(1); opacity: .5; }
+/* Sem conexão: a casa desbota para 22% em 400 ms; ao reconectar, volta em 250 ms */
+.casa3d-canvas, .casa3d-olhos-video { transition: opacity 250ms var(--ease), filter 250ms var(--ease); }
+.casa3d.is-offline .casa3d-canvas { filter: grayscale(1); opacity: .22; transition-duration: 400ms; }
+.casa3d.is-offline .casa3d-olhos-video { filter: grayscale(1); opacity: .5; transition-duration: 400ms; }
 
 /* Pelos olhos do robô: miniatura sobre a vista (computador) */
 .casa3d-olhos {
@@ -163,6 +166,8 @@
 .chip-comodo.is-selecionado { background: var(--acento-suave); border: 1.5px solid var(--acento); padding: 10.5px 13.5px 11.5px; }
 .chip-comodo.is-selecionado .chip-comodo-nome, .chip-comodo.is-selecionado .chip-comodo-status { color: var(--acento-forte); }
 .chip-comodo:disabled { cursor: not-allowed; }
+/* Chips: seleção e bloqueio trocam cor com fade de 150 ms */
+.chip-comodo, .chip-comodo-nome, .chip-comodo-status { transition: color var(--dur-rapida) var(--ease), background-color var(--dur-rapida) var(--ease), border-color var(--dur-rapida) var(--ease); }
 .chip-comodo:disabled .chip-comodo-nome, .chip-comodo:disabled .chip-comodo-status { color: #94A3B8; }
 .casa3d-acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .casa3d-acoes .btn { justify-content: flex-start; padding-left: 14px; }
@@ -183,15 +188,21 @@
 .passo-missao { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; }
 .passo-missao-trilho { display: flex; flex-direction: column; align-items: center; padding-top: 1px; }
 .passo-missao-marcador {
+  position: relative; isolation: isolate;
   display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; flex-shrink: 0;
   border: 1.5px solid var(--borda-forte); background: var(--superficie-base); color: var(--texto-invertido);
 }
-.passo-missao-linha { flex: 1; width: 2px; min-height: 12px; margin: 2px 0; background: var(--borda-padrao); }
+.passo-missao-linha { position: relative; flex: 1; width: 2px; min-height: 12px; margin: 2px 0; background: var(--borda-padrao); overflow: hidden; }
+/* Linha que enche de verde de cima para baixo quando a etapa termina */
+.passo-missao-linha-cheia { position: absolute; inset: 0; background: var(--sucesso-ponto); transform: scaleY(0); transform-origin: top; }
+.passo-missao.is-feito .passo-missao-linha-cheia { transform: none; }
+/* Pulso lento da etapa atual (anel atrás do marcador) */
+.passo-missao-pulso { position: absolute; inset: -1.5px; z-index: -1; border-radius: 999px; background: inherit; pointer-events: none; opacity: 0; }
+.passo-missao-marcador { transition: background-color var(--dur-curta) var(--ease), border-color var(--dur-curta) var(--ease); }
 .passo-missao-textos { display: flex; flex-direction: column; gap: 1px; padding-bottom: 14px; min-width: 0; }
 .passo-missao-titulo { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--texto-secundario); }
 .passo-missao-detalhe { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
 .passo-missao.is-feito .passo-missao-marcador { background: var(--sucesso-ponto); border-color: var(--sucesso-ponto); }
-.passo-missao.is-feito .passo-missao-linha { background: var(--sucesso-ponto); }
 .passo-missao.is-feito .passo-missao-titulo, .passo-missao.is-atual .passo-missao-titulo { color: var(--texto-principal); font-weight: 700; }
 .passo-missao.is-atual .passo-missao-marcador { background: var(--acento); border-color: var(--acento); }
 .passo-missao.is-socorro .passo-missao-marcador { background: var(--perigo); border-color: var(--perigo); }

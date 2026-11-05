@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeftRight, ArrowRight, Glasses, Home, Layers, Lock, MapPin, Maximize2, Minus, Phone, Plus, RotateCcw, Route, WifiOff, X } from 'lucide-react';
 import type { Alert } from '../types';
 import type { HouseLayout, MissionRequest, Point2D, RobotMission, RobotState, Room } from '../types/robot';
@@ -11,9 +12,9 @@ import { artigo, comodoCurto, deComodo, emergenciaPendente, haQuanto, naNo } fro
 import { horaCurta } from '../lib/avisos';
 import { useCuidado } from '../lib/cuidado';
 import { PassosMissao, MarcadorRoboIcone, type Passo } from './ui/PassoMissao';
-import { Flip, movimentoReduzido, useGSAP } from '../motion/gsap';
+import { Flip, gsap, movimentoReduzido, useGSAP } from '../motion/gsap';
 import { zoomCasa } from '../motion/zoomCasa';
-import { EASE_GSAP } from '../motion/tokens';
+import { DESLOCA, DUR, EASE_GSAP, EASE_MOTION, saida } from '../motion/tokens';
 
 interface HouseView3DProps {
   alerts: Alert[];
@@ -68,6 +69,16 @@ const DURACAO_AVISO_MS = 6000;
 /** Zoom do cômodo da planta até a vista da Casa 3D (s). */
 const ZOOM_CASA = 0.4;
 
+const t = (duration: number, delay = 0) => ({ duration, ease: EASE_MOTION, delay });
+/** Confirmação de destino: abre a partir do anel (200 ms). */
+const CONFIRMAR = { initial: { opacity: 0, scale: 0.92 }, animate: { opacity: 1, scale: 1, transition: t(DUR.curta) }, exit: { opacity: 0, scale: 0.96, transition: t(saida(DUR.curta)) } };
+/** Aviso de bloqueio no socorro: desliza 8 px para baixo. */
+const BLOQUEIO = { initial: { opacity: 0, y: -DESLOCA }, animate: { opacity: 1, y: 0, transition: t(DUR.media) }, exit: { opacity: 0, transition: t(saida(DUR.media)) } };
+/** Sem conexão: o cartão central sobe 8 px (400 ms); ao reconectar, o inverso em 250 ms. */
+const OFFLINE = { initial: { opacity: 0, y: DESLOCA }, animate: { opacity: 1, y: 0, transition: t(0.4) }, exit: { opacity: 0, y: DESLOCA, transition: t(0.25) } };
+/** "Comando guardado na fila…": entra com fade e some em 200 ms. */
+const AVISO = { initial: { opacity: 0 }, animate: { opacity: 1, transition: t(DUR.curta) }, exit: { opacity: 0, transition: t(DUR.curta) } };
+
 const errorMessage = (error: unknown) =>
   error instanceof ApiError || error instanceof Error ? error.message : 'Não foi possível enviar o comando.';
 
@@ -82,6 +93,8 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
   const overlayRef = useRef<HTMLDivElement>(null);
   const vistaRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HouseScene | null>(null);
+  const gradeRef = useRef<HTMLDivElement>(null);
+  const confirmarRef = useRef<HTMLDivElement>(null);
   /** Quando termina o zoom de entrada (performance.now), para a cena 3D esperar por ele. */
   const zoomAte = useRef(0);
   const celular = useMediaQuery(CELULAR);
@@ -105,6 +118,9 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
   const [reconectando, setReconectando] = useState(false);
   /** Muda quando a cena 3D fica pronta, para reaplicar robô, destino e camadas. */
   const [cenaPronta, setCenaPronta] = useState(0);
+  /** Depois de aberta a tela, missões novas mostram a 1ª etapa virando ✓. */
+  const [aberta, setAberta] = useState(false);
+  useEffect(() => { const timer = window.setTimeout(() => setAberta(true), 1200); return () => window.clearTimeout(timer); }, []);
 
   const emergency = useMemo(() => emergenciaPendente(alerts), [alerts]);
 
@@ -219,6 +235,36 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
   // A troca de vistas é só do computador; no tablet e no celular a câmera do robô tem painel próprio
   const vistaTrocada = !ateTablet && (trocado ?? socorro);
   useEffect(() => { setTrocado(null); }, [socorro]);
+
+  // Troca de vistas (socorro ou botão da miniatura): uma cresce e a outra encolhe para a miniatura (Flip, 450 ms).
+  // O estado "antes" é lido durante a renderização, quando o DOM ainda mostra o arranjo antigo.
+  // Com movimento reduzido, vira um crossfade.
+  const trocaAntes = useRef(vistaTrocada);
+  const flipTroca = useRef<Flip.FlipState | 'fade' | null>(null);
+  if (trocaAntes.current !== vistaTrocada) {
+    trocaAntes.current = vistaTrocada;
+    const grade = gradeRef.current;
+    flipTroca.current = !grade ? null : movimentoReduzido() ? 'fade' : Flip.getState(grade.querySelectorAll('.casa3d-vista, .casa3d-olhos'));
+  }
+  useGSAP(() => {
+    const estado = flipTroca.current;
+    flipTroca.current = null;
+    if (!estado) return;
+    const alvos = gsap.utils.toArray<HTMLElement>('.casa3d-vista, .casa3d-olhos');
+    if (estado === 'fade') gsap.from(alvos, { opacity: 0, duration: DUR.curta });
+    else Flip.from(estado, { targets: alvos, duration: DUR.longa, ease: EASE_GSAP, scale: true, clearProps: 'transform' });
+  }, { scope: gradeRef, dependencies: [vistaTrocada] });
+
+  // A confirmação de destino abre a partir do anel no piso: transform-origin no ponto projetado na tela
+  useLayoutEffect(() => {
+    const card = confirmarRef.current;
+    const vista = vistaRef.current;
+    if (!pendente || !card || !vista) return;
+    const anel = sceneRef.current?.project(pendente.ponto);
+    if (!anel) { card.style.transformOrigin = ''; return; }
+    const v = vista.getBoundingClientRect(), c = card.getBoundingClientRect();
+    card.style.transformOrigin = `${Math.round(v.left + anel.x - c.left)}px ${Math.round(v.top + anel.y - c.top)}px`;
+  }, [pendente]);
 
   // ---------------------------------------------------------------- comandos
   const send = async (request: MissionRequest, success: string) => {
@@ -393,7 +439,7 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
         )}
       </header>
 
-      <div className={`casa3d-grade${vistaTrocada ? ' is-trocado' : ''}`}>
+      <div ref={gradeRef} className={`casa3d-grade${vistaTrocada ? ' is-trocado' : ''}`}>
         {/* Vista 3D da casa */}
         <div className="casa3d-vista" ref={vistaRef}>
           <div className="casa3d-canvas" ref={containerRef} aria-label="Vista 3D da casa. Arraste para girar, role para aproximar, toque no piso para enviar o robô." role="img" />
@@ -421,16 +467,18 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
             </>}
             {!celular && online && !pendente && <p className="casa3d-dica"><MapPin size={16} aria-hidden="true" />Toque no piso para enviar o robô</p>}
           </>}
+          <AnimatePresence>
           {!online && robot && !sceneError && (
-            <div className="casa3d-offline" role="status">
+            <motion.div key="offline" className="casa3d-offline" role="status" {...OFFLINE}>
               <span className="casa3d-offline-icone" aria-hidden="true"><WifiOff size={22} /></span>
               <h2>{celular ? 'Sem sinal do robô' : 'Não estamos recebendo dados do robô'}</h2>
               {!celular && <p>Veja se ele está ligado e se o Wi-Fi da casa está funcionando. Os comandos que você mandar ficam na fila.</p>}
               <button className="btn btn-escuro" onClick={() => void reconectar()} disabled={reconectando}>
                 {reconectando ? <span className="carregando is-claro" aria-hidden="true" /> : <RotateCcw size={18} aria-hidden="true" />}Tentar reconectar
               </button>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
         </div>
 
         {/* Pelos olhos do robô (miniatura no computador; painel próprio no celular) */}
@@ -475,8 +523,9 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
         {celular && <p className="casa3d-dica-celular texto-pequeno">Arraste para girar · pinça para aproximar · toque no piso para mandar o robô</p>}
 
         {/* Confirmar destino */}
+        <AnimatePresence>
         {pendente && (
-          <div className="casa3d-confirmar" role="dialog" aria-labelledby="confirmar-titulo">
+          <motion.div key="confirmar" ref={confirmarRef} className="casa3d-confirmar" role="dialog" aria-labelledby="confirmar-titulo" {...CONFIRMAR}>
             <div>
               <p id="confirmar-titulo" className="casa3d-confirmar-titulo">
                 {pendingRoom ? `Enviar o robô para ${artigo(comodoCurto(layout, pendingRoom.id) ?? pendingRoom.name)}?` : 'Esse ponto fica fora da casa'}
@@ -491,8 +540,9 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
               <button className="btn btn-fantasma is-cinza" onClick={() => setPendente(null)}>Cancelar</button>
               <button className="btn btn-primario" disabled={busy || !pendingRoom || bloqueado} onClick={enviarPendente} data-autofoco>Enviar robô</button>
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {/* Comandar o robô */}
         <aside className={`painel casa3d-comandar${celular && passos && !socorro ? ' tem-missao' : ''}`} aria-labelledby="titulo-comandar">
@@ -500,7 +550,9 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
             <h2 id="titulo-comandar" className="titulo-painel">{celular ? 'Mandar o robô para' : 'Comandar o robô'}</h2>
             {!celular && <p className="texto-pequeno">Escolha um cômodo ou toque no piso da casa</p>}
           </div>
-          {bloqueado && <p className="nota is-perigo"><Lock size={16} aria-hidden="true" />Comandos bloqueados enquanto o robô atende o socorro.</p>}
+          <AnimatePresence initial={false}>
+            {bloqueado && <motion.p key="bloqueio" className="nota is-perigo" {...BLOQUEIO}><Lock size={16} aria-hidden="true" />Comandos bloqueados enquanto o robô atende o socorro.</motion.p>}
+          </AnimatePresence>
           {!bloqueado && !online && robot && <p className="nota is-aviso"><WifiOff size={16} aria-hidden="true" />O robô está fora do ar. O que você mandar fica guardado e sai quando ele voltar.</p>}
           {!celular && <p className="rotulo-secao">Para onde?</p>}
           <div className="casa3d-comodos">
@@ -532,13 +584,15 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
             </div>
           )}
 
-          {feedback && <p className={`nota ${feedback.error ? 'is-perigo' : 'is-sucesso'} casa3d-feedback`} role="status">{feedback.text}</p>}
+          <AnimatePresence>
+            {feedback && <motion.p key={feedback.text} className={`nota ${feedback.error ? 'is-perigo' : 'is-sucesso'} casa3d-feedback`} role="status" {...AVISO}>{feedback.text}</motion.p>}
+          </AnimatePresence>
 
           <hr className="casa3d-divisor" />
           <div className="casa3d-missao">
             <p className="rotulo-secao">{socorro ? 'Socorro em andamento' : celular && passos ? `Missão: ${mission?.type === 'RETURN_TO_DOCK' ? 'voltar à base' : `ir até ${destinoMissao ? artigo(destinoMissao) : 'o ponto'}`}` : 'Missão atual'}</p>
             {passos
-              ? <PassosMissao passos={passos} rotulo={socorro ? 'Etapas do socorro' : 'Etapas da missão'} />
+              ? <PassosMissao passos={passos} rotulo={socorro ? 'Etapas do socorro' : 'Etapas da missão'} animarEntrada={aberta} />
               : <p className="texto-pequeno">{!online && robot ? 'Nenhuma missão em andamento. Comandos novos ficam na fila.' : mission?.type === 'PATROL' ? 'Fazendo a ronda pelos cômodos. Ele responde sozinho se a bengala avisar.' : 'Sem missão agora. O robô faz a ronda e responde sozinho se a bengala avisar.'}</p>}
             {mission && !socorro && mission.type !== 'PATROL' && (
               <button className="btn btn-perigo-suave btn-bloco" onClick={() => void cancelCurrent()} disabled={busy}><X size={18} aria-hidden="true" />Cancelar missão</button>

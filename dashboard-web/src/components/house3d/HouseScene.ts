@@ -69,6 +69,11 @@ export class HouseScene {
   private readonly target: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>;
   private readonly pending: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>;
   private readonly path: THREE.Line<THREE.BufferGeometry, THREE.LineDashedMaterial>;
+  private readonly pendingShadow: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>;
+  /** Animações próprias da cena (no loop do three.js, não no GSAP): queda do anel e rota se desenhando. */
+  private pendingDrop: { start: number } | null = null;
+  private pathDraw: { start: number; points: THREE.Vector3[] } | null = null;
+  private goalKey: string | null = null;
   private readonly hemi = new THREE.HemisphereLight('#ffffff', '#8899aa', 1.3);
   private readonly sun = new THREE.DirectionalLight('#ffffff', 1.6);
   private readonly clock = new THREE.Clock();
@@ -162,7 +167,10 @@ export class HouseScene {
     this.pending.visible = false;
     this.path = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: '#3b82f6', dashSize: 0.22, gapSize: 0.14 }));
     this.path.visible = false;
-    [this.target, this.pending, this.path].forEach(o => { o.layers.set(HELPERS_LAYER); this.root.add(o); });
+    this.pendingShadow = new THREE.Mesh(new THREE.CircleGeometry(0.27, 40), new THREE.MeshBasicMaterial({ color: '#0f172a', transparent: true, opacity: 0, depthWrite: false }));
+    this.pendingShadow.rotation.x = -Math.PI / 2;
+    this.pendingShadow.visible = false;
+    [this.target, this.pending, this.pendingShadow, this.path].forEach(o => { o.layers.set(HELPERS_LAYER); this.root.add(o); });
 
     this.applyTheme();
 
@@ -230,18 +238,61 @@ export class HouseScene {
   setGoal(goal: Point2D | null, route: Point2D[], color = '#3b82f6') {
     this.target.visible = !!goal;
     this.path.visible = !!goal && route.length > 1;
-    if (!goal) return;
+    const key = goal ? `${goal.x.toFixed(2)},${goal.y.toFixed(2)}` : null;
+    const novoDestino = key !== this.goalKey;
+    this.goalKey = key;
+    if (!goal) { this.pathDraw = null; return; }
     this.target.position.copy(this.toLocal(goal.x, goal.y, 0.03));
     this.target.material.color.set(color);
     this.path.material.color.set(color);
-    this.path.geometry.dispose();
-    this.path.geometry = new THREE.BufferGeometry().setFromPoints(route.map(p => this.toLocal(p.x, p.y, 0.04)));
-    this.path.computeLineDistances();
+    const points = route.map(p => this.toLocal(p.x, p.y, 0.04));
+    // Destino novo (não na abertura da cena): a rota se desenha do robô até o destino em 500 ms
+    if (novoDestino && this.clock.elapsedTime > 1 && !reducedMotion()) this.pathDraw = { start: this.clock.elapsedTime, points };
+    else if (this.pathDraw) this.pathDraw.points = points;
+    if (!this.pathDraw) this.setPathPoints(points);
   }
 
   setPendingPoint(point: Point2D | null) {
+    const novo = !!point && (!this.pending.visible || !this.pending.position.equals(this.toLocal(point.x, point.y, 0.03)));
     this.pending.visible = !!point;
-    if (point) this.pending.position.copy(this.toLocal(point.x, point.y, 0.03));
+    this.pendingShadow.visible = !!point;
+    if (!point) { this.pendingDrop = null; return; }
+    this.pending.position.copy(this.toLocal(point.x, point.y, 0.03));
+    this.pendingShadow.position.copy(this.toLocal(point.x, point.y, 0.012));
+    // O anel "cai" no piso: escala 1,4 → 1 e a sombra aparece (300 ms)
+    if (novo && !reducedMotion()) this.pendingDrop = { start: this.clock.elapsedTime };
+    else { this.pendingDrop = null; this.pending.scale.setScalar(1); this.pendingShadow.material.opacity = 0.22; }
+  }
+
+  /** Posição na tela (px, relativa ao contêiner) de um ponto da planta, para a interface se ancorar nele. */
+  project(point: Point2D): { x: number; y: number } | null {
+    const v = this.root.localToWorld(this.toLocal(point.x, point.y, 0.03)).project(this.camera);
+    if (v.z > 1) return null;
+    const { clientWidth: w, clientHeight: h } = this.renderer.domElement;
+    return { x: (v.x + 1) / 2 * w, y: (1 - v.y) / 2 * h };
+  }
+
+  private setPathPoints(points: THREE.Vector3[]) {
+    this.path.geometry.dispose();
+    this.path.geometry = new THREE.BufferGeometry().setFromPoints(points);
+    this.path.computeLineDistances();
+  }
+
+  private animateHelpers(t: number) {
+    if (this.pendingDrop) {
+      const p = Math.min(1, (t - this.pendingDrop.start) / 0.3);
+      const e = easeOutExpo(p);
+      this.pending.scale.setScalar(1.4 - 0.4 * e);
+      this.pending.position.y = 0.03 + 0.3 * (1 - e);
+      this.pendingShadow.material.opacity = 0.22 * e;
+      this.pendingShadow.scale.setScalar(0.7 + 0.3 * e);
+      if (p >= 1) this.pendingDrop = null;
+    }
+    if (this.pathDraw) {
+      const p = Math.min(1, (t - this.pathDraw.start) / 0.5);
+      this.setPathPoints(truncatePath(this.pathDraw.points, easeInOutSine(p)));
+      if (p >= 1) this.pathDraw = null;
+    }
   }
 
   setHighlightRoom(roomId: string | null) {
@@ -433,6 +484,8 @@ export class HouseScene {
     this.lidar.material.uniforms.uTime.value = t;
     this.floors.forEach(f => { (f.material as THREE.ShaderMaterial).uniforms.uTime.value = t; });
 
+    this.animateHelpers(t);
+
     if (!this.inAR) this.controls.update();
     this.renderer.render(this.scene, this.camera);
     if (!this.inAR) this.labelRenderer.render(this.scene, this.camera);
@@ -524,4 +577,26 @@ export class HouseScene {
       material.uniforms.uLineColor.value.set(dark ? '#3b4a63' : '#c3ccd8');
     });
   }
+}
+
+// ------------------------------------------------------------------ animação (mesma curva do resto do Amparo)
+
+const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+/** Aproximação de cubic-bezier(0.16, 1, 0.3, 1). */
+const easeOutExpo = (p: number) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p));
+const easeInOutSine = (p: number) => -(Math.cos(Math.PI * p) - 1) / 2;
+
+/** Primeiros `f` (0–1) do comprimento de uma polilinha. */
+function truncatePath(points: THREE.Vector3[], f: number): THREE.Vector3[] {
+  if (f >= 1 || points.length < 2) return points;
+  const lengths = points.slice(1).map((p, i) => p.distanceTo(points[i]!));
+  let left = lengths.reduce((a, b) => a + b, 0) * f;
+  const out = [points[0]!];
+  for (let i = 0; i < lengths.length; i++) {
+    const len = lengths[i]!;
+    if (left >= len) { out.push(points[i + 1]!); left -= len; continue; }
+    out.push(points[i]!.clone().lerp(points[i + 1]!, len ? left / len : 0));
+    break;
+  }
+  return out.length > 1 ? out : [points[0]!, points[0]!.clone()];
 }
