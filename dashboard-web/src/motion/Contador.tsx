@@ -24,6 +24,8 @@ export const Contador: React.FC<{ valor: number; formatar?: (n: number) => strin
       onUpdate: () => { el.textContent = formatar(obj.n); },
       onComplete: () => { el.textContent = formatar(valor); }
     });
+    // Desfeito antes de terminar (StrictMode monta duas vezes): volta ao valor de partida para contar de novo
+    return () => { atual.current = de; };
   }, { dependencies: [valor] });
 
   // O texto é escrito só pelo efeito (antes da pintura), para o React e o GSAP não disputarem o mesmo nó.

@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Clock, Footprints, Info, Layers, MapPin, Route } from 'lucide-react';
 import type { Alert, DeviceStatus, TelemetryPoint } from '../../types';
 import { GraficoPassos, GraficoTremor } from './Graficos';
@@ -9,6 +10,11 @@ import { haQuanto, nomePessoa } from '../../lib/resumoDoEstado';
 import { horaCurta } from '../../lib/avisos';
 import { useCuidado } from '../../lib/cuidado';
 import { CELULAR, useMediaQuery } from '../../hooks/useMediaQuery';
+import { Contador } from '../../motion/Contador';
+import { DUR, EASE_MOTION, saida } from '../../motion/tokens';
+
+/** Barras e nota de mobilidade só animam a entrada na primeira vez que a tela aparece na sessão. */
+const sessao = { primeiraVisita: true };
 
 interface MonitorarViewProps {
   device: DeviceStatus;
@@ -63,6 +69,8 @@ export const MonitorarView: React.FC<MonitorarViewProps> = ({ device, alerts, ro
   const agora = new Date();
   const casa = areas[0]!;
   const passosHojeReal = device.stepsToday;
+  const primeira = useRef(sessao.primeiraVisita);
+  useEffect(() => { sessao.primeiraVisita = false; }, []);
 
   // ---- passos
   const dias = periodo === '30' ? 30 : 7;
@@ -169,7 +177,16 @@ export const MonitorarView: React.FC<MonitorarViewProps> = ({ device, alerts, ro
     <div className="monitorar">
       <section className="monitorar-resumo">
         <div className="monitorar-resumo-texto">
-          <h1 className="frase monitorar-frase">{frase.forte}<span className="frase-apoio">{frase.apoio}</span></h1>
+          {/* Troca de período: a frase faz crossfade */}
+          <h1 className="frase monitorar-frase monitorar-frase-troca">
+            <AnimatePresence initial={false}>
+              <motion.span key={`${frase.forte}|${frase.apoio}`} className="frase-texto"
+                initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: DUR.curta, ease: EASE_MOTION } }}
+                exit={{ opacity: 0, transition: { duration: saida(DUR.curta), ease: EASE_MOTION } }}>
+                {frase.forte}<span className="frase-apoio">{frase.apoio}</span>
+              </motion.span>
+            </AnimatePresence>
+          </h1>
           <p className="frase-detalhe">{intervalo}{celular ? '' : ` · bengala ${device.deviceId}`}</p>
         </div>
         <div className="segmento" role="group" aria-label="Período">
@@ -189,11 +206,12 @@ export const MonitorarView: React.FC<MonitorarViewProps> = ({ device, alerts, ro
             {nota != null && mobilidade && (
               <div className="mobilidade">
                 {!celular && <div className="mobilidade-texto"><span>Mobilidade</span><strong className={`is-${mobilidade.tom}`}>{mobilidade.texto}</strong></div>}
-                <span className={`mobilidade-nota is-${mobilidade.tom}`} aria-label={`Nota de mobilidade ${nota} de 100`}>{nota}</span>
+                <span className={`mobilidade-nota is-${mobilidade.tom}`} role="img" aria-label={`Nota de mobilidade ${nota} de 100`}><Contador valor={nota} doZero={primeira.current} duracao={0.5} /></span>
               </div>
             )}
           </div>
           <GraficoPassos barras={barras} meta={periodo === 'hoje' ? null : META_PASSOS} altura={celular ? 150 : 260} curto={celular}
+            animarEntrada={primeira.current} chave={`${periodo}-${celular ? 'c' : 'd'}`}
             titulo={periodo === 'hoje' ? 'Passos de hoje a cada 2 horas' : `Passos por dia, últimos ${barras.length} dias, meta de ${formatarNumero(META_PASSOS)}`} />
           <div className="monitorar-numeros">
             {celular && nota != null && mobilidade && <Fato Icone={Footprints} rotulo="Mobilidade" valor={`${nota} · ${mobilidade.texto}`} />}

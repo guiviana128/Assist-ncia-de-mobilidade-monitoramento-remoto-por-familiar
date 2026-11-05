@@ -4,6 +4,9 @@
 .monitorar-resumo { display: flex; align-items: center; gap: 16px 24px; padding-left: 8px; }
 .monitorar-resumo-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .monitorar-frase { font-size: 32px; line-height: 40px; }
+/* Crossfade da frase: a que sai fica por cima da que entra, sem empurrar o layout */
+.monitorar-frase-troca { display: grid; }
+.monitorar-frase-troca > .frase-texto { grid-area: 1 / 1; }
 .monitorar-resumo .frase-detalhe { font-size: 14px; line-height: 20px; }
 
 .monitorar-linha { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: stretch; }
@@ -49,6 +52,7 @@
 .grafico-faixa-rotulo { font-size: 11px; font-weight: 700; fill: var(--perigo-texto); }
 .grafico-linha { fill: none; stroke: var(--sucesso-ponto); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .grafico-agora { fill: var(--sucesso-ponto); stroke: var(--superficie-base); stroke-width: 2; }
+.grafico-agora-pulso { fill: var(--sucesso-ponto); opacity: 0; pointer-events: none; }
 
 /* Equilíbrio */
 .monitorar-equilibrio { display: flex; flex-direction: column; gap: 14px; padding: 20px; }

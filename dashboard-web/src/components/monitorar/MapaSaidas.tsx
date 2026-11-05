@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Circle, MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Home, LocateFixed, Minus, Plus } from 'lucide-react';
 import type { TelemetryPoint } from '../../types';
+import { gsap, movimentoReduzido, useGSAP } from '../../motion/gsap';
 
 interface MapaSaidasProps {
   casa: { lat: number; lng: number; raio: number };
@@ -53,6 +54,18 @@ const Enquadrar: React.FC<{ centro: [number, number] }> = ({ centro }) => {
 export const MapaSaidas: React.FC<MapaSaidasProps> = ({ casa, pessoa, rota, satelite, compacto }) => {
   const [mapa, setMapa] = useState<L.Map | null>(null);
   const pontos = useMemo(() => rota.map(p => [p.latitude, p.longitude] as [number, number]), [rota]);
+  const trajeto = useRef<L.Polyline>(null);
+  const desenhou = useRef(false);
+
+  // O trajeto se desenha da casa até o último ponto (stroke-dashoffset no path.leaflet-interactive), uma vez ao abrir
+  const temTrajeto = pontos.length > 1;
+  useGSAP(() => {
+    const path = trajeto.current?.getElement() as SVGPathElement | undefined;
+    if (!mapa || !path || desenhou.current) return;
+    desenhou.current = true;
+    if (movimentoReduzido()) return;
+    gsap.fromTo(path, { drawSVG: '0%' }, { drawSVG: '100%', duration: 1.2, ease: 'power1.inOut', delay: 0.2, clearProps: 'strokeDasharray,strokeDashoffset' });
+  }, { dependencies: [mapa, temTrajeto] });
   const tiles = satelite ? TILES.satelite : TILES.ruas;
   const centro: [number, number] = [casa.lat, casa.lng];
 
@@ -64,7 +77,7 @@ export const MapaSaidas: React.FC<MapaSaidasProps> = ({ casa, pessoa, rota, sate
         <Enquadrar centro={centro} />
         <Circle center={centro} radius={casa.raio}
           pathOptions={{ color: '#2563EB', weight: 1.5, dashArray: '5 6', fillColor: '#2563EB', fillOpacity: 0.06 }} />
-        {pontos.length > 1 && <Polyline positions={pontos} pathOptions={{ color: '#2563EB', weight: 4, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }} />}
+        {temTrajeto && <Polyline ref={trajeto} positions={pontos} pathOptions={{ color: '#2563EB', weight: 4, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }} />}
         <Marker position={centro} icon={iconeCasa} keyboard={false} />
         <Marker position={[pessoa.lat, pessoa.lng]} icon={iconePessoa} keyboard={false} />
       </MapContainer>
