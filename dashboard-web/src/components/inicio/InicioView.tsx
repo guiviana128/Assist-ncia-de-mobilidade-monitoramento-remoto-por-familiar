@@ -60,7 +60,7 @@ export const InicioView: React.FC<InicioViewProps> = ({ device, alerts, layout, 
     if (comodoPessoa && e[comodoPessoa]) {
       e[comodoPessoa] = emergencia
         ? { titulo: celular || ateTablet ? `${pessoa} caiu aqui` : `Queda detectada · ${haQuanto(emergencia.createdAt)}`, tom: 'perigo' }
-        : { titulo: `${pessoa} está aqui${noComodoDesde && !(celular || ateTablet) ? ` · ${haQuanto(noComodoDesde)}` : ''}`, tom: 'pessoa' };
+        : { titulo: `${pessoa} está aqui${noComodoDesde && Date.now() - noComodoDesde >= 60_000 && !(celular || ateTablet) ? ` · ${haQuanto(noComodoDesde)}` : ''}`, tom: 'pessoa' };
       if (emergencia?.alertType !== 'FALL_DETECTED' && emergencia) e[comodoPessoa] = { titulo: `${pessoa} pediu ajuda aqui`, tom: 'perigo' };
     }
     return e;

@@ -136,7 +136,7 @@ export function resumoDoEstado(e: EntradaResumo): Resumo {
   const pendentes = e.alerts.filter(a => a.status === 'PENDING');
   const onde = comodoCurto(e.layout, e.robot?.personRoom);
   const ondeFrase = onde
-    ? ` ${pessoa} está ${naNo(onde)}${e.noComodoDesde ? ` ${haQuanto(e.noComodoDesde, agora)}` : ''}.`
+    ? ` ${pessoa} está ${naNo(onde)}${e.noComodoDesde && agora - e.noComodoDesde >= 60_000 ? ` ${haQuanto(e.noComodoDesde, agora)}` : ''}.`
     : ` ${pessoa} está com a bengala.`;
 
   if (pendentes.length > 0) {

@@ -65,7 +65,7 @@ export const Simulador: React.FC<SimuladorProps> = ({ layout, demo, onAtualizar,
     setOcupado(e.id);
     try {
       await e.disparar(comodo);
-      avisar(`${e.titulo} simulado${e.tom === 'perigo' ? '. O robô foi até o José.' : '.'}`);
+      avisar(`Evento de teste enviado: ${e.titulo.toLowerCase()}.`);
       onAtualizar();
     } catch {
       avisar('A API recusou o evento de teste.', true);

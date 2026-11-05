@@ -234,3 +234,9 @@ input[type='range'] { width: 100%; accent-color: var(--acento); min-height: 32px
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: var(--borda-forte); border-radius: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* Celular: todo alvo de toque com pelo menos 44 × 44 px */
+@media (max-width: 767px) {
+  .chip, .btn-pequeno, .btn-link { min-height: 44px; }
+  .btn-icone, .config-remover { min-width: 44px; min-height: 44px; }
+}
