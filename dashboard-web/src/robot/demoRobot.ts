@@ -25,6 +25,9 @@ export class DemoRobot {
   private checkingFor = 0;
   private personRoom: string | null = 'sala';
   private nextId = 1;
+  /** Robô fora do ar (evento do Simulador). Comandos ficam na fila, como no backend. */
+  private online = true;
+  private queued: RobotMission | null = null;
 
   constructor(private readonly layout: HouseLayout, readonly robotId = 'AMPARO-BOT-01') {
     this.x = layout.dock.x;
@@ -35,11 +38,11 @@ export class DemoRobot {
   getState(): RobotState {
     return {
       robotId: this.robotId,
-      online: true,
+      online: this.online,
       x: this.x,
       y: this.y,
       yaw: this.yaw,
-      mode: this.mode,
+      mode: this.online ? this.mode : 'OFFLINE',
       currentRoom: roomAt(this.layout, { x: this.x, y: this.y })?.id ?? null,
       batteryPercent: null,
       nearestObstacleM: this.nearestWallDistance(),
@@ -78,7 +81,29 @@ export class DemoRobot {
       skipped.resultMessage = 'Robô atendendo socorro; comando ignorado';
       return skipped;
     }
-    return this.start(this.newMission(req.type, target, targetRoom, req.reason ?? 'Comando da família', requestedBy));
+    const mission = this.newMission(req.type, target, targetRoom, req.reason ?? 'Comando da família', requestedBy);
+    if (!this.online) {
+      // Igual ao backend: fica PENDING e só vale o comando mais recente
+      if (this.queued) this.finish(this.queued, 'CANCELLED', 'Substituída por um comando mais recente');
+      this.queued = mission;
+      return mission;
+    }
+    return this.start(mission);
+  }
+
+  /** Liga/desliga a conexão do robô simulado. Ao voltar, executa o comando que ficou na fila. */
+  setOnline(on: boolean) {
+    if (this.online === on) return;
+    this.online = on;
+    if (on && this.queued) {
+      const next = this.queued;
+      this.queued = null;
+      this.start(next);
+    }
+  }
+
+  isOnline() {
+    return this.online;
   }
 
   emergency(roomId: string | undefined, reason: string, alertId?: number): RobotMission {
@@ -107,6 +132,7 @@ export class DemoRobot {
   }
 
   tick(dt: number) {
+    if (!this.online) return;
     if (this.mode === 'CHECKING_PERSON') {
       this.checkingFor += dt;
       if (this.checkingFor >= CHECK_SECONDS) this.resume();

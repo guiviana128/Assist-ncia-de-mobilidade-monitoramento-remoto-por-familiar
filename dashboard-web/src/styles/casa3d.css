@@ -1,0 +1,271 @@
+/* Casa 3D (Figma 19:476, 19:690, 19:924, 19:1130; celular 35:2336, 38:3085, 38:3209, 38:3367). */
+
+.casa3d { display: flex; flex-direction: column; gap: 20px; }
+
+/* ---------- Contexto do robô ---------- */
+.casa3d-contexto { display: flex; align-items: center; gap: 16px; padding-left: 8px; }
+.casa3d-contexto-texto { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.casa3d-titulo { font-size: 26px; line-height: 32px; }
+.casa3d-detalhe { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--texto-secundario); }
+.casa3d-contexto.is-socorro .casa3d-titulo { color: var(--perigo-texto); }
+.casa3d-contexto-acoes { display: flex; gap: 10px; flex-shrink: 0; }
+.btn-icone.is-borda { border: 1px solid var(--borda-padrao); background: var(--superficie-base); }
+.btn-icone.is-borda:hover { border-color: var(--borda-forte); }
+
+.marcador-robo-html {
+  position: relative; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 999px; flex-shrink: 0;
+  background: rgba(37, 99, 235, .16);
+}
+.marcador-robo-html-corpo {
+  display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px;
+  background: var(--acento); color: var(--texto-invertido); border: 2.5px solid var(--superficie-base);
+}
+.marcador-robo-html.is-socorro { background: rgba(220, 38, 38, .16); }
+.marcador-robo-html.is-socorro .marcador-robo-html-corpo { background: var(--perigo); }
+.marcador-robo-html.is-offline { background: var(--superficie-rebaixada); }
+.marcador-robo-html.is-offline .marcador-robo-html-corpo { background: #93B4F5; }
+
+/* ---------- Grade: vista + comandos ---------- */
+.casa3d-grade {
+  display: grid; gap: 24px; align-items: start;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-rows: 720px auto;
+  grid-template-areas: "vista comandar" "vista comandar";
+}
+.casa3d-vista {
+  grid-area: vista; position: relative; z-index: 1; align-self: stretch; overflow: hidden;
+  border: 1px solid var(--borda-padrao); border-radius: 20px; background: var(--superficie-fundo);
+}
+.casa3d-canvas { position: absolute; inset: 0; touch-action: none; }
+.casa3d-canvas > canvas { display: block; width: 100% !important; height: 100% !important; cursor: crosshair; }
+
+/* Rótulos CSS2D criados pelo HouseScene */
+.house3d-labels { position: absolute; inset: 0; pointer-events: none; }
+.house3d-label {
+  font: 600 12px/16px var(--fonte-corpo); padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  background: var(--superficie-base); color: var(--texto-principal); border: 1px solid var(--borda-padrao); box-shadow: var(--sombra-controle);
+}
+.house3d-label-room { background: transparent; border: none; box-shadow: none; color: var(--texto-secundario); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.house3d-label-robot { border-width: 2px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+.house3d-label-person.is-emergency { background: var(--perigo); color: var(--texto-invertido); border-color: var(--perigo); }
+
+/* Controles sobre a vista */
+.casa3d-selo { position: absolute; top: 16px; right: 16px; z-index: 2; box-shadow: var(--sombra-controle); background: var(--superficie-base); }
+.casa3d-selo.is-sucesso { color: var(--sucesso-texto); }
+.casa3d-selo.is-perigo { color: var(--perigo-texto); }
+.casa3d-selo.is-acento { color: var(--acento-forte); }
+.casa3d-selo.is-acento::before { background: var(--acento); }
+.casa3d-zoom { position: absolute; left: 15px; bottom: 15px; z-index: 2; display: flex; flex-direction: column; gap: 8px; }
+.btn-icone.is-flutuante { background: var(--superficie-base); border: 1px solid var(--borda-padrao); box-shadow: var(--sombra-controle); }
+.btn-icone.is-flutuante:hover { background: var(--superficie-fundo); }
+.casa3d-dica {
+  position: absolute; left: 50%; bottom: 20px; z-index: 2; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px 8px 12px; border-radius: 999px;
+  background: var(--texto-principal); color: var(--texto-invertido); font-size: 13px; line-height: 18px; font-weight: 600; white-space: nowrap;
+  pointer-events: none;
+}
+.casa3d-tag {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 10px; border-radius: 999px;
+  font-size: 12px; line-height: 16px; font-weight: 700; white-space: nowrap;
+}
+.casa3d-tag.is-escuro { background: var(--texto-principal); color: var(--texto-invertido); }
+.casa3d-tag.is-perigo { background: var(--perigo); color: var(--texto-invertido); }
+.ponto-vivo { width: 8px; height: 8px; border-radius: 999px; background: #EF4444; flex-shrink: 0; }
+.casa3d-tag-pip { position: absolute; top: 8px; left: 8px; z-index: 2; }
+
+/* Falha do WebGL / sem conexão */
+.casa3d-falha, .casa3d-offline {
+  position: absolute; left: 50%; top: 50%; z-index: 3; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(350px, calc(100% - 32px));
+  padding: 24px; border-radius: 16px; background: var(--superficie-base); box-shadow: var(--sombra-flutuante); text-align: center;
+}
+.casa3d-falha h2, .casa3d-offline h2 { font-size: 18px; line-height: 24px; }
+.casa3d-falha p, .casa3d-offline p { font-size: 13px; line-height: 18px; color: var(--texto-secundario); }
+.casa3d-falha-icone, .casa3d-offline-icone { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 999px; background: var(--aviso-fundo); color: var(--aviso-texto); }
+.casa3d-falha-icone { background: var(--superficie-rebaixada); color: var(--texto-secundario); }
+.casa3d.is-offline .casa3d-canvas { filter: grayscale(1); opacity: .45; }
+.casa3d.is-offline .casa3d-olhos-video { filter: grayscale(1); opacity: .5; }
+
+/* Pelos olhos do robô: miniatura sobre a vista (computador) */
+.casa3d-olhos {
+  grid-area: vista; position: relative; z-index: 3; align-self: end; justify-self: end;
+  width: 300px; height: 188px; margin: 0 15px 15px 0;
+  border: 3px solid var(--superficie-base); border-radius: 16px; overflow: hidden; background: #DFE7F1;
+  box-shadow: 0 10px 28px -4px rgba(15, 23, 41, .22);
+}
+.casa3d-olhos-cabecalho { display: none; }
+.casa3d-olhos.is-sem-video { display: none; }
+.casa3d-olhos-video { position: absolute; inset: 0; }
+.casa3d-olhos-video > canvas { display: block; width: 100% !important; height: 100% !important; }
+.casa3d-olhos-tags { position: absolute; top: 7px; left: 7px; right: 7px; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; }
+.casa3d-grade:not(.is-trocado) .casa3d-olhos-tags .is-perigo { display: none; }
+.casa3d-grade.is-trocado .casa3d-vista .house3d-labels { display: none; }
+.casa3d-trocar { position: absolute; right: 8px; bottom: 8px; z-index: 2; width: 36px; height: 36px; }
+
+/* Vistas trocadas: câmera do robô grande, casa 3D em miniatura */
+.casa3d-grade.is-trocado .casa3d-olhos { z-index: 1; align-self: stretch; justify-self: stretch; width: auto; height: auto; margin: 0; border: 1px solid var(--borda-padrao); border-radius: 20px; box-shadow: none; }
+.casa3d-grade.is-trocado .casa3d-olhos-tags { top: 14px; left: 14px; }
+.casa3d-grade.is-trocado .casa3d-trocar { right: 274px; bottom: 26px; }
+.casa3d-grade.is-trocado .casa3d-vista {
+  z-index: 3; align-self: end; justify-self: end; width: 250px; height: 160px; margin: 0 15px 15px 0;
+  border: 3px solid var(--superficie-base); border-radius: 16px; box-shadow: 0 10px 28px -4px rgba(15, 23, 41, .22);
+}
+.casa3d-grade.is-trocado .casa3d-camadas { display: none; }
+
+/* Camadas */
+.casa3d-camadas {
+  grid-area: vista; position: relative; z-index: 4; align-self: start; justify-self: start; margin: 15px;
+  display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 12px; border-radius: 999px;
+  background: var(--superficie-base); box-shadow: 0 4px 14px -4px rgba(15, 23, 41, .1);
+}
+.casa3d-camadas-icone { color: var(--texto-secundario); flex-shrink: 0; }
+.casa3d-camadas-lista { display: flex; gap: 6px; }
+.toggle-camada {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 8px 12px 8px 10px;
+  border-radius: 999px; background: var(--superficie-base); color: var(--texto-secundario);
+  font-size: 13px; line-height: 18px; font-weight: 600; white-space: nowrap; cursor: pointer; flex-shrink: 0;
+}
+.toggle-camada input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.toggle-camada-caixa { position: relative; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--borda-forte); background: var(--superficie-base); flex-shrink: 0; }
+.toggle-camada.is-ativo { background: var(--acento-suave); color: var(--acento-forte); }
+.toggle-camada.is-ativo .toggle-camada-caixa { background: var(--acento); border-color: var(--acento); }
+.toggle-camada.is-ativo .toggle-camada-caixa::after {
+  content: ''; position: absolute; left: 4.5px; top: 1.5px; width: 4px; height: 8px;
+  border: solid var(--texto-invertido); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.toggle-camada:has(input:focus-visible) { outline: 2px solid var(--acento); outline-offset: 2px; }
+.toggle-camada:hover:not(.is-ativo) { background: var(--superficie-fundo); }
+
+/* Confirmar destino */
+.casa3d-confirmar {
+  grid-area: vista; position: relative; z-index: 5; align-self: start; justify-self: end; margin: 72px 24px 0 0; width: 280px;
+  display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; border-radius: 16px;
+  background: var(--superficie-base); box-shadow: 0 12px 30px -4px rgba(15, 23, 41, .18);
+}
+.casa3d-confirmar-titulo { font-size: 14px; line-height: 20px; font-weight: 700; }
+.casa3d-confirmar-detalhe { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
+.casa3d-confirmar-botoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.casa3d-confirmar-botoes .btn { min-height: 40px; padding: 10px 14px; }
+.btn-fantasma.is-cinza { background: var(--superficie-fundo); font-weight: 700; font-size: 13px; }
+.btn-fantasma.is-cinza:hover { background: var(--superficie-rebaixada); }
+
+/* ---------- Comandar o robô ---------- */
+.casa3d-comandar { grid-area: comandar; align-self: stretch; display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; }
+.casa3d-comandar-cabecalho { display: flex; flex-direction: column; gap: 2px; }
+.casa3d-comodos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.chip-comodo {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 56px; padding: 11px 14px 12px;
+  border: 1px solid var(--borda-padrao); border-radius: 12px; background: var(--superficie-base); text-align: left;
+}
+.chip-comodo:hover:not(:disabled) { border-color: var(--borda-forte); background: var(--superficie-fundo); }
+.chip-comodo-nome { font-size: 14px; line-height: 20px; font-weight: 700; color: var(--texto-principal); }
+.chip-comodo-status { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
+.chip-comodo.is-selecionado { background: var(--acento-suave); border: 1.5px solid var(--acento); padding: 10.5px 13.5px 11.5px; }
+.chip-comodo.is-selecionado .chip-comodo-nome, .chip-comodo.is-selecionado .chip-comodo-status { color: var(--acento-forte); }
+.chip-comodo:disabled { cursor: not-allowed; }
+.chip-comodo:disabled .chip-comodo-nome, .chip-comodo:disabled .chip-comodo-status { color: #94A3B8; }
+.casa3d-acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.casa3d-acoes .btn { justify-content: flex-start; padding-left: 14px; }
+.casa3d-divisor { border: none; height: 1px; background: var(--borda-padrao); margin: 0; }
+.casa3d-missao { display: flex; flex-direction: column; gap: 10px; }
+.casa3d-feedback { margin: 0; }
+.casa3d-historico { margin-top: auto; }
+.casa3d-missoes { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.casa3d-missoes li { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; font-size: 13px; }
+.casa3d-missoes small { grid-column: 2; color: var(--texto-secundario); overflow-wrap: anywhere; }
+.status-in_progress { background: var(--acento-suave); color: var(--acento-forte); }
+.status-completed { background: var(--sucesso-fundo); color: var(--sucesso-texto); }
+.status-failed { background: var(--perigo-fundo); color: var(--perigo-texto); }
+.status-pending { background: var(--aviso-fundo); color: var(--aviso-texto); }
+
+/* Passos da missão */
+.passos-missao { display: flex; flex-direction: column; }
+.passo-missao { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; }
+.passo-missao-trilho { display: flex; flex-direction: column; align-items: center; padding-top: 1px; }
+.passo-missao-marcador {
+  display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; flex-shrink: 0;
+  border: 1.5px solid var(--borda-forte); background: var(--superficie-base); color: var(--texto-invertido);
+}
+.passo-missao-linha { flex: 1; width: 2px; min-height: 12px; margin: 2px 0; background: var(--borda-padrao); }
+.passo-missao-textos { display: flex; flex-direction: column; gap: 1px; padding-bottom: 14px; min-width: 0; }
+.passo-missao-titulo { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--texto-secundario); }
+.passo-missao-detalhe { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
+.passo-missao.is-feito .passo-missao-marcador { background: var(--sucesso-ponto); border-color: var(--sucesso-ponto); }
+.passo-missao.is-feito .passo-missao-linha { background: var(--sucesso-ponto); }
+.passo-missao.is-feito .passo-missao-titulo, .passo-missao.is-atual .passo-missao-titulo { color: var(--texto-principal); font-weight: 700; }
+.passo-missao.is-atual .passo-missao-marcador { background: var(--acento); border-color: var(--acento); }
+.passo-missao.is-socorro .passo-missao-marcador { background: var(--perigo); border-color: var(--perigo); }
+.passo-missao.is-socorro .passo-missao-titulo, .passo-missao.is-socorro .passo-missao-detalhe { color: var(--perigo-texto); }
+.passo-missao.is-socorro .passo-missao-titulo { font-weight: 700; }
+
+/* Estado e sensores: só no celular e no tablet */
+.casa3d-sensores { display: none; }
+.casa3d-sensores dl { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.casa3d-sensores dl div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; line-height: 20px; }
+.casa3d-sensores dt { color: var(--texto-secundario); font-weight: 500; }
+.casa3d-sensores dd { font-weight: 700; text-align: right; }
+.casa3d-dica-celular { display: none; }
+
+/* AR */
+.casa3d-ar-overlay {
+  position: fixed; left: 16px; right: 16px; bottom: 24px; z-index: 10; display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+  padding: 14px; border-radius: 16px; background: var(--superficie-base); box-shadow: var(--sombra-flutuante);
+}
+.casa3d-ar-overlay[hidden] { display: none; }
+
+@media (max-width: 1240px) {
+  .casa3d-grade { grid-template-columns: minmax(0, 1fr) 340px; grid-template-rows: 620px auto; }
+}
+
+/* ---------- Tablet e celular ---------- */
+@media (max-width: 1023px) {
+  .casa3d { gap: 16px; }
+  .casa3d-contexto { padding-left: 0; }
+  .casa3d-grade, .casa3d-grade.is-trocado {
+    gap: 16px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto auto auto auto 1fr;
+    grid-template-areas: "vista vista" "dica dica" "camadas camadas" "confirmar confirmar" "comandar olhos" "comandar sensores";
+  }
+  .casa3d-vista, .casa3d-grade.is-trocado .casa3d-vista {
+    height: 460px; width: auto; margin: 0; align-self: auto; justify-self: stretch; border: 1px solid var(--borda-padrao); border-radius: 18px; box-shadow: none; z-index: 1;
+  }
+  .casa3d-camadas, .casa3d-grade.is-trocado .casa3d-camadas { grid-area: camadas; display: block; margin: 0; padding: 0; background: none; box-shadow: none; justify-self: stretch; min-width: 0; }
+  .casa3d-camadas-lista { flex-wrap: wrap; }
+  .toggle-camada { border: 1px solid var(--borda-padrao); }
+  .toggle-camada.is-ativo { border-color: transparent; }
+  .casa3d-confirmar { grid-area: confirmar; margin: 0; width: auto; justify-self: stretch; box-shadow: none; border: 1.5px solid var(--acento); }
+  .casa3d-olhos, .casa3d-grade.is-trocado .casa3d-olhos {
+    grid-area: olhos; z-index: 1; width: auto; height: auto; margin: 0; align-self: start; justify-self: stretch;
+    display: flex; flex-direction: column; gap: 12px; padding: 16px; overflow: visible;
+    border: 1px solid var(--borda-padrao); border-radius: var(--raio-painel); background: var(--superficie-base); box-shadow: none;
+  }
+  .casa3d-olhos-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .casa3d-olhos-video { position: relative; inset: auto; aspect-ratio: 16 / 10; border-radius: 12px; overflow: hidden; background: #DFE7F1; }
+  .casa3d-olhos-rotulo { display: none; }
+  .casa3d-olhos-tags { top: 8px; left: 8px; }
+  .casa3d-grade .casa3d-olhos-tags .is-perigo { display: inline-flex; }
+  .casa3d-camadas-icone { display: none; }
+  .casa3d-comandar { padding: 16px; }
+  .casa3d-sensores { display: block; grid-area: sensores; padding: 16px; }
+  .casa3d-selo { right: auto; left: 12px; top: 12px; }
+  .casa3d-dica-celular { display: block; grid-area: dica; margin-top: -6px; }
+  .casa3d-recentralizar { position: absolute; left: 12px; bottom: 12px; z-index: 2; }
+  .casa3d-ar { position: absolute; right: 12px; bottom: 12px; z-index: 2; min-height: 44px; }
+}
+
+@media (max-width: 767px) {
+  .casa3d-grade, .casa3d-grade.is-trocado {
+    grid-template-columns: minmax(0, 1fr); grid-template-rows: none;
+    grid-template-areas: "vista" "dica" "camadas" "confirmar" "comandar" "olhos" "sensores";
+  }
+  .casa3d-vista, .casa3d-grade.is-trocado .casa3d-vista { height: 300px; margin: 0 calc(-1 * var(--margem-pagina)); border-radius: 0; border-left: none; border-right: none; }
+  .casa3d-camadas-lista { flex-wrap: nowrap; }
+  .casa3d-camadas .fila-rolavel { margin: 0 calc(-1 * var(--margem-pagina)); padding: 0 var(--margem-pagina); }
+  .casa3d-comodos .chip-comodo { min-height: 60px; }
+  .casa3d-acoes .btn { min-height: 48px; justify-content: center; font-size: 15px; }
+  .casa3d-comandar.tem-missao .casa3d-comandar-cabecalho,
+  .casa3d-comandar.tem-missao .casa3d-comodos,
+  .casa3d-comandar.tem-missao .casa3d-acoes,
+  .casa3d-comandar.tem-missao .casa3d-divisor { display: none; }
+  .casa3d-comandar.tem-missao .casa3d-missao .rotulo-secao { font-family: var(--fonte-titulo); font-size: 18px; line-height: 24px; font-weight: 600; color: var(--texto-principal); }
+  .casa3d-historico { display: none; }
+}

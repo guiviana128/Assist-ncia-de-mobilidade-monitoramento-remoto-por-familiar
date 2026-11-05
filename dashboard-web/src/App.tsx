@@ -147,7 +147,7 @@ export const App: React.FC = () => {
           {view === 'inicio' && <InicioView device={device} alerts={alerts} layout={robo.layout} robot={robo.robot}
             missions={robo.missions} noComodoDesde={robo.noComodoDesde} resumo={resumo} demo={demo}
             onAbrirCasa={abrirCasa} onResolver={id => void handleResolveAlert(id)} />}
-          {view === 'casa' && <HouseView3D alerts={alerts} isDarkMode={false} comodoInicial={comodoCasa} />}
+          {view === 'casa' && <HouseView3D alerts={alerts} isDarkMode={false} comodoInicial={comodoCasa} pessoa={pessoa} demo={demo} />}
           {view === 'monitorar' && <>
             <AdvancedTelemetryView device={device} />
             <MapTracker device={device} routeHistory={routeHistory} isDarkMode={false} geofenceRadius={geofenceRadius} onLocationUpdated={fetchData} />

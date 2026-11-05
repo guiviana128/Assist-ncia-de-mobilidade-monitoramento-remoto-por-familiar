@@ -36,6 +36,11 @@ export function comodoCurto(layout: HouseLayout, id?: string | null): string | n
 /** "na Sala", "no Quarto": cômodos terminados em "a" (e Sala/Cozinha) são femininos. */
 export const naNo = (comodo: string) => `${/a$/i.test(comodo) ? 'na' : 'no'} ${comodo}`;
 
+/** "a Sala", "o Quarto". */
+export const artigo = (comodo: string) => `${/a$/i.test(comodo) ? 'a' : 'o'} ${comodo}`;
+/** "da Sala", "do Quarto". */
+export const deComodo = (comodo: string) => `${/a$/i.test(comodo) ? 'da' : 'do'} ${comodo}`;
+
 /** Preposição + cômodo para frases, a partir do id ("cozinha" -> "na Cozinha"). */
 export const noComodo = (layout: HouseLayout, id?: string | null): string | null => {
   const nome = comodoCurto(layout, id);
@@ -66,7 +71,7 @@ export function descricaoRobo(robot: RobotState | null | undefined, layout: Hous
   const onde = comodoCurto(layout, robot.currentMission?.targetRoom ?? robot.personRoom);
   switch (robot.mode) {
     case 'PATROLLING': return 'robô fazendo a ronda';
-    case 'RESPONDING': return onde ? `robô indo até ${onde.toLowerCase().startsWith('sala') || onde === 'Cozinha' ? 'a' : 'o'} ${onde}` : 'robô a caminho';
+    case 'RESPONDING': return onde ? `robô indo até ${artigo(onde)}` : 'robô a caminho';
     case 'CHECKING_PERSON': return 'robô ao lado dele';
     case 'GOING_TO_GOAL': return 'robô cumprindo um comando';
     case 'RETURNING': return 'robô voltando à base';

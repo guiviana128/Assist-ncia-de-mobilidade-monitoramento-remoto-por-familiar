@@ -42,6 +42,8 @@ export interface PersonInfo {
   roomId: string | null;
   emergency: boolean;
   fallen: boolean;
+  /** Nome exibido no rótulo (padrão: José). */
+  name?: string;
 }
 
 type FloorMaterial = THREE.ShaderMaterial & { userData: { roomId: string } };
@@ -77,6 +79,8 @@ export class HouseScene {
   private pose = { x: 0, y: 0, yaw: 0 };
   private targetPose = { x: 0, y: 0, yaw: 0 };
   private dark: boolean;
+  private lidarEnabled = true;
+  private robotOnline = false;
   private inAR = false;
   private pointerDown: { x: number; y: number } | null = null;
 
@@ -196,9 +200,10 @@ export class HouseScene {
     const color = MODE_COLORS[state.mode] ?? '#94a3b8';
     this.robotRing.material.color.set(color);
     this.lidar.material.uniforms.uObstacle.value = state.online && state.nearestObstacleM != null ? state.nearestObstacleM : -1;
-    this.lidar.visible = state.online;
+    this.robotOnline = state.online;
+    this.lidar.visible = state.online && this.lidarEnabled;
     const obstacle = state.nearestObstacleM != null ? ` · obstáculo ${state.nearestObstacleM.toFixed(2)} m` : '';
-    this.robotLabel.element.textContent = state.online ? `🤖 ${state.navStatus ?? state.mode}${obstacle}` : '🤖 Robô offline';
+    this.robotLabel.element.textContent = state.online ? `Robô · ${state.navStatus ?? state.mode}${obstacle}` : 'Robô fora do ar';
     this.robotLabel.element.style.borderColor = color;
   }
 
@@ -212,7 +217,7 @@ export class HouseScene {
     this.person.rotation.set(0, 0, info.fallen ? Math.PI / 2 : 0);
     this.person.position.y = info.fallen ? 0.16 : 0;
     this.person.userData.emergency = info.emergency;
-    this.personLabel.element.textContent = info.emergency ? (info.fallen ? '⚠️ Queda detectada' : '🚨 Pedido de socorro') : '🧓 Usuário da bengala';
+    this.personLabel.element.textContent = info.emergency ? (info.fallen ? 'Queda detectada' : 'Pedido de socorro') : info.name ?? 'José';
     this.personLabel.element.classList.toggle('is-emergency', info.emergency);
     this.floors.forEach(floor => {
       const material = floor.material as FloorMaterial;
@@ -244,6 +249,27 @@ export class HouseScene {
       const material = floor.material as FloorMaterial;
       material.uniforms.uHighlight.value = material.userData.roomId === roomId ? 1 : 0;
     });
+  }
+
+  /** Camada LiDAR (toggle do painel). */
+  setLidarVisible(on: boolean) {
+    this.lidarEnabled = on;
+    this.lidar.visible = on && this.robotOnline;
+  }
+
+  /** Aproxima (< 1) ou afasta (> 1) a câmera em relação ao alvo, respeitando os limites dos controles. */
+  zoom(factor: number) {
+    const offset = this.camera.position.clone().sub(this.controls.target);
+    const distance = THREE.MathUtils.clamp(offset.length() * factor, this.controls.minDistance, this.controls.maxDistance);
+    this.camera.position.copy(this.controls.target).add(offset.setLength(distance));
+    this.controls.update();
+  }
+
+  /** Volta para a vista inicial da casa. */
+  recentralizar() {
+    this.camera.position.set(0, 10.5, 8.5);
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
   }
 
   setDark(dark: boolean) {
@@ -406,11 +432,6 @@ export class HouseScene {
 
     this.lidar.material.uniforms.uTime.value = t;
     this.floors.forEach(f => { (f.material as THREE.ShaderMaterial).uniforms.uTime.value = t; });
-    this.target.scale.setScalar(1 + Math.sin(t * 4) * 0.12);
-    this.pending.rotation.z = t * 1.5;
-    if (this.person.userData.emergency) {
-      this.personLabel.element.style.opacity = String(0.6 + 0.4 * Math.abs(Math.sin(t * 3)));
-    }
 
     if (!this.inAR) this.controls.update();
     this.renderer.render(this.scene, this.camera);
