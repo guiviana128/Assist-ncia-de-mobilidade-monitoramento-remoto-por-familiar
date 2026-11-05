@@ -1,0 +1,233 @@
+/*
+ * Base do redesign: reset, tipografia, painéis, botões, chips, selos e foco.
+ * Versão estática: sem transition/animation. Estados usam classes (is-ativo, is-emergencia…)
+ * para que a animação possa ser adicionada depois sem reescrever os componentes.
+ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: var(--fonte-corpo);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--texto-principal);
+  background: var(--superficie-fundo);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 { font-family: var(--fonte-titulo); font-weight: 600; letter-spacing: -0.01em; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: none; }
+a { color: inherit; }
+img, svg, canvas, video { display: block; max-width: 100%; }
+ul, ol { list-style: none; }
+
+/* Foco visível em tudo: anel 2px na cor de acento com afastamento */
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+.skip-link {
+  position: fixed; top: 8px; left: 12px; z-index: 1000; padding: 12px 16px;
+  background: var(--acento); color: var(--texto-invertido); border-radius: var(--raio-botao);
+  font-weight: 700; text-decoration: none; transform: translateY(-160%);
+}
+.skip-link:focus { transform: none; }
+
+/* ---------- Tipografia ---------- */
+/* Frase de estado: "Parte forte. parte em cinza" */
+.frase {
+  font-family: var(--fonte-titulo);
+  font-weight: 600;
+  font-size: 34px;
+  line-height: 42px;
+  color: var(--texto-principal);
+}
+.frase .frase-apoio { color: var(--texto-secundario); }
+.titulo-painel { font-family: var(--fonte-titulo); font-weight: 600; font-size: 20px; line-height: 26px; }
+.texto-secundario { color: var(--texto-secundario); }
+.texto-pequeno { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--texto-secundario); }
+.rotulo-secao { font-size: 13px; line-height: 18px; font-weight: 700; color: var(--texto-secundario); }
+
+@media (max-width: 767px) {
+  .frase { font-size: 26px; line-height: 32px; }
+  .titulo-painel { font-size: 18px; line-height: 24px; }
+}
+
+/* ---------- Painel ---------- */
+.painel {
+  background: var(--superficie-base);
+  border: 1px solid var(--borda-padrao);
+  border-radius: var(--raio-painel);
+  min-width: 0;
+}
+.painel-cabecalho { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.painel-cabecalho .titulo-painel { margin-right: auto; }
+
+/* ---------- Botões ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 12px 16px;
+  border-radius: var(--raio-botao); border: 1px solid transparent;
+  font-family: var(--fonte-corpo); font-size: 14px; line-height: 20px; font-weight: 600;
+  text-decoration: none; white-space: nowrap; user-select: none;
+}
+.btn svg { flex-shrink: 0; }
+.btn:disabled, .btn[aria-disabled='true'] { opacity: .55; cursor: not-allowed; }
+
+.btn-primario { background: var(--acento); color: var(--texto-invertido); font-weight: 700; }
+.btn-primario:hover:not(:disabled) { background: var(--acento-forte); }
+
+.btn-secundario { background: var(--superficie-base); color: var(--texto-principal); border-color: var(--borda-padrao); }
+.btn-secundario:hover:not(:disabled) { border-color: var(--borda-forte); background: var(--superficie-fundo); }
+
+.btn-perigo { background: var(--perigo); color: var(--texto-invertido); font-weight: 700; }
+.btn-perigo:hover:not(:disabled) { background: var(--perigo-texto); }
+
+.btn-perigo-suave { background: var(--superficie-base); color: var(--perigo-texto); border-color: var(--perigo-borda); }
+.btn-perigo-suave:hover:not(:disabled) { background: var(--perigo-fundo); }
+
+.btn-fantasma { background: transparent; color: var(--texto-principal); }
+.btn-fantasma:hover:not(:disabled) { background: var(--superficie-rebaixada); }
+
+.btn-link {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 4px;
+  color: var(--acento-forte); font-weight: 700; font-size: 14px; text-decoration: none;
+}
+.btn-link:hover { text-decoration: underline; }
+
+.btn-bloco { width: 100%; }
+.btn-grande { min-height: 52px; border-radius: var(--raio-botao-grande); font-size: 15px; }
+
+/* Botão só com ícone (44×44), sempre com aria-label */
+.btn-icone {
+  position: relative; display: inline-grid; place-items: center;
+  width: 44px; height: 44px; border-radius: var(--raio-botao); color: var(--texto-principal); flex-shrink: 0;
+}
+.btn-icone:hover { background: var(--superficie-rebaixada); }
+.btn-icone.is-redondo { border-radius: 999px; background: var(--superficie-rebaixada); }
+.btn-icone.is-redondo:hover { background: var(--borda-padrao); }
+.contador {
+  position: absolute; top: 2px; left: 26px; min-width: 20px; padding: 0 5px;
+  border-radius: 999px; border: 2px solid var(--superficie-base);
+  background: var(--perigo); color: var(--texto-invertido);
+  font-size: 11px; line-height: 16px; font-weight: 700; text-align: center;
+}
+.ponto-aviso {
+  position: absolute; top: 10px; right: 11px; width: 8px; height: 8px; border-radius: 999px;
+  background: var(--perigo); border: 1.5px solid var(--superficie-base);
+}
+
+/* ---------- Selos e chips ---------- */
+.selo {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 12px;
+  border-radius: var(--raio-chip); font-size: 13px; line-height: 18px; font-weight: 600; white-space: nowrap;
+  background: var(--superficie-rebaixada); color: var(--texto-secundario);
+}
+.selo::before { content: ''; width: 8px; height: 8px; border-radius: 999px; background: currentColor; flex-shrink: 0; }
+.selo.is-sucesso { background: var(--sucesso-fundo); color: var(--sucesso-texto); }
+.selo.is-sucesso::before { background: var(--sucesso-ponto); box-shadow: 0 0 0 3px rgba(16, 185, 129, .2); }
+.selo.is-aviso { background: var(--aviso-fundo); color: var(--aviso-texto); }
+.selo.is-aviso::before { background: var(--aviso-ponto); box-shadow: 0 0 0 3px rgba(245, 158, 11, .2); }
+.selo.is-perigo { background: var(--perigo-fundo); color: var(--perigo-texto); }
+.selo.is-perigo::before { background: var(--perigo); box-shadow: 0 0 0 3px rgba(220, 38, 38, .18); }
+.selo.is-neutro::before { background: var(--planta-parede); }
+.selo.is-sem-ponto::before { display: none; }
+.selo.is-pequeno { padding: 5px 10px 5px 8px; font-size: 12px; line-height: 16px; font-weight: 700; gap: 6px; }
+
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 7px 14px;
+  border-radius: var(--raio-chip); border: 1px solid var(--borda-padrao); background: var(--superficie-base);
+  font-size: 14px; line-height: 20px; font-weight: 600; color: var(--texto-principal); white-space: nowrap;
+}
+.chip:hover { border-color: var(--borda-forte); }
+.chip.is-ativo { background: var(--acento-suave); border-color: var(--acento); color: var(--acento-forte); }
+
+/* Segmento (Hoje / 7 dias / 30 dias) */
+.segmento {
+  display: inline-flex; padding: 4px; gap: 4px; border-radius: var(--raio-botao);
+  background: var(--superficie-rebaixada);
+}
+.segmento button {
+  min-height: 38px; padding: 8px 14px; border-radius: 10px;
+  font-size: 14px; line-height: 20px; font-weight: 600; color: var(--texto-secundario);
+}
+.segmento button:hover { color: var(--texto-principal); }
+.segmento button.is-ativo, .segmento button[aria-pressed='true'] {
+  background: var(--superficie-base); color: var(--texto-principal); font-weight: 700;
+  box-shadow: 0 1px 2px rgba(15, 23, 41, .08);
+}
+
+/* Interruptor (switch) */
+.interruptor {
+  position: relative; display: inline-block; width: 44px; height: 26px; flex-shrink: 0;
+  border-radius: 999px; background: var(--borda-forte);
+}
+.interruptor::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px;
+  border-radius: 999px; background: var(--superficie-base); box-shadow: 0 1px 2px rgba(15, 23, 41, .2);
+}
+.interruptor.is-ligado, .interruptor[aria-checked='true'] { background: var(--acento); }
+.interruptor.is-ligado::after, .interruptor[aria-checked='true']::after { left: 21px; }
+/* alvo de toque de 44px sem aumentar o desenho */
+button.interruptor { min-height: 26px; }
+button.interruptor::before { content: ''; position: absolute; inset: -9px -2px; }
+
+/* ---------- Campos ---------- */
+.campo { display: flex; flex-direction: column; gap: 6px; }
+.campo-rotulo { font-size: 14px; line-height: 20px; font-weight: 600; color: var(--texto-principal); }
+.campo-entrada {
+  width: 100%; min-height: 48px; padding: 12px 14px; border-radius: var(--raio-botao);
+  border: 1px solid var(--borda-forte); background: var(--superficie-base); color: var(--texto-principal);
+  font-size: 15px; line-height: 22px;
+}
+.campo-entrada::placeholder { color: #94A3B8; }
+.campo-entrada:focus-visible { outline: 2px solid var(--acento); outline-offset: 0; border-color: var(--acento); }
+.campo-entrada.is-erro { border-color: var(--perigo); background: var(--perigo-fundo); }
+.campo-erro { display: flex; gap: 6px; align-items: flex-start; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--perigo-texto); }
+
+input[type='range'] { width: 100%; accent-color: var(--acento); min-height: 32px; }
+
+/* ---------- Avisos discretos ---------- */
+.nota {
+  display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--raio-botao);
+  background: var(--superficie-rebaixada); color: var(--texto-secundario); font-size: 13px; line-height: 18px; font-weight: 500;
+}
+.nota svg { flex-shrink: 0; margin-top: 1px; }
+.nota.is-aviso { background: var(--aviso-fundo); color: var(--aviso-texto); }
+.nota.is-perigo { background: var(--perigo-fundo); color: var(--perigo-texto); }
+.nota.is-sucesso { background: var(--sucesso-fundo); color: var(--sucesso-texto); }
+
+/* Estado vazio / carregando */
+.estado-vazio {
+  display: grid; place-items: center; gap: 8px; padding: 48px 20px; text-align: center;
+  color: var(--texto-secundario);
+}
+.estado-vazio h3 { color: var(--texto-principal); font-size: 18px; }
+
+/* Indicador de carregamento: o único movimento permitido, só onde há espera real */
+.carregando {
+  width: 20px; height: 20px; border-radius: 999px; border: 2.5px solid var(--borda-padrao);
+  border-top-color: var(--acento); animation: girar 0.8s linear infinite;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .carregando { animation-duration: 2.4s; }
+}
+
+/* Rolagem horizontal sem barra visível (filas de chips no celular) */
+.fila-rolavel {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.fila-rolavel::-webkit-scrollbar { display: none; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--borda-forte); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }

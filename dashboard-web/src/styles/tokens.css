@@ -1,0 +1,72 @@
+/*
+ * Tokens do redesign Amparo (fonte: Figma, coleção de variáveis do arquivo fnRPTL9tR3kQH6LECeApAJ).
+ * Use sempre estes nomes no CSS; não escreva cores soltas nos componentes.
+ * Tema escuro está fora deste redesign: só o toggle existe no menu da conta.
+ */
+:root {
+  /* Superfícies */
+  --superficie-base: #FFFFFF;
+  --superficie-fundo: #F4F6F9;
+  --superficie-rebaixada: #EDF1F6;
+
+  /* Bordas */
+  --borda-padrao: #E2E8F0;
+  --borda-forte: #CBD5E1;
+
+  /* Texto */
+  --texto-principal: #0F172A;
+  --texto-secundario: #475569;
+  --texto-invertido: #FFFFFF;
+
+  /* Acento */
+  --acento: #2563EB;
+  --acento-forte: #1D4ED8;
+  --acento-suave: #EAF1FF;
+
+  /* Estados */
+  --sucesso-ponto: #10B981;
+  --sucesso-fundo: #ECFDF5;
+  --sucesso-texto: #047857;
+  --aviso-ponto: #F59E0B;
+  --aviso-fundo: #FFF8EB;
+  --aviso-texto: #92400E;
+  --perigo: #DC2626;
+  --perigo-fundo: #FEF2F2;
+  --perigo-texto: #B91C1C;
+  --perigo-borda: #FECACA;
+
+  /* Pessoa acompanhada (José) */
+  --pessoa: #C2410C;
+  --pessoa-suave: #FFEDD5;
+
+  /* Planta da casa */
+  --planta-parede: #94A3B8;
+  --planta-movel: #E2E8F0;
+
+  /* Tipografia */
+  --fonte-titulo: 'Outfit', system-ui, -apple-system, sans-serif;
+  --fonte-corpo: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+
+  /* Raios */
+  --raio-painel: 20px;
+  --raio-botao: 12px;
+  --raio-botao-grande: 14px;
+  --raio-chip: 999px;
+
+  /* Sombras: só popover, folha inferior, navbar flutuante e controles sobre mapa/3D */
+  --sombra-navbar: 0 8px 24px -4px rgba(15, 23, 41, 0.07), 0 1px 2px 0 rgba(15, 23, 41, 0.05);
+  --sombra-flutuante: 0 12px 32px -6px rgba(15, 23, 41, 0.18), 0 2px 6px 0 rgba(15, 23, 41, 0.06);
+  --sombra-controle: 0 2px 8px 0 rgba(15, 23, 41, 0.12);
+
+  /* Layout */
+  --largura-max: 1440px;
+  --margem-pagina: 24px;
+  --altura-barra-inferior: 72px;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --raio-painel: 18px;
+    --margem-pagina: 16px;
+  }
+}
