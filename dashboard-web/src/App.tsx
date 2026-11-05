@@ -4,9 +4,11 @@ import { HouseView3D } from './components/HouseView3D';
 import { LoginScreen } from './components/LoginScreen';
 import { InicioView } from './components/inicio/InicioView';
 import { MonitorarView } from './components/monitorar/MonitorarView';
-import { AlertCenter } from './components/AlertCenter';
-import { SettingsView } from './components/SettingsView';
-import { SimulatorModal } from './components/SimulatorModal';
+import { CentralAvisos } from './components/avisos/CentralAvisos';
+import { ConfiguracoesView } from './components/configuracoes/ConfiguracoesView';
+import { Simulador } from './components/simulador/Simulador';
+import { robotApi } from './services/robotApi';
+import { avisosVistos } from './lib/vistos';
 import { Navbar, TopoMobile, BarraInferior } from './components/layout/Navbar';
 import { FaixaEmergencia } from './components/layout/FaixaEmergencia';
 import { MenuConta } from './components/layout/MenuConta';
@@ -29,7 +31,6 @@ export const App: React.FC = () => {
   const [camada, setCamada] = useState<CamadaAberta>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [username, setUsername] = useState<string | null>(auth.username);
-  const [geofenceRadius, setGeofenceRadius] = useState(500);
   const [loading, setLoading] = useState(true);
   const [demo, setDemo] = useState(false);
   const [routeDemo, setRouteDemo] = useState(false);
@@ -111,9 +112,12 @@ export const App: React.FC = () => {
 
   const faixa = emergency ? (() => {
     const onde = comodoCurto(robo.layout, emergency.indoorRoom);
-    const titulo = `${TITULO_EMERGENCIA[emergency.alertType] ?? 'Pedido de socorro'}${onde ? ` ${naNo(onde)}` : ''}`;
+    const titulo = emergency.alertType === 'HAND_GESTURE_SOS'
+      ? `Pedido de ajuda pela câmera${onde ? `, ${naNo(onde)}` : ''}`
+      : `${TITULO_EMERGENCIA[emergency.alertType] ?? 'Pedido de socorro'}${onde ? ` ${naNo(onde)}` : ''}`;
     const robot = robo.robot?.mode === 'RESPONDING' ? `o robô assistente está indo até ${pessoa}`
-      : robo.robot?.mode === 'CHECKING_PERSON' ? `o robô assistente está ao lado de ${pessoa}` : 'confirme se alguém pode ir até ele';
+      : robo.robot?.mode === 'CHECKING_PERSON' ? `o robô assistente está ao lado de ${pessoa}`
+        : emergency.alertType === 'HAND_GESTURE_SOS' ? 'ninguém foi chamado ainda' : 'confirme se alguém pode ir até ele';
     const detalhe = `${haQuanto(emergency.createdAt)} · ${robot}`;
     return <FaixaEmergencia titulo={titulo} detalhe={detalhe} demo={demo} compacta={ateTablet} onVerCasa={() => abrirCasa(emergency.indoorRoom ?? undefined)} />;
   })() : undefined;
@@ -150,14 +154,15 @@ export const App: React.FC = () => {
           {view === 'monitorar' && <MonitorarView device={device} alerts={alerts} routeHistory={routeHistory} routeDemo={routeDemo} demo={demo} />}
           {view === 'camera' && <LiveMonitoringView device={device} alerts={alerts} layout={robo.layout} demo={demo}
             onTriggerAlert={() => { void fetchData(); }} onResolver={id => void handleResolveAlert(id)} />}
-          {view === 'configuracoes' && <SettingsView geofenceRadius={geofenceRadius} onUpdateGeofenceRadius={setGeofenceRadius} deviceId={device.deviceId} />}
+          {view === 'configuracoes' && <ConfiguracoesView deviceId={device.deviceId} pessoa={pessoa} />}
         </>}
       </main>
 
       {ateTablet && <BarraInferior view={view} onSelecionar={selecionar} />}
 
-      <Camada aberta={camada === 'avisos'} onFechar={fecharCamada} modo={celular ? 'folha' : 'popover'} titulo="Avisos" className="camada-avisos">
-        <AlertCenter alerts={alerts} onResolve={handleResolveAlert} />
+      <Camada aberta={camada === 'avisos'} onFechar={fecharCamada} modo={celular ? 'folha' : 'popover'} titulo="Avisos" className="camada-avisos"
+        extra={<button className="btn-link avisos-marcar" onClick={() => avisosVistos.marcar(alerts.map(a => a.id))}>Marcar como vistos</button>}>
+        <CentralAvisos alerts={alerts} layout={robo.layout} onResolver={id => void handleResolveAlert(id)} onVerNoMapa={() => irPara('monitorar')} />
       </Camada>
       <Camada aberta={camada === 'conta'} onFechar={fecharCamada} modo={celular ? 'folha' : 'popover'} titulo="Sua conta"
         semCabecalho={!celular} className="camada-conta">
@@ -165,7 +170,10 @@ export const App: React.FC = () => {
           onConfiguracoes={() => irPara('configuracoes')} onSimulador={() => setCamada('simulador')}
           onSair={() => { setCamada(null); void auth.logout(); }} />
       </Camada>
-      <SimulatorModal isOpen={camada === 'simulador'} onClose={fecharCamada} onRefresh={fetchData} />
+      <Camada aberta={camada === 'simulador'} onFechar={fecharCamada} modo={celular ? 'folha' : 'lateral'} titulo="Simulador da apresentação" className="camada-simulador">
+        <Simulador layout={robo.layout} demo={demo} onAtualizar={() => { void fetchData(); void robo.atualizar(); }}
+          onSairDemo={() => { setCamada(null); robotApi.stopDemo(); setNeedsLogin(true); }} />
+      </Camada>
     </div>
   );
 };

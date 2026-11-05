@@ -146,7 +146,7 @@
 .is-emergencia .camada-popover .camada-painel { top: 96px; }
 
 .camada-lateral .camada-painel {
-  top: 16px; right: 16px; bottom: 16px; width: 440px; max-width: calc(100vw - 32px); border-radius: 20px;
+  top: 0; right: 0; bottom: 0; width: 440px; max-width: 100vw; border-radius: 0; border: none; border-left: 1px solid var(--borda-padrao);
 }
 
 .camada-folha .camada-painel {

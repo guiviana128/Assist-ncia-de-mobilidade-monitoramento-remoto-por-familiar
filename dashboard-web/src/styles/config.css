@@ -1,0 +1,144 @@
+/* Configurações (Figma 29:1474, 36:2655), Central de avisos (30:1556, 36:2865) e Simulador (30:1800, 36:2990). */
+
+/* ---------- Configurações ---------- */
+.config { display: flex; flex-direction: column; gap: 20px; }
+.config > .frase-estado { padding-left: 8px; }
+.config > .frase-estado .frase { font-size: 32px; line-height: 40px; }
+.config-grade { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; align-items: start; }
+.config-indice { position: sticky; top: 120px; }
+.config-indice ul { display: flex; flex-direction: column; gap: 2px; }
+.config-indice-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 12px;
+  font-size: 14px; line-height: 20px; font-weight: 600; color: var(--texto-principal); text-align: left;
+}
+.config-indice-item:hover { background: var(--superficie-rebaixada); }
+.config-indice-item.is-ativo { background: var(--acento-suave); color: var(--acento-forte); font-weight: 700; }
+.config-secoes { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.config-secao { display: flex; flex-direction: column; gap: 8px; padding: 22px 24px 16px; scroll-margin-top: 120px; }
+.config-cabecalho { display: flex; align-items: flex-start; gap: 16px; }
+.config-cabecalho > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.config-lista { display: flex; flex-direction: column; }
+.config-lista > li { display: flex; align-items: center; gap: 16px; min-height: 64px; padding: 12px 0; }
+.config-lista > li + li { border-top: 1px solid var(--borda-padrao); }
+.config-textos { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.config-textos strong { font-size: 14px; line-height: 20px; }
+.config-textos span { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
+
+.remedio-hora { width: 58px; flex-shrink: 0; font-family: var(--fonte-titulo); font-size: 20px; line-height: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.remedio-status { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--texto-secundario); white-space: nowrap; }
+.remedio-status.is-proximo { color: var(--acento-forte); }
+.remedio.is-desligado .remedio-hora, .remedio.is-desligado .config-textos { opacity: .55; }
+.config-remover { width: 36px; height: 36px; color: var(--texto-secundario); }
+.config-novo { display: grid; grid-template-columns: minmax(0, 1fr) 140px auto; gap: 12px; align-items: end; padding: 12px; border-radius: 14px; background: var(--superficie-fundo); }
+.config-novo-botoes { display: flex; gap: 8px; }
+
+.contato-ordem { width: 24px; font-size: 13px; font-weight: 600; color: var(--texto-secundario); }
+.contato-avatar.is-perigo-suave { background: var(--perigo-fundo); color: var(--perigo-texto); font-size: 13px; }
+.contato-avatar.is-aviso-suave { background: var(--aviso-fundo); color: var(--aviso-texto); font-size: 13px; }
+.contato-quando { flex: 1; }
+.contato-cfg .btn-link { flex-shrink: 0; font-size: 13px; }
+
+.config-areas { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 24px; align-items: start; padding-top: 8px; }
+.config-mapa { height: 232px; }
+.area-ponto { display: block; width: 10px; height: 10px; border-radius: 999px; border: 2px solid #fff; }
+.area-rotulo { padding: 2px 6px; border: none; border-radius: 6px; box-shadow: var(--sombra-controle); font: 700 11px/14px var(--fonte-corpo); color: var(--texto-principal); }
+.area-rotulo::before { display: none; }
+.area-cor { width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; }
+.area-raio { font-size: 13px; font-weight: 600; color: var(--texto-secundario); white-space: nowrap; }
+.area.is-desligada .config-textos strong { color: var(--texto-secundario); }
+
+.pref .segmento { flex-shrink: 0; }
+.config-salvo { display: flex; align-items: center; gap: 6px; padding-top: 6px; }
+
+@media (max-width: 1023px) {
+  .config > .frase-estado { padding-left: 0; }
+  .config-grade { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .config-indice { position: sticky; top: 68px; z-index: 10; margin: 0 calc(-1 * var(--margem-pagina)); padding: 4px var(--margem-pagina) 8px; background: var(--superficie-fundo); }
+  .config-indice ul { flex-direction: row; gap: 8px; }
+  .config-indice .fila-rolavel { padding: 0; }
+  .config-areas { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .config-indice ul { overflow-x: auto; }
+  .config-indice-item { width: auto; white-space: nowrap; border: 1px solid var(--borda-padrao); background: var(--superficie-base); border-radius: 999px; min-height: 40px; }
+  .config-indice-item.is-ativo { border-color: var(--acento); }
+}
+@media (max-width: 767px) {
+  .config { gap: 16px; }
+  .config > .frase-estado .frase { font-size: 26px; line-height: 32px; }
+  .config-secao { padding: 16px; scroll-margin-top: 130px; }
+  .config-cabecalho { flex-direction: column; gap: 10px; }
+  .config-cabecalho .texto-pequeno { display: none; }
+  .config-lista > li { gap: 12px; flex-wrap: wrap; }
+  .remedio-status { display: none; }
+  .remedio-hora { width: 52px; font-size: 18px; }
+  .config-novo { grid-template-columns: 1fr 1fr; }
+  .config-novo .campo:first-child { grid-column: 1 / -1; }
+  .config-novo-botoes { grid-column: 1 / -1; justify-content: flex-end; }
+  .pref { flex-direction: column; align-items: stretch !important; }
+  .pref:has(.interruptor) { flex-direction: row; align-items: center !important; }
+  .pref .segmento { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .config-mapa { height: 180px; }
+}
+
+/* ---------- Central de avisos ---------- */
+.camada-avisos .camada-cabecalho { padding: 18px 20px 8px; }
+.avisos { display: flex; flex-direction: column; }
+.avisos-topo { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 0 20px 16px; border-bottom: 1px solid var(--borda-padrao); }
+.avisos-marcar { min-height: 36px; padding: 0; font-size: 13px; }
+.avisos-filtros { display: grid; grid-template-columns: repeat(4, 1fr); }
+.avisos-filtros button { padding: 8px 6px; }
+.avisos-lista { padding: 8px 0; }
+.avisos-grupo { padding: 12px 20px 4px; font-size: 12px; }
+.avisos-vazio { padding: 24px 20px; text-align: center; font-size: 14px; }
+.aviso { display: flex; gap: 12px; padding: 10px 20px; }
+.aviso-icone {
+  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; flex-shrink: 0;
+  background: var(--superficie-fundo); color: var(--texto-secundario);
+}
+.aviso.is-sucesso .aviso-icone { background: var(--sucesso-fundo); color: var(--sucesso-texto); }
+.aviso.is-aviso .aviso-icone { background: var(--aviso-fundo); color: var(--aviso-texto); }
+.aviso.is-perigo .aviso-icone { background: var(--perigo-fundo); color: var(--perigo); }
+.aviso.is-perigo.is-pendente { background: var(--perigo-fundo); }
+.aviso.is-perigo.is-pendente .aviso-icone { background: var(--superficie-base); }
+.aviso-corpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.aviso-linha { display: flex; align-items: baseline; gap: 8px; }
+.aviso-linha strong { flex: 1; min-width: 0; font-size: 14px; line-height: 20px; }
+.aviso.is-perigo.is-pendente .aviso-linha strong { color: var(--perigo-texto); }
+.aviso-hora { font-size: 12px; font-weight: 500; color: var(--texto-secundario); font-variant-numeric: tabular-nums; }
+.aviso-nao-lido { width: 8px; height: 8px; border-radius: 999px; background: var(--acento); flex-shrink: 0; align-self: center; }
+.aviso-corpo p { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--texto-secundario); overflow-wrap: anywhere; }
+.aviso-acoes { display: flex; flex-wrap: wrap; gap: 0 14px; }
+.aviso-acoes .btn-link { min-height: 36px; padding: 0; font-size: 13px; }
+.aviso-acoes .btn-link.is-forte { color: var(--perigo-texto); }
+.avisos-rodape { padding: 10px 20px 14px; border-top: 1px solid var(--borda-padrao); }
+.nota.is-perigo.com-ponto::before { background: var(--perigo); }
+
+/* ---------- Simulador ---------- */
+.camada-simulador .camada-cabecalho { padding: 22px 20px 4px 24px; }
+.camada-simulador .camada-titulo { font-size: 22px; line-height: 28px; }
+.simulador { display: flex; flex-direction: column; min-height: 100%; }
+.simulador-intro { padding: 0 24px 16px; font-size: 13px; line-height: 18px; border-bottom: 1px solid var(--borda-padrao); }
+.simulador-feedback { margin: 12px 24px 0; }
+.sim-secao { display: flex; flex-direction: column; gap: 8px; padding: 18px 24px; border-bottom: 1px solid var(--borda-padrao); }
+.sim-titulo { font-family: var(--fonte-corpo); font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--texto-secundario); }
+.sim-comodo { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 6px; }
+.sim-comodo .chip { min-height: 36px; }
+.sim-evento { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+.sim-icone { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; flex-shrink: 0; background: var(--superficie-fundo); color: var(--texto-secundario); }
+.sim-icone.is-perigo { background: var(--perigo-fundo); color: var(--perigo); }
+.sim-icone.is-aviso { background: var(--aviso-fundo); color: var(--aviso-texto); }
+.sim-icone.is-sucesso { background: var(--sucesso-fundo); color: var(--sucesso-texto); }
+.sim-icone.is-acento { background: var(--acento-suave); color: var(--acento-forte); }
+.sim-textos { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.sim-textos strong { font-size: 15px; line-height: 20px; }
+.sim-textos span { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
+.sim-botao { min-width: 78px; min-height: 40px; padding: 8px 14px; font-size: 13px; }
+.sim-posicoes { display: grid; grid-template-columns: repeat(3, 1fr); }
+.sim-secao > .btn-secundario { align-self: flex-start; }
+.simulador-rodape { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 16px 24px 20px; border-top: 1px solid var(--borda-padrao); }
+
+@media (max-width: 767px) {
+  .camada-folha .camada-simulador .camada-cabecalho, .camada-folha.camada .camada-avisos .camada-cabecalho { padding-top: 10px; }
+  .sim-secao, .simulador-intro { padding-left: 16px; padding-right: 16px; }
+}

@@ -76,7 +76,7 @@ export const InicioView: React.FC<InicioViewProps> = ({ device, alerts, layout, 
   const limite = diaTodo ? itens.length : emergencia ? (celular ? 3 : 6) : celular || ateTablet ? 3 : 5;
   const visiveis = itens.slice(0, limite);
   const hhmm = horaCurta(agora);
-  const maisTarde = remedios.filter(r => r.hora > hhmm).slice(0, celular || ateTablet ? 0 : 2);
+  const maisTarde = remedios.filter(r => r.ativo && r.hora > hhmm).slice(0, celular || ateTablet ? 0 : 2);
 
   // ---- fatos
   const prox = proximoRemedio(remedios, agora);

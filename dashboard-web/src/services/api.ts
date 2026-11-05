@@ -131,7 +131,7 @@ export const api = {
       if (!res.ok) throw new Error('API Error');
       return { success: true, message: 'Comando de localização sonoro e luminoso emitido para a dispositivo de assistência!' };
     } catch {
-      return { success: true, message: '🔔 Dispositivo Localizada! Alarme sonoro e farol LED ativados por 10s.' };
+      return { success: true, message: 'Bengala localizada: apito e farol ligados por 10 s.' };
     }
   },
 

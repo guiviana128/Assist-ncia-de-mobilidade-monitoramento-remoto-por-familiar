@@ -6,7 +6,7 @@ import { HouseScene } from './house3d/HouseScene';
 import { FALLBACK_LAYOUT, findRoom, pathLength, planPath, roomAt, roomName } from '../robot/houseLayout';
 import { robotApi } from '../services/robotApi';
 import { ApiError, AuthRequiredError } from '../services/auth';
-import { CELULAR, useMediaQuery } from '../hooks/useMediaQuery';
+import { ATE_TABLET, CELULAR, useMediaQuery } from '../hooks/useMediaQuery';
 import { artigo, comodoCurto, deComodo, emergenciaPendente, haQuanto, naNo } from '../lib/resumoDoEstado';
 import { horaCurta } from '../lib/avisos';
 import { useCuidado } from '../lib/cuidado';
@@ -78,6 +78,7 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
   const vistaRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HouseScene | null>(null);
   const celular = useMediaQuery(CELULAR);
+  const ateTablet = useMediaQuery(ATE_TABLET);
   const { telefonePessoa } = useCuidado();
 
   const [layout, setLayout] = useState<HouseLayout>(FALLBACK_LAYOUT);
@@ -186,7 +187,8 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
   }, [robot, emergency, personRoom, mission, layout, camadas, pessoa]);
 
   // Em socorro a câmera do robô vira a vista principal (a pessoa pode trocar de volta)
-  const vistaTrocada = trocado ?? socorro;
+  // A troca de vistas é só do computador; no tablet e no celular a câmera do robô tem painel próprio
+  const vistaTrocada = !ateTablet && (trocado ?? socorro);
   useEffect(() => { setTrocado(null); }, [socorro]);
 
   // ---------------------------------------------------------------- comandos
