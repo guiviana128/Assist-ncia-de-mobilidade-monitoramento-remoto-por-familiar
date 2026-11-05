@@ -1,0 +1,166 @@
+/* Câmera e SOS (Figma 27:1254, 27:1485, 31:1950; celular 35:2659, 35:2802). */
+
+.camera { display: flex; flex-direction: column; gap: 20px; }
+.camera > .frase-estado { padding-left: 8px; }
+.camera > .frase-estado .frase { font-size: 32px; line-height: 40px; }
+.camera > .frase-estado .frase-detalhe { font-size: 14px; line-height: 20px; }
+.camera.is-gesto > .frase-estado { padding-top: 12px; }
+
+.camera-grade { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+.camera-principal, .camera-lateral { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+/* Painel da câmera */
+.camera-painel { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px 20px; }
+.camera-painel.is-gesto { border-color: var(--perigo-borda); }
+.camera-cabecalho { display: flex; align-items: center; gap: 16px; }
+.camera-cabecalho .titulo-painel { margin-right: 4px; }
+.camera-fontes { display: flex; gap: 8px; flex: 1; }
+.camera-fontes .chip-comodo { width: 162px; }
+.camera-video {
+  position: relative; aspect-ratio: 938 / 500; border-radius: 14px; overflow: hidden; background: var(--superficie-rebaixada);
+}
+.camera-video.is-gesto { outline: 3px solid var(--perigo); outline-offset: -3px; }
+.camera-video:fullscreen { border-radius: 0; }
+.camera-video-oculto { display: none; }
+.camera-canvas { display: block; width: 100%; height: 100%; object-fit: cover; }
+.camera-canvas[hidden] { display: none; }
+.camera-tag-vivo { position: absolute; top: 14px; left: 14px; z-index: 2; }
+.camera-tag-detector { position: absolute; top: 14px; right: 14px; z-index: 2; background: var(--superficie-base); }
+.camera-tag-detector.is-sucesso { color: var(--texto-principal); }
+.camera-tag-detector.is-sucesso::before { background: var(--sucesso-ponto); box-shadow: none; }
+.camera-tag-detector.is-perigo { color: var(--texto-principal); }
+.camera-tag-detector.is-perigo::before { background: var(--perigo); box-shadow: none; }
+.camera-tag-detector.is-aviso { color: var(--aviso-texto); }
+.camera-alerta-gesto {
+  position: absolute; left: 14px; bottom: 14px; z-index: 2; display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; border-radius: 10px; background: var(--perigo); color: var(--texto-invertido);
+}
+.camera-alerta-gesto > span { display: flex; flex-direction: column; }
+.camera-alerta-gesto strong { font-size: 14px; line-height: 20px; }
+.camera-alerta-gesto span span { font-size: 12px; line-height: 16px; font-weight: 500; }
+
+.camera-desligada {
+  position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 24px; text-align: center; background: var(--superficie-rebaixada);
+}
+.camera-desligada h2 { font-size: 20px; line-height: 26px; }
+.camera-desligada p { max-width: 380px; font-size: 13px; line-height: 18px; color: var(--texto-secundario); }
+.camera-desligada-icone { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 999px; background: var(--superficie-base); color: var(--texto-principal); }
+
+.olhos-robo { position: absolute; inset: 0; }
+.olhos-robo-casa { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.olhos-robo-video { position: absolute; inset: 0; background: #DFE7F1; }
+.olhos-robo-video > canvas { display: block; width: 100% !important; height: 100% !important; }
+
+.camera-rodape { display: flex; align-items: center; gap: 12px; }
+.camera-privacidade { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.camera-controles { display: flex; gap: 8px; flex-shrink: 0; }
+.camera-controles .btn { min-height: 40px; padding: 9px 14px; font-size: 13px; }
+.camera-controles .btn-so-icone { width: 40px; padding: 0; }
+.ponto-gravar { width: 10px; height: 10px; border-radius: 999px; background: var(--perigo); flex-shrink: 0; }
+.btn.is-gravando { border-color: var(--perigo-borda); background: var(--perigo-fundo); color: var(--perigo-texto); }
+.btn.is-gravando .ponto-gravar { border-radius: 2px; }
+.camera-nota-robo { margin-top: -4px; }
+
+/* Como José pede ajuda */
+.camera-passos { display: flex; flex-direction: column; gap: 4px; padding: 20px 24px; }
+.camera-passos.is-gesto { border-color: var(--perigo-borda); }
+.passos-gesto { display: flex; gap: 0; margin-top: 12px; }
+.passo-gesto { position: relative; display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+.passo-gesto-icone {
+  display: grid; place-items: center; width: 56px; height: 56px; border-radius: 999px; flex-shrink: 0;
+  background: var(--superficie-fundo); color: var(--texto-principal);
+}
+.passo-gesto-textos { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.passo-gesto-textos strong { font-size: 15px; line-height: 22px; }
+.passo-gesto-textos span { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
+.passo-gesto-textos .passo-gesto-estado { font-weight: 700; color: var(--texto-principal); }
+.passo-gesto-ligacao { width: 40px; height: 2px; margin: 0 16px; background: var(--borda-padrao); flex-shrink: 0; }
+.passo-gesto.is-visto .passo-gesto-icone { background: var(--superficie-base); border: 2px solid var(--perigo); color: var(--perigo); }
+.passo-gesto.is-visto .passo-gesto-estado, .passo-gesto-hora { color: var(--perigo-texto); }
+.passo-gesto.is-visto .passo-gesto-ligacao { background: var(--perigo); }
+.passo-gesto-hora { margin-left: auto; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Lateral */
+.camera-fazer { display: flex; flex-direction: column; gap: 12px; padding: 20px; border-color: var(--perigo-borda); }
+.camera-fazer .btn-grande { min-height: 48px; }
+.camera-engano { justify-content: center; color: var(--texto-secundario); }
+.camera-ate-agora { display: flex; flex-direction: column; gap: 8px; padding: 20px 12px 12px; }
+.camera-ate-agora .titulo-painel { padding: 0 12px; }
+
+.camera-ajuda { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
+.contatos { display: flex; flex-direction: column; gap: 8px; }
+.contato { display: flex; align-items: center; gap: 12px; }
+.contato-avatar {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; flex-shrink: 0;
+  font-weight: 700; font-size: 14px;
+}
+.contato-avatar.is-pessoa { background: var(--pessoa-suave); color: var(--pessoa); }
+.contato-avatar.is-acento { background: var(--acento-suave); color: var(--acento-forte); }
+.contato-avatar.is-perigo { background: var(--perigo); color: var(--texto-invertido); font-size: 13px; }
+.contato-textos { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.contato-textos strong { font-size: 14px; line-height: 20px; }
+.contato-textos span { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
+.contato .btn { min-height: 40px; padding: 8px 14px; }
+.contato.is-samu { padding: 10px 12px; margin: 0 -8px; border-radius: 12px; background: var(--perigo-fundo); }
+.contato.is-samu strong { color: var(--perigo-texto); }
+.camera-endereco { display: flex; gap: 10px; padding-top: 12px; border-top: 1px solid var(--borda-padrao); color: var(--texto-secundario); }
+.camera-endereco svg { flex-shrink: 0; margin-top: 2px; }
+.camera-endereco > span { display: flex; flex-direction: column; }
+.camera-endereco span span { font-size: 12px; line-height: 16px; font-weight: 500; }
+.camera-endereco strong { font-size: 14px; line-height: 20px; color: var(--texto-principal); }
+
+.camera-sensibilidade { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+.camera-sensibilidade .segmento { display: grid; grid-template-columns: repeat(3, 1fr); }
+.camera-pedidos { display: flex; flex-direction: column; gap: 8px; padding: 20px 8px 8px; }
+.camera-pedidos .titulo-painel, .camera-pedidos > .texto-pequeno { padding: 0 12px; }
+.camera-clipes { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
+.clipes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.clipes li { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--texto-secundario); }
+.clipes strong { margin-top: 6px; font-size: 14px; color: var(--texto-principal); }
+.clipe { position: relative; display: block; aspect-ratio: 163 / 96; border-radius: 10px; overflow: hidden; background: var(--superficie-rebaixada); }
+.clipe img { width: 100%; height: 100%; object-fit: cover; }
+.clipe-baixar { position: absolute; right: 6px; bottom: 6px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; background: var(--superficie-base); color: var(--texto-principal); }
+
+@media (max-width: 1240px) {
+  .camera-grade { grid-template-columns: minmax(0, 1fr) 340px; }
+  .camera-rodape { flex-wrap: wrap; }
+  .camera-controles .btn span:not(.ponto-gravar) { display: none; }
+  .camera-controles .btn { width: 44px; min-height: 44px; padding: 0; }
+  .camera-fontes .chip-comodo { width: auto; flex: 1; }
+}
+
+@media (max-width: 1023px) {
+  .camera-grade { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .camera > .frase-estado { padding-left: 0; }
+  .camera-cabecalho { flex-wrap: wrap; }
+  .passos-gesto { flex-direction: column; gap: 10px; }
+  .passo-gesto-ligacao { display: none; }
+}
+
+@media (max-width: 767px) {
+  .camera { gap: 16px; }
+  .camera > .frase-estado .frase { font-size: 26px; line-height: 32px; }
+  .camera > .frase-estado .frase-detalhe { font-size: 13px; line-height: 18px; }
+  .camera-painel { padding: 0; border: none; background: transparent; gap: 12px; }
+  .camera-fontes-celular { display: grid; grid-template-columns: 1fr 1fr; }
+  .camera-video { aspect-ratio: 358 / 240; border-radius: 14px; }
+  .camera-video.is-gesto { outline-width: 3px; }
+  .camera-tag-vivo { top: 10px; left: 10px; }
+  .camera-tag-detector { top: 10px; right: 10px; }
+  .camera-alerta-gesto { display: none; }
+  .camera-rodape { display: block; }
+  .camera-controles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .camera-controles .btn { width: auto; min-height: 44px; border-radius: 12px; }
+  .camera-passos { padding: 16px; }
+  .passos-gesto { margin-top: 8px; }
+  .passo-gesto-icone { width: 44px; height: 44px; }
+  .passo-gesto.is-visto .passo-gesto-icone { background: var(--perigo-fundo); border: none; }
+  .passo-gesto-textos strong { font-size: 16px; }
+  .passo-gesto-textos span { font-size: 14px; line-height: 20px; }
+  .camera-fazer { padding: 16px; }
+  .camera-engano { color: var(--acento-forte); }
+  .camera-ajuda { padding: 16px; }
+  .contato .btn { min-height: 44px; font-size: 15px; }
+  .contato.is-samu { margin: 0; padding: 0; background: none; }
+}

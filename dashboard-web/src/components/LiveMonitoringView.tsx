@@ -1,17 +1,26 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { 
-  Video, Circle, Download, Camera, Square, RefreshCw, Zap, CheckCircle2, 
-  MapPin, Hand, PhoneCall, X, Phone
-} from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Bot, Camera, Download, Lock, MapPin, Maximize2, Moon, Phone, RotateCcw, Video } from 'lucide-react';
 import { api } from '../services/api';
 import { visionApi } from '../services/visionApi';
+import { robotApi } from '../services/robotApi';
 import type { VisionMetadata } from '../services/visionApi';
-import { DeviceStatus } from '../types';
+import type { Alert, DeviceStatus } from '../types';
+import type { HouseLayout } from '../types/robot';
+import { MaoAberta, MaoFechada, MaoPolegar } from './ui/MaoIcones';
+import { ItemLinhaDoTempo } from './ui/LinhaDoTempo';
+import { OlhosDoRobo } from './camera/OlhosDoRobo';
+import { useCuidado } from '../lib/cuidado';
+import { artigo, comodoCurto, deComodo, naNo, nomePessoa } from '../lib/resumoDoEstado';
+import { horaCurta, ehHoje, limparTexto, tituloAviso, tomAviso } from '../lib/avisos';
+import { CELULAR, useMediaQuery } from '../hooks/useMediaQuery';
 
 interface LiveMonitoringViewProps {
   device?: DeviceStatus;
-  userAddress?: string;
+  alerts: Alert[];
+  layout: HouseLayout;
+  demo: boolean;
   onTriggerAlert?: (type: string, message: string) => void;
+  onResolver: (alertId: number) => void;
 }
 
 interface RecordedClip {
@@ -21,962 +30,568 @@ interface RecordedClip {
   name: string;
   durationSec: number;
   timestamp: string;
-  threatLevel: string;
-  triggerReason: string;
+  thumb?: string;
+  fonte: string;
 }
 
-export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
-  device,
-  userAddress = 'Av. Paulista, 1000 - Bela Vista, São Paulo - SP',
-  onTriggerAlert
-}) => {
-  // Câmera Real do Notebook / Celular
+type Sensibilidade = 'ultra' | 'balanced' | 'low';
+type Fonte = 'robo' | 'notebook';
+
+const SENSIBILIDADE: Record<Sensibilidade, { rotulo: string; texto: string; intervalo: number }> = {
+  ultra: { rotulo: 'Rápido', texto: 'Confirma mais depressa; um gesto parecido pode gerar aviso.', intervalo: 450 },
+  balanced: { rotulo: 'Equilibrado', texto: 'Confirma em cerca de 3 segundos e não dispara com um aceno comum.', intervalo: 650 },
+  low: { rotulo: 'Preciso', texto: 'Espera o gesto completo e firme; leva um pouco mais para confirmar.', intervalo: 900 }
+};
+
+const PASSOS = [
+  { titulo: 'Mão aberta', detalhe: 'Palma virada para a câmera', Icone: MaoAberta },
+  { titulo: 'Polegar dobrado', detalhe: 'O polegar encosta na palma', Icone: MaoPolegar },
+  { titulo: 'Dedos fecham', detalhe: 'Os dedos prendem o polegar', Icone: MaoFechada }
+];
+
+/** Quais passos do Signal for Help o detector já viu, a partir da fase devolvida pelo OpenCV. */
+function passosVistos(m: VisionMetadata | null): [boolean, boolean, boolean] {
+  if (!m) return [false, false, false];
+  const fase = m.gesture.phase;
+  const p3 = m.gesture.confirmed || fase === 'THUMB_TRAPPED';
+  const p2 = p3 || fase === 'OPEN_PALM_THUMB_TUCKED';
+  const p1 = p2 || m.handDetected;
+  return [p1, p2, p3];
+}
+
+const segundosRelogio = (t: number) => new Date(t).toLocaleTimeString('pt-BR');
+
+export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({ device, alerts, layout, demo, onTriggerAlert, onResolver }) => {
+  const celular = useMediaQuery(CELULAR);
+  const { contatos, telefonePessoa, endereco } = useCuidado();
+  const pessoa = nomePessoa(device);
+
+  // Câmera real do notebook / celular
+  const [fonte, setFonte] = useState<Fonte>('notebook');
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraFacing, setCameraFacing] = useState<'user' | 'environment'>('user');
-  const [, setCameraError] = useState<string | null>(null);
-  
-  // Gravação ao Vivo Contínua
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  // Gravação local
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [recordedClips, setRecordedClips] = useState<RecordedClip[]>([]);
-  
-  // Reconhecimento de Sinal com a Mão (SOS)
-  const [isHandGestureEnabled, setIsHandGestureEnabled] = useState(true);
-  const [handConfidence, setHandConfidence] = useState(0); // 0% a 100%
-  const [handHoldProgress, setHandHoldProgress] = useState(0); // 0 a 100
-  const [isHandDetected, setIsHandDetected] = useState(false);
-  const [sensitivity, setSensitivity] = useState<'ultra' | 'balanced' | 'low'>('ultra');
-  const [showEmergencyCallModal, setShowEmergencyCallModal] = useState(false);
 
-  // Ajustes de Vigilância
+  // Reconhecimento do Signal for Help
+  const [isHandGestureEnabled, setIsHandGestureEnabled] = useState(true);
+  const [sensitivity, setSensitivity] = useState<Sensibilidade>('balanced');
   const [nightVisionEnhance, setNightVisionEnhance] = useState(false);
-  const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ texto: string; erro?: boolean } | null>(null);
   const [visionMetadata, setVisionMetadata] = useState<VisionMetadata | null>(null);
+  const [visionOnline, setVisionOnline] = useState<boolean | null>(null);
+  const [confirmadoLocal, setConfirmadoLocal] = useState<{ quando: number; acaoId?: number } | null>(null);
+  const [vistos, setVistos] = useState<(number | null)[]>([null, null, null]);
+  const [roboEnviado, setRoboEnviado] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const molduraRef = useRef<HTMLDivElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
-  const recordTimerRef = useRef<any>(null);
+  const recordTimerRef = useRef<number | null>(null);
+  const recordingTimeRef = useRef(0);
   const streamRef = useRef<MediaStream | null>(null);
   const emergencyTriggeredRef = useRef(false);
   const visionBusyRef = useRef(false);
   const visionSessionIdRef = useRef(
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `vision-${Date.now()}`
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `vision-${Date.now()}`
   );
 
-  const showToast = (msg: string) => {
-    setFeedbackToast(msg);
-    setTimeout(() => setFeedbackToast(null), 3500);
+  const avisar = (texto: string, erro = false) => {
+    setFeedback({ texto, erro });
+    window.setTimeout(() => setFeedback(null), 4000);
   };
 
-  // Inicializar Câmera Real do Notebook ou Celular
+  // Pedido de ajuda pela câmera: alerta pendente (inclusive o do Simulador) ou confirmação local
+  const alertaGesto = alerts.find(a => a.alertType === 'HAND_GESTURE_SOS' && a.status === 'PENDING');
+  const gestoAtivo = !!alertaGesto || !!confirmadoLocal;
+  const quandoGesto = alertaGesto ? new Date(alertaGesto.createdAt).getTime() : confirmadoLocal?.quando ?? Date.now();
+  const comodoGesto = comodoCurto(layout, alertaGesto?.indoorRoom);
+
+  // ---------------------------------------------------------------- câmera
   const startRealCamera = async (facing: 'user' | 'environment' = cameraFacing) => {
     try {
       setCameraError(null);
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-      }
-
-      const constraints: MediaStreamConstraints = {
-        video: {
-          facingMode: facing,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
+      if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      });
       streamRef.current = stream;
-
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play().catch(console.error);
-        };
+        videoRef.current.onloadedmetadata = () => { videoRef.current?.play().catch(console.error); };
       }
-
       setCameraActive(true);
       setCameraFacing(facing);
-      showToast('📷 Câmera conectada. Faça a sequência completa do Signal for Help para solicitar uma verificação segura.');
-
-    } catch (err: any) {
+    } catch (err) {
       console.error('Erro câmera:', err);
       setCameraActive(false);
-      setCameraError('Permita o acesso à câmera para ver a imagem real.');
-      showToast('⚠️ Clique no botão "Ativar Minha Câmera" e permita o acesso no navegador.');
+      setCameraError('O navegador não liberou a câmera.');
     }
   };
 
-  // Alternar Câmera Frontal / Traseira
-  const toggleCameraFacing = () => {
-    const nextFacing = cameraFacing === 'user' ? 'environment' : 'user';
-    startRealCamera(nextFacing);
-  };
+  const toggleCameraFacing = () => { void startRealCamera(cameraFacing === 'user' ? 'environment' : 'user'); };
 
-  // Iniciar Gravação de Vídeo Real da Câmera
+  // ---------------------------------------------------------------- gravação
   const startRecording = () => {
     try {
       recordedChunksRef.current = [];
       let streamToRecord: MediaStream | null = streamRef.current;
-
-      if (!streamToRecord && canvasRef.current) {
-        streamToRecord = canvasRef.current.captureStream(30);
-      }
-
+      if (!streamToRecord && canvasRef.current) streamToRecord = canvasRef.current.captureStream(30);
       if (!streamToRecord) return;
 
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
-        ? 'video/webm;codecs=vp9' 
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
         : (MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : 'video/mp4');
-
       const recorder = new MediaRecorder(streamToRecord, { mimeType });
+      const thumb = canvasRef.current?.toDataURL('image/jpeg', 0.6);
 
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-
+      recorder.ondataavailable = event => { if (event.data && event.data.size > 0) recordedChunksRef.current.push(event.data); };
       recorder.onstop = () => {
         const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-        const videoUrl = URL.createObjectURL(blob);
-        const clip: RecordedClip = {
+        const agora = new Date();
+        setRecordedClips(prev => [{
           id: Date.now().toString(),
-          url: videoUrl,
+          url: URL.createObjectURL(blob),
           blob,
-          name: `Evidencia_Gesto_Mao_${new Date().toLocaleTimeString().replace(/:/g, '-')}.webm`,
-          durationSec: recordingTime || 5,
-          timestamp: new Date().toLocaleTimeString(),
-          threatLevel: 'EMERGENCY',
-          triggerReason: '✋ Sinal com a Mão (SOS) Reconhecido'
-        };
-
-        setRecordedClips(prev => [clip, ...prev]);
+          name: `Amparo_clipe_${agora.toLocaleTimeString('pt-BR').replace(/:/g, '-')}.webm`,
+          durationSec: recordingTimeRef.current || 1,
+          timestamp: horaCurta(agora),
+          thumb,
+          fonte: cameraFacing === 'user' ? 'Notebook' : 'Câmera traseira'
+        }, ...prev]);
       };
 
       recorder.start(1000);
       mediaRecorderRef.current = recorder;
+      recordingTimeRef.current = 0;
+      setRecordingTime(0);
       setIsRecording(true);
-
       if (!recordTimerRef.current) {
-        recordTimerRef.current = setInterval(() => {
-          setRecordingTime(prev => prev + 1);
+        recordTimerRef.current = window.setInterval(() => {
+          recordingTimeRef.current += 1;
+          setRecordingTime(recordingTimeRef.current);
         }, 1000);
       }
     } catch (e) {
       console.error('Erro gravação:', e);
+      avisar('Não foi possível gravar neste navegador.', true);
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
     if (recordTimerRef.current) {
-      clearInterval(recordTimerRef.current);
+      window.clearInterval(recordTimerRef.current);
       recordTimerRef.current = null;
     }
     setIsRecording(false);
   };
 
-  // Confirmação supervisionada do Signal for Help
+  // ---------------------------------------------------------------- confirmação supervisionada
   const triggerHandGestureEmergency = useCallback(async (metadata: VisionMetadata) => {
     if (emergencyTriggeredRef.current) return;
     emergencyTriggeredRef.current = true;
-    setIsHandDetected(true);
+    setConfirmadoLocal({ quando: Date.now() });
 
-    if (isRecording && mediaRecorderRef.current) {
-      mediaRecorderRef.current.requestData();
-    }
+    if (isRecording && mediaRecorderRef.current) mediaRecorderRef.current.requestData();
 
     try {
-      const result = await api.registerVisionEvent(
-        device?.deviceId ?? metadata.deviceId ?? 'ESP32-MOB-001',
-        metadata
-      );
+      const result = await api.registerVisionEvent(device?.deviceId ?? metadata.deviceId ?? 'ESP32-MOB-001', metadata);
       onTriggerAlert?.('HAND_GESTURE_SOS', 'Signal for Help confirmado; revisão humana pendente.');
-      setShowEmergencyCallModal(true);
       const actionId = result.supervisedAction?.id;
-      showToast(
-        actionId
-          ? `🛡️ Sinal confirmado. Proposta supervisionada #${actionId} aguarda revisão.`
-          : '🛡️ Sinal confirmado. Aguardando revisão humana.'
-      );
+      setConfirmadoLocal(c => c ? { ...c, acaoId: actionId } : c);
     } catch {
-      showToast('⚠️ O gesto foi reconhecido, mas não foi possível registrar a proposta supervisionada.');
+      avisar('O gesto foi reconhecido, mas não foi possível registrar o aviso no servidor.', true);
     } finally {
-      window.setTimeout(() => {
-        emergencyTriggeredRef.current = false;
-      }, 8000);
+      window.setTimeout(() => { emergencyTriggeredRef.current = false; }, 8000);
     }
   }, [device?.deviceId, isRecording, onTriggerAlert]);
 
-  // Capturar Foto Snapshot da Câmera Real
   const takeSnapshot = () => {
     if (!canvasRef.current) return;
-    const canvas = canvasRef.current;
-    const imageUri = canvas.toDataURL('image/jpeg', 0.95);
     const link = document.createElement('a');
-    link.download = `Foto_Evidencia_Mao_${Date.now()}.jpg`;
-    link.href = imageUri;
+    link.download = `Amparo_foto_${Date.now()}.jpg`;
+    link.href = canvasRef.current.toDataURL('image/jpeg', 0.95);
     link.click();
-    showToast('📸 Foto capturada e salva com sucesso!');
+    avisar('Foto salva neste aparelho.');
   };
 
-  // Tenta ativar a câmera real automaticamente ao carregar
+  const telaCheia = () => {
+    const el = molduraRef.current;
+    if (!el) return;
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void el.requestFullscreen?.().catch(() => undefined);
+  };
+
+  // Liga a câmera ao abrir a tela (pede a permissão do navegador)
   useEffect(() => {
-    startRealCamera();
+    void startRealCamera();
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-      }
-      if (recordTimerRef.current) {
-        clearInterval(recordTimerRef.current);
-      }
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      if (recordTimerRef.current) window.clearInterval(recordTimerRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Renderização local da câmera e dos metadados retornados pelo OpenCV
+  // Desenho local da câmera e da caixa devolvida pelo OpenCV (sem animação decorativa)
   useEffect(() => {
-    let animationFrameId = 0;
-
+    let frame = 0;
     const renderLoop = () => {
       const canvas = canvasRef.current;
       const video = videoRef.current;
-      if (!canvas) {
-        animationFrameId = requestAnimationFrame(renderLoop);
-        return;
+      const ctx = canvas?.getContext('2d');
+      if (canvas && ctx) {
+        const { width, height } = canvas;
+        if (video && video.readyState >= 2) {
+          ctx.drawImage(video, 0, 0, width, height);
+        } else {
+          ctx.fillStyle = '#EDF1F6';
+          ctx.fillRect(0, 0, width, height);
+        }
+        if (visionMetadata?.boundingBox) {
+          const box = visionMetadata.boundingBox;
+          ctx.strokeStyle = visionMetadata.gesture.confirmed ? '#DC2626' : '#10B981';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(box.x * width, box.y * height, box.width * width, box.height * height);
+        }
+        if (nightVisionEnhance) {
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+          ctx.fillRect(0, 0, width, height);
+        }
       }
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      const { width, height } = canvas;
-
-      if (video && video.readyState >= 2) {
-        ctx.drawImage(video, 0, 0, width, height);
-      } else {
-        ctx.fillStyle = '#090d16';
-        ctx.fillRect(0, 0, width, height);
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Aguardando câmera do notebook ou celular…', width / 2, height / 2);
-        ctx.textAlign = 'start';
-      }
-
-      if (visionMetadata?.boundingBox) {
-        const box = visionMetadata.boundingBox;
-        const color = visionMetadata.gesture.confirmed ? '#ef4444' : '#10b981';
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
-        ctx.strokeRect(box.x * width, box.y * height, box.width * width, box.height * height);
-        ctx.fillStyle = color;
-        ctx.fillRect(box.x * width, Math.max(38, box.y * height - 24), 270, 22);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.fillText(
-          `Signal for Help: ${visionMetadata.gesture.phase} · ${Math.round(visionMetadata.gesture.confidence * 100)}%`,
-          box.x * width + 5,
-          Math.max(53, box.y * height - 9)
-        );
-      }
-
-      if (nightVisionEnhance) {
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
-        ctx.fillRect(0, 0, width, height);
-      }
-
-      ctx.fillStyle = 'rgba(10, 15, 30, 0.88)';
-      ctx.fillRect(0, 0, width, 36);
-      ctx.fillStyle = isRecording ? '#ef4444' : '#10b981';
-      ctx.beginPath();
-      ctx.arc(18, 18, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText(
-        isRecording ? '● REC LOCAL · OPENCV ATIVO' : 'OPENCV LOCAL · METADADOS SEM ARMAZENAR IMAGEM',
-        32,
-        22
-      );
-
-      animationFrameId = requestAnimationFrame(renderLoop);
+      frame = requestAnimationFrame(renderLoop);
     };
-
-    animationFrameId = requestAnimationFrame(renderLoop);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [isRecording, nightVisionEnhance, visionMetadata]);
+    frame = requestAnimationFrame(renderLoop);
+    return () => cancelAnimationFrame(frame);
+  }, [nightVisionEnhance, visionMetadata]);
 
   // Envia quadros reduzidos somente ao serviço local de visão
   useEffect(() => {
-    if (!cameraActive || !isHandGestureEnabled) return;
-
+    if (!cameraActive || !isHandGestureEnabled || fonte !== 'notebook') return;
     let active = true;
     const analyze = async () => {
       const canvas = canvasRef.current;
       if (!canvas || visionBusyRef.current) return;
       visionBusyRef.current = true;
-
       try {
-        const metadata = await visionApi.analyzeFrame(
-          canvas,
-          visionSessionIdRef.current,
-          device?.deviceId ?? 'ESP32-MOB-001'
-        );
+        const metadata = await visionApi.analyzeFrame(canvas, visionSessionIdRef.current, device?.deviceId ?? 'ESP32-MOB-001');
         if (!active) return;
-
+        setVisionOnline(true);
         setVisionMetadata(metadata);
-        setHandConfidence(Math.round(metadata.gesture.confidence * 100));
-        setHandHoldProgress(Math.round(metadata.gesture.sequenceProgress * 100));
-        setIsHandDetected(metadata.gesture.confirmed);
-
-        if (metadata.gesture.confirmed) {
-          await triggerHandGestureEmergency(metadata);
-        }
+        if (metadata.gesture.confirmed) await triggerHandGestureEmergency(metadata);
       } catch {
         // A câmera continua funcionando mesmo se o serviço local estiver indisponível.
+        if (active) setVisionOnline(false);
       } finally {
         visionBusyRef.current = false;
       }
     };
-
     void analyze();
-    const intervalMs = sensitivity === 'ultra' ? 450 : sensitivity === 'balanced' ? 650 : 900;
-    const intervalId = window.setInterval(() => void analyze(), intervalMs);
-    return () => {
-      active = false;
-      window.clearInterval(intervalId);
-    };
-  }, [cameraActive, device?.deviceId, isHandGestureEnabled, sensitivity, triggerHandGestureEmergency]);
+    const intervalId = window.setInterval(() => void analyze(), SENSIBILIDADE[sensitivity].intervalo);
+    return () => { active = false; window.clearInterval(intervalId); };
+  }, [cameraActive, device?.deviceId, fonte, isHandGestureEnabled, sensitivity, triggerHandGestureEmergency]);
+
+  // Hora em que cada passo do gesto foi visto pela primeira vez
+  const [p1, p2, p3] = passosVistos(visionMetadata);
+  useEffect(() => {
+    if (!p1 && !gestoAtivo) { setVistos([null, null, null]); return; }
+    setVistos(v => [v[0] ?? (p1 ? Date.now() : null), v[1] ?? (p2 ? Date.now() : null), v[2] ?? (p3 ? Date.now() : null)]);
+  }, [p1, p2, p3, gestoAtivo]);
+  useEffect(() => { if (!alertaGesto && !emergencyTriggeredRef.current) setConfirmadoLocal(null); }, [alertaGesto]);
+  useEffect(() => { if (!gestoAtivo) setRoboEnviado(false); }, [gestoAtivo]);
+
+  // ---------------------------------------------------------------- ações do pedido de ajuda
+  const destinoRobo = alertaGesto?.indoorRoom ?? robotRoomFallback(layout);
+  const mandarRobo = async () => {
+    try {
+      const m = await robotApi.requestMission({ type: 'GO_TO_ROOM', targetRoom: destinoRobo, reason: 'Gesto de socorro na câmera' });
+      if (m.status === 'CANCELLED') avisar(m.resultMessage ?? 'O robô já está atendendo um socorro.');
+      else { setRoboEnviado(true); avisar(`Robô a caminho ${deComodo(comodoCurto(layout, destinoRobo) ?? 'Sala')}.`); }
+    } catch {
+      avisar('Não foi possível mandar o robô agora.', true);
+    }
+  };
+  const encerrar = () => {
+    if (alertaGesto) onResolver(alertaGesto.id);
+    setConfirmadoLocal(null);
+    setVistos([null, null, null]);
+    avisar('Aviso encerrado. O detector continua atento.');
+  };
+
+  // ---------------------------------------------------------------- textos
+  const pedidosRecentes = useMemo(() => alerts
+    .filter(a => a.alertType === 'HAND_GESTURE_SOS' || a.alertType === 'FALL_DETECTED' || a.alertType === 'SOS_BUTTON')
+    .slice(0, 3), [alerts]);
+  const pedidosHoje = alerts.filter(a => a.alertType === 'HAND_GESTURE_SOS' && ehHoje(a.createdAt));
+  const fonteRotulo = fonte === 'robo' ? 'Câmera do robô' : 'Câmera do notebook';
+  const semCamera = fonte === 'notebook' && !cameraActive;
+  const ondeGesto = comodoGesto ? `, ${naNo(comodoGesto)}` : '';
+
+  const frase = gestoAtivo
+    ? { forte: celular ? `${pessoa} pediu ajuda.` : `${pessoa} pediu ajuda pela câmera.`, apoio: celular ? ' Confira a imagem e escolha.' : ' Confira a imagem e escolha o que fazer.', tom: 'perigo' }
+    : semCamera
+      ? { forte: 'Câmera desligada.', apoio: ` O botão e a queda continuam protegendo o ${pessoa}.`, tom: 'neutro' }
+      : pedidosHoje.length
+        ? { forte: 'Tudo calmo agora.', apoio: ` ${pedidosHoje.length === 1 ? 'Um pedido hoje, já encerrado' : `${pedidosHoje.length} pedidos hoje, já encerrados`}.`, tom: 'sucesso' }
+        : { forte: 'Tudo calmo.', apoio: ' Nenhum pedido de ajuda hoje.', tom: 'sucesso' };
+  const detalhe = gestoAtivo
+    ? `Gesto de socorro reconhecido às ${horaCurta(quandoGesto)}${comodoGesto ? ` ${naNo(comodoGesto)}` : ''} · o Amparo não liga sozinho, a decisão é sua`
+    : celular ? `${fonteRotulo} · a imagem não é guardada` : `${fonteRotulo} · o gesto é analisado no serviço local e a imagem não é guardada`;
+
+  const detector = !isHandGestureEnabled ? { t: 'Detector desligado', c: 'is-neutro' }
+    : gestoAtivo ? { t: 'Gesto confirmado', c: 'is-perigo' }
+      : fonte === 'robo' ? { t: celular ? 'Gesto: notebook' : 'Gesto pela câmera do notebook', c: 'is-neutro' }
+        : visionOnline === false ? { t: celular ? 'Detector fora' : 'Detector sem conexão', c: 'is-aviso' }
+          : { t: 'Detector atento', c: 'is-sucesso' };
+
+  const estadoPasso = (i: number) => {
+    const visto = gestoAtivo ? vistos[i] ?? quandoGesto : vistos[i];
+    if (semCamera && !gestoAtivo) return { texto: 'Câmera desligada', classe: '' };
+    if (visto) return { texto: `Visto às ${segundosRelogio(visto)}`, curto: segundosRelogio(visto).slice(3), classe: 'is-visto' };
+    return { texto: 'Aguardando', classe: '' };
+  };
+  const duracaoGesto = vistos[0] && vistos[2] ? Math.max(1, Math.round((vistos[2] - vistos[0]) / 1000)) : 3;
+
+  const contatosAjuda = [
+    { id: 'pessoa', nome: pessoa, papel: 'Telefone da casa', discagem: telefonePessoa, iniciais: pessoa.charAt(0), tom: 'pessoa' },
+    ...contatos.filter(c => c.id === 'maria').map(c => ({ id: c.id, nome: c.nome, papel: `Filha · ${c.telefone}`, discagem: c.discagem, iniciais: c.nome.split(' ').map(p => p[0]).join('').slice(0, 2), tom: 'acento' }))
+  ];
+
+  const controles = (
+    <div className="camera-controles">
+      <button className="btn btn-secundario" onClick={toggleCameraFacing} disabled={semCamera || fonte === 'robo'} aria-label="Trocar câmera" title="Trocar câmera"><RotateCcw size={18} aria-hidden="true" /><span>Trocar câmera</span></button>
+      <button className="btn btn-secundario" onClick={() => setNightVisionEnhance(v => !v)} disabled={semCamera || fonte === 'robo'} aria-pressed={nightVisionEnhance} aria-label="Visão noturna" title="Visão noturna"><Moon size={18} aria-hidden="true" /><span>Visão noturna</span></button>
+      <button className="btn btn-secundario" onClick={takeSnapshot} disabled={semCamera || fonte === 'robo'} aria-label="Tirar foto" title="Tirar foto"><Camera size={18} aria-hidden="true" /><span>Tirar foto</span></button>
+      <button className={`btn btn-secundario${isRecording ? ' is-gravando' : ''}`} onClick={isRecording ? stopRecording : startRecording} disabled={semCamera || fonte === 'robo'} aria-pressed={isRecording}
+        aria-label={isRecording ? `Parar gravação, ${recordingTime} segundos` : 'Gravar clipe'} title={isRecording ? 'Parar gravação' : 'Gravar clipe'}>
+        <span className="ponto-gravar" aria-hidden="true" /><span>{isRecording ? `Parar · ${recordingTime} s` : 'Gravar clipe'}</span>
+      </button>
+      <button className="btn btn-secundario btn-so-icone" onClick={telaCheia} disabled={semCamera && fonte === 'notebook'} aria-label="Tela cheia" title="Tela cheia"><Maximize2 size={18} /></button>
+    </div>
+  );
+
+  const comoPede = (
+    <section className={`painel camera-passos${gestoAtivo ? ' is-gesto' : ''}`} aria-labelledby="titulo-passos-gesto">
+      <h2 id="titulo-passos-gesto" className="titulo-painel">
+        {gestoAtivo && celular ? `Gesto visto em ${duracaoGesto} s` : celular ? `Como ${pessoa} pede ajuda` : `Como ${pessoa} pede ajuda pela câmera`}
+      </h2>
+      {!celular && <p className="texto-pequeno">Sinal internacional de socorro, feito com uma mão. O detector só avisa se vir os 3 passos em ordem.</p>}
+      <ol className="passos-gesto">
+        {PASSOS.map((p, i) => {
+          const e = estadoPasso(i);
+          return (
+            <li key={p.titulo} className={`passo-gesto ${e.classe}`}>
+              <span className="passo-gesto-icone" aria-hidden="true"><p.Icone size={24} /></span>
+              <span className="passo-gesto-textos">
+                <strong>{p.titulo}</strong>
+                <span>{p.detalhe}</span>
+                {!celular && <span className="passo-gesto-estado">{e.texto}</span>}
+              </span>
+              {celular && e.classe === 'is-visto' && <span className="passo-gesto-hora">{e.curto}</span>}
+              {!celular && i < PASSOS.length - 1 && <span className="passo-gesto-ligacao" aria-hidden="true" />}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
 
   return (
-    <div style={{ margin: '0 20px 24px 20px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-      
-      {/* Toast Feedback */}
-      {feedbackToast && (
-        <div style={{
-          padding: '12px 18px',
-          background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-          color: '#ffffff',
-          borderRadius: '10px',
-          fontSize: '0.86rem',
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          boxShadow: '0 6px 20px rgba(37, 99, 235, 0.4)',
-          animation: 'fadeIn 0.2s ease'
-        }}>
-          <CheckCircle2 size={18} />
-          <span>{feedbackToast}</span>
+    <div className={`camera${gestoAtivo ? ' is-gesto' : ''}`}>
+      <section className={`frase-estado is-${frase.tom}`} aria-live="polite">
+        <div className="frase-estado-texto">
+          <h1 className="frase">{frase.forte}<span className="frase-apoio">{frase.apoio}</span></h1>
+          <p className="frase-detalhe">{detalhe}</p>
         </div>
-      )}
-
-      {/* Barra de Progresso do Reconhecimento de Gesto da Mão */}
-      {isHandGestureEnabled && (
-        <div className="glass-panel" style={{
-          padding: '14px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-          background: isHandDetected ? 'var(--accent-red-bg)' : 'var(--bg-card)',
-          border: isHandDetected ? '1.5px solid #ef4444' : '1px solid var(--border-color)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              background: isHandDetected ? '#ef4444' : (handConfidence > 40 ? 'var(--accent-green-text)' : 'var(--accent-primary)'),
-              padding: '8px',
-              borderRadius: '10px',
-              color: '#ffffff',
-              transition: 'all 0.2s ease'
-            }}>
-              <Hand size={20} className={handConfidence > 40 ? 'animate-bounce' : ''} />
-            </div>
-            <div>
-              <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                Detector local do Signal for Help
-              </h4>
-              <p style={{ margin: '2px 0 0 0', fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                {handConfidence > 30 
-                  ? `✋ Etapa visual identificada! Progresso: ${handHoldProgress}%` 
-                  : 'Faça: palma aberta, polegar recolhido e dedos fechando sobre o polegar'}
-              </p>
-            </div>
+        {!gestoAtivo && !celular && (
+          <div className="frase-estado-acoes">
+            <a className="btn btn-secundario" href={`tel:${telefonePessoa}`}><Phone size={20} aria-hidden="true" />Ligar para {pessoa}</a>
           </div>
+        )}
+      </section>
 
-          {/* Barra de Confiança em Tempo Real */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '220px' }}>
-            <div style={{ flex: 1, height: '10px', background: 'rgba(255,255,255,0.1)', borderRadius: '6px', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%',
-                width: `${handHoldProgress || handConfidence}%`,
-                background: isHandDetected ? '#ef4444' : (handHoldProgress > 50 ? '#f59e0b' : '#10b981'),
-                transition: 'width 0.15s ease'
-              }}></div>
+      <div className="camera-grade">
+        <div className="camera-principal">
+          <section className={`painel camera-painel${gestoAtivo ? ' is-gesto' : ''}`} aria-label="Câmera">
+            {!celular && (
+              <div className="camera-cabecalho">
+                <h2 className="titulo-painel">Câmera</h2>
+                <div className="camera-fontes" role="group" aria-label="Fonte da imagem">
+                  {([['robo', 'Robô', 'Gêmeo digital'], ['notebook', 'Notebook', cameraActive ? 'Câmera ligada' : 'Câmera desligada']] as const).map(([id, nome, sub]) => (
+                    <button key={id} className={`chip-comodo${fonte === id ? ' is-selecionado' : ''}`} aria-pressed={fonte === id} onClick={() => setFonte(id)}>
+                      <span className="chip-comodo-nome">{nome}</span><span className="chip-comodo-status">{sub}</span>
+                    </button>
+                  ))}
+                </div>
+                <label className={`toggle-camada${isHandGestureEnabled ? ' is-ativo' : ''}`}>
+                  <input type="checkbox" checked={isHandGestureEnabled} onChange={e => setIsHandGestureEnabled(e.target.checked)} />
+                  <span className="toggle-camada-caixa" aria-hidden="true" />Reconhecer gesto de socorro
+                </label>
+              </div>
+            )}
+            {celular && (
+              <div className="segmento camera-fontes-celular" role="group" aria-label="Fonte da imagem">
+                <button aria-pressed={fonte === 'robo'} className={fonte === 'robo' ? 'is-ativo' : ''} onClick={() => setFonte('robo')}>Robô</button>
+                <button aria-pressed={fonte === 'notebook'} className={fonte === 'notebook' ? 'is-ativo' : ''} onClick={() => setFonte('notebook')}>Notebook</button>
+              </div>
+            )}
+
+            <div className={`camera-video${gestoAtivo ? ' is-gesto' : ''}`} ref={molduraRef}>
+              <video ref={videoRef} className="camera-video-oculto" playsInline muted autoPlay />
+              <canvas ref={canvasRef} width={640} height={430} className="camera-canvas" hidden={fonte !== 'notebook'} aria-label="Imagem da câmera do notebook" />
+              {fonte === 'robo' && <OlhosDoRobo layout={layout} pessoa={pessoa} emergencia={gestoAtivo} />}
+
+              {semCamera ? (
+                <div className="camera-desligada">
+                  <span className="camera-desligada-icone" aria-hidden="true"><Video size={22} /></span>
+                  <h2>A câmera está desligada</h2>
+                  <p>Para ver a imagem e reconhecer o gesto de socorro, o navegador precisa da sua permissão. A imagem fica só neste aparelho.</p>
+                  <button className="btn btn-escuro" onClick={() => void startRealCamera()}><Video size={18} aria-hidden="true" />Ligar a câmera</button>
+                  {cameraError && <p className="texto-pequeno">Se nada acontecer, toque no cadeado ao lado do endereço do site e permita a câmera.</p>}
+                </div>
+              ) : <>
+                <span className="casa3d-tag is-escuro camera-tag-vivo"><span className="ponto-vivo" aria-hidden="true" />Ao vivo · {fonte === 'robo' ? 'robô' : 'notebook'}{celular ? '' : ` · ${horaCurta(Date.now())}`}</span>
+                <span className={`selo is-pequeno camera-tag-detector ${detector.c}`}>{detector.t}</span>
+                {gestoAtivo && (
+                  <div className="camera-alerta-gesto" role="alert">
+                    <MaoFechada size={20} />
+                    <span><strong>Sinal de socorro com a mão</strong><span>Os 3 passos foram vistos em {duracaoGesto} segundos</span></span>
+                  </div>
+                )}
+              </>}
             </div>
-            <strong style={{ fontSize: '0.85rem', color: isHandDetected ? '#ef4444' : '#10b981' }}>
-              {handHoldProgress || handConfidence}%
-            </strong>
-          </div>
+
+            <div className="camera-rodape">
+              {!celular && <p className="texto-pequeno camera-privacidade"><Lock size={14} aria-hidden="true" />Clipes ficam só neste aparelho e somem ao fechar a página</p>}
+              {controles}
+            </div>
+            {fonte === 'robo' && <p className="nota camera-nota-robo"><Bot size={16} aria-hidden="true" />Vista simulada do robô (gêmeo digital). O reconhecimento do gesto usa a câmera do notebook.</p>}
+            {visionOnline === false && isHandGestureEnabled && fonte === 'notebook' && cameraActive && (
+              <p className="nota is-aviso">O serviço de visão (OpenCV) não respondeu. A imagem continua aparecendo, mas o gesto não está sendo analisado.</p>
+            )}
+            {feedback && <p className={`nota ${feedback.erro ? 'is-perigo' : 'is-sucesso'}`} role="status">{feedback.texto}</p>}
+          </section>
+
+          {!celular && comoPede}
         </div>
-      )}
 
-      {/* Grid Principal: Vídeo Real da Câmera + Controles */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1.2fr)', gap: '18px' }}>
-        
-        {/* Coluna 1: Tela de Vídeo Real da Câmera com Gravação Contínua */}
-        <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          
-          {/* Header da Câmera */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                background: isRecording ? 'var(--accent-red-bg)' : 'linear-gradient(135deg, #0284c7 0%, #1e40af 100%)',
-                padding: '8px',
-                borderRadius: '10px',
-                color: '#ffffff'
-              }}>
-                <Video size={20} className={isRecording ? 'animate-pulse' : ''} />
-              </div>
-              <div>
-                <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0 }}>
-                  Câmera do Notebook / Celular (Ao Vivo)
-                </h3>
-                <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                  Vídeo real transmitido diretamente com reconhecimento óptico de socorro
-                </p>
-              </div>
-            </div>
+        <aside className="camera-lateral">
+          {gestoAtivo && (
+            <section className="painel camera-fazer" aria-labelledby="titulo-fazer">
+              <h2 id="titulo-fazer" className="titulo-painel">O que fazer agora</h2>
+              {!celular && <p className="texto-pequeno">Comece falando com ele. Se não atender, mande o robô ou chame o SAMU.</p>}
+              <a className="btn btn-escuro btn-bloco btn-grande" href={`tel:${telefonePessoa}`}><Phone size={20} aria-hidden="true" />Ligar para {pessoa}</a>
+              <button className="btn btn-primario btn-bloco btn-grande" onClick={() => void mandarRobo()} disabled={roboEnviado}>
+                <Bot size={20} aria-hidden="true" />{roboEnviado ? 'Robô a caminho' : `Mandar o robô até ${artigo(comodoCurto(layout, destinoRobo) ?? 'Sala')}`}
+              </button>
+              {demo
+                ? <span className="btn btn-perigo btn-bloco btn-grande" aria-disabled="true" title="Simulação: nenhuma ligação é feita no modo demonstração"><Phone size={20} aria-hidden="true" />Ligar 192 · SAMU</span>
+                : <a className="btn btn-perigo btn-bloco btn-grande" href="tel:192"><Phone size={20} aria-hidden="true" />Ligar 192 · SAMU</a>}
+              <button className="btn-link camera-engano" onClick={encerrar}>Foi engano, encerrar aviso</button>
+            </section>
+          )}
 
-            {/* Badges de Status */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {isRecording && (
-                <span className="badge badge-alert" style={{ animation: 'pulse-red-glow 1.5s infinite' }}>
-                  <Circle size={8} fill="#ef4444" color="#ef4444" />
-                  GRAVANDO VÍDEO
-                </span>
+          {gestoAtivo && !celular && (
+            <section className="painel camera-ate-agora" aria-labelledby="titulo-ate-agora">
+              <h2 id="titulo-ate-agora" className="titulo-painel">Até agora</h2>
+              <ol className="linha-tempo">
+                <ItemLinhaDoTempo item={{ hora: horaCurta(quandoGesto), titulo: 'Gesto de socorro reconhecido', detalhe: `${alertaGesto ? 'Câmera' : fonteRotulo}${ondeGesto}`, tom: 'perigo' }} />
+                <ItemLinhaDoTempo item={{ hora: horaCurta(quandoGesto), titulo: 'Aviso registrado para revisão', detalhe: confirmadoLocal?.acaoId ? `Proposta supervisionada #${confirmadoLocal.acaoId}` : 'Família avisada no painel', tom: 'aviso' }} />
+                {roboEnviado && <ItemLinhaDoTempo item={{ hora: 'agora', titulo: 'Robô a caminho', detalhe: `Indo até ${artigo(comodoCurto(layout, destinoRobo) ?? 'Sala')}`, tom: 'neutro' }} />}
+                <ItemLinhaDoTempo ultimo item={{ hora: 'agora', titulo: 'Esperando sua decisão', detalhe: 'Nenhuma ligação foi feita', tom: 'neutro' }} />
+              </ol>
+            </section>
+          )}
+
+          {celular && comoPede}
+
+          {!gestoAtivo && (
+            <section className="painel camera-ajuda" aria-labelledby="titulo-ajuda">
+              <h2 id="titulo-ajuda" className="titulo-painel">Se precisar de ajuda</h2>
+              <ul className="contatos">
+                {contatosAjuda.map(c => (
+                  <li key={c.id} className="contato">
+                    {!celular && <span className={`contato-avatar is-${c.tom}`} aria-hidden="true">{c.iniciais}</span>}
+                    <span className="contato-textos"><strong>{c.nome}</strong><span>{c.papel}</span></span>
+                    <a className="btn btn-secundario" href={`tel:${c.discagem}`} aria-label={`Ligar para ${c.nome}`}><Phone size={18} aria-hidden="true" />Ligar</a>
+                  </li>
+                ))}
+                <li className="contato is-samu">
+                  {!celular && <span className="contato-avatar is-perigo" aria-hidden="true">192</span>}
+                  <span className="contato-textos"><strong>SAMU</strong><span>Urgência médica</span></span>
+                  {demo
+                    ? <span className="btn btn-perigo" aria-disabled="true" title="Simulação: nenhuma ligação é feita no modo demonstração"><Phone size={18} aria-hidden="true" />192</span>
+                    : <a className="btn btn-perigo" href="tel:192" aria-label="Ligar para o SAMU, 192"><Phone size={18} aria-hidden="true" />192</a>}
+                </li>
+              </ul>
+              {!celular && (
+                <p className="camera-endereco"><MapPin size={16} aria-hidden="true" /><span><span>Endereço para o socorro</span><strong>{endereco}</strong></span></p>
               )}
-              <span className={`badge ${cameraActive ? 'badge-online' : 'badge-alert'}`}>
-                <Camera size={12} />
-                {cameraActive ? 'Câmera Real Ativa' : 'Câmera Desconectada'}
-              </span>
-            </div>
-          </div>
+            </section>
+          )}
 
-          {/* Player de Vídeo Real e Canvas */}
-          <div style={{
-            position: 'relative',
-            width: '100%',
-            height: '430px',
-            borderRadius: '14px',
-            overflow: 'hidden',
-            background: '#000000',
-            border: isRecording ? '2.5px solid #ef4444' : '1px solid var(--border-color)',
-            boxShadow: isRecording ? '0 0 25px rgba(239, 68, 68, 0.4)' : '0 8px 24px rgba(0,0,0,0.5)'
-          }}>
-            <video
-              ref={videoRef}
-              style={{ display: 'none' }}
-              playsInline
-              muted
-              autoPlay
-            />
-
-            <canvas
-              ref={canvasRef}
-              width={640}
-              height={430}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-
-            {/* Mensagem se a câmera não estiver ativa */}
-            {!cameraActive && (
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(9, 13, 22, 0.94)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '14px',
-                padding: '20px',
-                textAlign: 'center'
-              }}>
-                <div style={{ background: 'var(--accent-primary)', padding: '14px', borderRadius: '50%', color: '#fff' }}>
-                  <Camera size={32} />
-                </div>
-                <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>
-                  Câmera do Notebook / Celular Desconectada
-                </h4>
-                <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-secondary)', maxWidth: '420px' }}>
-                  Clique no botão abaixo para permitir o acesso à webcam ou câmera do celular e iniciar o reconhecimento de sinal com a mão.
-                </p>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => startRealCamera()}
-                  style={{ padding: '12px 24px', fontSize: '0.9rem', fontWeight: 800, borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}
-                >
-                  <Camera size={18} />
-                  <span>Ativar Minha Câmera Agora</span>
-                </button>
-              </div>
-            )}
-
-            {/* Banner Flutuante quando Sinal com a Mão é Detectado */}
-            {isHandDetected && (
-              <div style={{
-                position: 'absolute',
-                top: '46px',
-                left: '14px',
-                right: '14px',
-                padding: '12px 16px',
-                background: 'rgba(239, 68, 68, 0.95)',
-                backdropFilter: 'blur(10px)',
-                borderRadius: '12px',
-                color: '#ffffff',
-                fontSize: '0.9rem',
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                boxShadow: '0 8px 25px rgba(239, 68, 68, 0.5)',
-                animation: 'pulse-red-glow 1s infinite'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Hand size={24} />
-                  <div>
-                    <span>✋ SINAL COM A MÃO RECONHECIDO NA CÂMERA!</span>
-                    <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', fontWeight: 500 }}>
-                      Chamada de emergência em andamento e vídeo gravado como evidência.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowEmergencyCallModal(true)}
-                  className="btn btn-primary"
-                  style={{ background: '#ffffff', color: '#dc2626', fontWeight: 800, padding: '6px 14px', borderRadius: '8px' }}
-                >
-                  Abrir Ligação
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Barra de Controles da Câmera Real e Gravação */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              
-              {/* Protocolo de resposta, sem simular uma detecção */}
-              <button
-                className="btn btn-danger"
-                onClick={() => setShowEmergencyCallModal(true)}
-                style={{
-                  padding: '10px 18px',
-                  fontSize: '0.86rem',
-                  fontWeight: 800,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
-                  boxShadow: '0 4px 14px rgba(220, 38, 38, 0.4)'
-                }}
-              >
-                <Hand size={18} />
-                <span>Ver protocolo de resposta</span>
-              </button>
-
-              {/* Botão Alternar Câmera Frontal / Traseira */}
-              <button
-                className="btn btn-secondary"
-                onClick={toggleCameraFacing}
-                style={{ padding: '10px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
-                title="Alternar entre câmera frontal e traseira"
-              >
-                <RefreshCw size={15} />
-                <span>{cameraFacing === 'user' ? 'Câmera Frontal' : 'Câmera Traseira'}</span>
-              </button>
-
-              {/* Botão Gravação Manual */}
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  if (isRecording) {
-                    stopRecording();
-                    showToast('💾 Gravação salva!');
-                  } else {
-                    startRecording();
-                    showToast('🔴 Gravação reiniciada!');
-                  }
-                }}
-                style={{ padding: '10px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                {isRecording ? <Square size={14} fill="#ef4444" color="#ef4444" /> : <Circle size={14} fill="#10b981" color="#10b981" />}
-                <span>{isRecording ? 'Pausar Gravação' : 'Retomar Gravação'}</span>
-              </button>
-
-              {/* Botão Snapshot */}
-              <button
-                className="btn btn-secondary"
-                onClick={takeSnapshot}
-                style={{ padding: '10px 14px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Camera size={15} />
-                <span>Foto Snapshot</span>
-              </button>
-            </div>
-
-            {/* Alternador de Visão Noturna */}
-            <button
-              className="btn btn-secondary"
-              onClick={() => setNightVisionEnhance(!nightVisionEnhance)}
-              style={{
-                padding: '10px 14px',
-                fontSize: '0.82rem',
-                background: nightVisionEnhance ? 'var(--accent-green-bg)' : 'var(--bg-app)',
-                color: nightVisionEnhance ? 'var(--accent-green-text)' : 'var(--text-secondary)',
-                borderColor: nightVisionEnhance ? 'var(--accent-green-border)' : 'var(--border-color)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <Zap size={14} />
-              <span>Visão Noturna {nightVisionEnhance ? 'ON' : 'OFF'}</span>
-            </button>
-          </div>
-
-          {/* Galeria de Gravações de Vídeo da Câmera Real */}
-          <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <h4 style={{ fontSize: '0.88rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Video size={16} color="var(--accent-primary)" />
-              <span>Vídeos Reais Gravados com JavaCV ({recordedClips.length})</span>
-            </h4>
-            
-            {recordedClips.length === 0 ? (
-              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                A gravação ao vivo da câmera real está ativa. Os vídeos gravados com o sinal de socorro aparecerão aqui.
-              </p>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '10px' }}>
-                {recordedClips.map((clip) => (
-                  <div
-                    key={clip.id}
-                    style={{
-                      padding: '12px',
-                      background: 'var(--bg-app)',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border-color)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <div>
-                      <strong style={{ fontSize: '0.8rem', color: 'var(--text-primary)' }}>{clip.name}</strong>
-                      <p style={{ margin: '2px 0 0 0', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                        {clip.timestamp} • {clip.durationSec}s • {clip.triggerReason}
-                      </p>
-                    </div>
-                    <a
-                      href={clip.url}
-                      download={clip.name}
-                      className="btn btn-primary"
-                      style={{ padding: '6px 10px', borderRadius: '8px', textDecoration: 'none' }}
-                      title="Baixar vídeo real gravado"
-                    >
-                      <Download size={14} />
-                    </a>
-                  </div>
+          {!gestoAtivo && !celular && <>
+            <section className="painel camera-sensibilidade" aria-labelledby="titulo-sensibilidade">
+              <h2 id="titulo-sensibilidade" className="titulo-painel">Sensibilidade do detector</h2>
+              <div className="segmento" role="group" aria-label="Sensibilidade">
+                {(Object.keys(SENSIBILIDADE) as Sensibilidade[]).map(s => (
+                  <button key={s} aria-pressed={sensitivity === s} className={sensitivity === s ? 'is-ativo' : ''} onClick={() => setSensitivity(s)}>{SENSIBILIDADE[s].rotulo}</button>
                 ))}
               </div>
-            )}
-          </div>
+              <p className="texto-pequeno">{SENSIBILIDADE[sensitivity].texto}</p>
+            </section>
 
-        </div>
+            <section className="painel camera-pedidos" aria-labelledby="titulo-pedidos">
+              <h2 id="titulo-pedidos" className="titulo-painel">Pedidos recentes</h2>
+              {pedidosRecentes.length === 0
+                ? <p className="texto-pequeno">Nenhum pedido de ajuda registrado.</p>
+                : <ol className="linha-tempo">
+                    {pedidosRecentes.map((a, i) => (
+                      <ItemLinhaDoTempo key={a.id} ultimo={i === pedidosRecentes.length - 1} item={{
+                        hora: ehHoje(a.createdAt) ? horaCurta(a.createdAt) : new Date(a.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+                        titulo: tituloAviso(a, layout),
+                        detalhe: a.status === 'RESOLVED' ? `Encerrado${a.resolvedAt ? ` às ${horaCurta(a.resolvedAt)}` : ''}` : limparTexto(a.message),
+                        tom: a.status === 'RESOLVED' ? (a.alertType === 'HAND_GESTURE_SOS' ? 'neutro' : 'sucesso') : tomAviso(a)
+                      }} />
+                    ))}
+                  </ol>}
+            </section>
 
-        {/* Coluna 2: Ajustes de Sensibilidade & Discagem Rápida */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          
-          {/* Card 1: Sensibilidade do Reconhecimento de Gesto */}
-          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                padding: '8px',
-                borderRadius: '10px',
-                color: '#ffffff'
-              }}>
-                <Hand size={18} />
+            <section className="painel camera-clipes" aria-labelledby="titulo-clipes">
+              <div className="painel-cabecalho">
+                <h2 id="titulo-clipes" className="titulo-painel">Clipes gravados</h2>
+                <span className="texto-pequeno">{recordedClips.length ? `${recordedClips.length} hoje` : ''}</span>
               </div>
-              <div>
-                <h4 style={{ fontSize: '0.98rem', fontWeight: 800, margin: 0 }}>
-                  Sensibilidade do Gesto com a Mão
-                </h4>
-                <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                  Ajuste a facilidade para reconhecer a mão erguida
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setSensitivity('ultra');
-                  showToast('⚡ Modo Ultra-Sensível ativado: Reconhecimento imediato!');
-                }}
-                className={`btn ${sensitivity === 'ultra' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.76rem', padding: '8px 4px' }}
-              >
-                ⚡ Ultra-Rápido
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSensitivity('balanced');
-                  showToast('⚖️ Modo Equilibrado ativado');
-                }}
-                className={`btn ${sensitivity === 'balanced' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.76rem', padding: '8px 4px' }}
-              >
-                ⚖️ Equilibrado
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSensitivity('low');
-                  showToast('🛡️ Modo Anti-Falso-Positivo ativado');
-                }}
-                className={`btn ${sensitivity === 'low' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ fontSize: '0.76rem', padding: '8px 4px' }}
-              >
-                🛡️ Preciso
-              </button>
-            </div>
-
-            <div style={{ padding: '12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  Reconhecimento Automático Ativo
-                </span>
-                <input
-                  type="checkbox"
-                  checked={isHandGestureEnabled}
-                  onChange={(e) => setIsHandGestureEnabled(e.target.checked)}
-                  style={{ width: '16px', height: '16px', accentColor: 'var(--accent-primary)' }}
-                />
-              </label>
-
-              <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                🛡️ Revisão humana obrigatória · nenhuma ligação automática
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Contatos de Emergência Imediatos */}
-          <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
-                padding: '8px',
-                borderRadius: '10px',
-                color: '#ffffff'
-              }}>
-                <PhoneCall size={18} />
-              </div>
-              <div>
-                <h4 style={{ fontSize: '0.98rem', fontWeight: 800, margin: 0 }}>
-                  Linhas Diretas de Emergência
-                </h4>
-                <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
-                  Contatos disponíveis somente para decisão humana
-                </p>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {/* Contato Familiar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div>
-                  <strong style={{ fontSize: '0.84rem' }}>Maria Silva (Filha)</strong>
-                  <p style={{ margin: '1px 0 0 0', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>+55 11 98765-4321</p>
-                </div>
-                <a
-                  href="tel:5511987654321"
-                  className="btn btn-primary"
-                  style={{ padding: '6px 12px', fontSize: '0.78rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <Phone size={13} />
-                  <span>Ligar</span>
-                </a>
-              </div>
-
-              {/* SAMU 192 */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: 'var(--accent-red-bg)', borderRadius: '8px', border: '1px solid var(--accent-red-border)' }}>
-                <div>
-                  <strong style={{ fontSize: '0.84rem', color: 'var(--accent-red-text)' }}>SAMU Ambulância 192</strong>
-                  <p style={{ margin: '1px 0 0 0', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>Emergência Médica</p>
-                </div>
-                <a
-                  href="tel:192"
-                  className="btn btn-danger"
-                  style={{ padding: '6px 14px', fontSize: '0.78rem', textDecoration: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <Phone size={13} />
-                  <span>192</span>
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Endereço Residencial Cadastrado */}
-          <div className="glass-panel" style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MapPin size={16} color="var(--accent-primary)" />
-              <strong style={{ fontSize: '0.85rem' }}>Endereço de Monitoração:</strong>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-              {userAddress}
-            </p>
-          </div>
-
-        </div>
-
+              {recordedClips.length === 0
+                ? <p className="texto-pequeno">Use "Gravar clipe" para guardar um trecho neste aparelho.</p>
+                : <ul className="clipes">
+                    {recordedClips.map(c => (
+                      <li key={c.id}>
+                        <a href={c.url} download={c.name} className="clipe" aria-label={`Baixar clipe das ${c.timestamp}, ${c.durationSec} segundos`}>
+                          {c.thumb ? <img src={c.thumb} alt="" /> : <span className="clipe-vazio" />}
+                          <span className="clipe-baixar" aria-hidden="true"><Download size={16} /></span>
+                        </a>
+                        <strong>{c.timestamp}</strong>
+                        <span>{c.durationSec} s · {c.fonte}</span>
+                      </li>
+                    ))}
+                  </ul>}
+            </section>
+          </>}
+        </aside>
       </div>
-
-      {/* Revisão humana após confirmação do Signal for Help */}
-      {showEmergencyCallModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.88)',
-          backdropFilter: 'blur(12px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '16px'
-        }}>
-          <div className="glass-panel" style={{
-            background: 'var(--bg-card)',
-            width: '100%',
-            maxWidth: '520px',
-            padding: '24px',
-            border: '2px solid #ef4444',
-            boxShadow: '0 0 50px rgba(239, 68, 68, 0.6)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-            animation: 'pulse-red-glow 2s infinite'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ background: '#ef4444', padding: '10px', borderRadius: '12px', color: '#fff' }}>
-                  <Hand size={26} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
-                    Sinal visual de socorro detectado!
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Metadados confirmados pelo OpenCV · revisão humana pendente
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowEmergencyCallModal(false);
-                  setIsHandDetected(false);
-                }}
-                className="btn btn-secondary"
-                style={{ padding: '6px 10px', borderRadius: '8px' }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div style={{
-              padding: '16px',
-              background: 'var(--accent-red-bg)',
-              borderRadius: '12px',
-              border: '1px solid var(--accent-red-border)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px'
-            }}>
-              <span style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--accent-red-text)' }}>
-                Confirme o contexto com segurança. Se houver perigo imediato, escolha manualmente um contato:
-              </span>
-
-              {/* Ligar para SAMU 192 */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '12px 14px', borderRadius: '10px' }}>
-                <div>
-                  <strong style={{ fontSize: '0.96rem', color: '#ffffff' }}>SAMU Ambulância 192</strong>
-                  <p style={{ margin: '2px 0 0 0', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                    Atendimento Médico de Urgência
-                  </p>
-                </div>
-                <a
-                  href="tel:192"
-                  className="btn btn-danger"
-                  style={{ padding: '10px 20px', fontSize: '0.9rem', fontWeight: 800, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', background: '#dc2626' }}
-                >
-                  <Phone size={16} />
-                  <span>Discar 192</span>
-                </a>
-              </div>
-
-              {/* Ligar para o Familiar */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '12px 14px', borderRadius: '10px' }}>
-                <div>
-                  <strong style={{ fontSize: '0.96rem', color: '#ffffff' }}>Maria Silva (Filha)</strong>
-                  <p style={{ margin: '2px 0 0 0', fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                    +55 11 98765-4321 • Familiar Cuidador
-                  </p>
-                </div>
-                <a
-                  href="tel:5511987654321"
-                  className="btn btn-primary"
-                  style={{ padding: '10px 18px', fontSize: '0.88rem', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Phone size={16} />
-                  <span>Ligar p/ Filha</span>
-                </a>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-                A imagem e os landmarks não foram armazenados pelo serviço de visão.
-              </span>
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  setShowEmergencyCallModal(false);
-                  setIsHandDetected(false);
-                }}
-              >
-                Fechar Modal
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
 
+/** Sem cômodo no alerta, manda o robô para a Sala. */
+function robotRoomFallback(layout: HouseLayout) {
+  return layout.rooms.find(r => r.id === 'sala')?.id ?? layout.rooms[0]?.id ?? 'sala';
+}

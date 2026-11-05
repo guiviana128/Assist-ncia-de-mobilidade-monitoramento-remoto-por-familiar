@@ -13,6 +13,8 @@ interface Estado {
   contatos: Contato[];
   /** Telefone de quem é acompanhado (botão "Ligar para José"). */
   telefonePessoa: string;
+  /** Endereço para o socorro (exemplo editável). */
+  endereco: string;
   /** A primeira área é a casa: centro do perímetro do mapa. */
   areas: AreaSegura[];
   bengala: PreferenciasBengala;
@@ -30,6 +32,7 @@ let estado: Estado = {
     { id: 'bombeiros', nome: 'Bombeiros', papel: 'Resgate e incêndio', telefone: '193', discagem: '193' }
   ],
   telefonePessoa: '+5511912345678',
+  endereco: 'Rua das Palmeiras, 120 · casa térrea',
   areas: [
     { id: 'casa', nome: 'Casa', detalhe: 'Perímetro principal', lat: -23.550520, lng: -46.633308, raio: 500, ativa: true },
     { id: 'praca', nome: 'Praça do bairro', detalhe: 'Caminhada da tarde', lat: -23.552200, lng: -46.635100, raio: 150, ativa: true },

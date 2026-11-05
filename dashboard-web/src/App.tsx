@@ -148,7 +148,8 @@ export const App: React.FC = () => {
             onAbrirCasa={abrirCasa} onResolver={id => void handleResolveAlert(id)} />}
           {view === 'casa' && <HouseView3D alerts={alerts} isDarkMode={false} comodoInicial={comodoCasa} pessoa={pessoa} demo={demo} />}
           {view === 'monitorar' && <MonitorarView device={device} alerts={alerts} routeHistory={routeHistory} routeDemo={routeDemo} demo={demo} />}
-          {view === 'camera' && <LiveMonitoringView device={device} onTriggerAlert={() => { void fetchData(); }} />}
+          {view === 'camera' && <LiveMonitoringView device={device} alerts={alerts} layout={robo.layout} demo={demo}
+            onTriggerAlert={() => { void fetchData(); }} onResolver={id => void handleResolveAlert(id)} />}
           {view === 'configuracoes' && <SettingsView geofenceRadius={geofenceRadius} onUpdateGeofenceRadius={setGeofenceRadius} deviceId={device.deviceId} />}
         </>}
       </main>
