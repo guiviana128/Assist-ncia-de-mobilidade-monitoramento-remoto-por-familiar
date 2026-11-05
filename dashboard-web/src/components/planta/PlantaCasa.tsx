@@ -143,7 +143,8 @@ const nomeCurto = (room: Room) => (room.id === 'sala' ? 'Sala' : room.name);
 export const PlantaSimplificada: React.FC<PlantaSimplificadaProps> = ({ layout, comodoPessoa, comodoRobo, emergencia, estados, onComodo, decorativa }) => {
   const colunas = [...new Set(layout.rooms.flatMap(r => [r.minX, r.maxX]))].sort((a, b) => a - b);
   const linhas = [...new Set(layout.rooms.flatMap(r => [r.minY, r.maxY]))].sort((a, b) => b - a);
-  const larguras = colunas.slice(1).map((c, i) => `${(c - colunas[i]!).toFixed(2)}fr`).join(' ');
+  // min-content evita quebrar nomes como "Escritório" no meio em telas estreitas
+  const larguras = colunas.slice(1).map((c, i) => `minmax(min-content, ${(c - colunas[i]!).toFixed(2)}fr)`).join(' ');
 
   return (
     <div className={`planta-simples${emergencia ? ' is-emergencia' : ''}`} style={{ gridTemplateColumns: larguras }}

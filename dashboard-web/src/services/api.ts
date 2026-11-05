@@ -5,6 +5,21 @@ import { AuthRequiredError, apiFetch } from './auth';
 import { robotApi } from './robotApi';
 
 let summaryDemo = false;
+
+/** Erro de validação/permissão vindo do backend real (4xx): não deve virar dado de demonstração. */
+export class ApiRejectedError extends Error {
+  constructor(readonly status: number) {
+    super(`A API recusou o pedido (${status}).`);
+    this.name = 'ApiRejectedError';
+  }
+}
+
+/** 5xx do proxy = backend fora -> modo demonstração; 4xx = recusa real. */
+function checkWrite(res: Response) {
+  if (res.ok) return;
+  if (res.status >= 500) throw new Error(`API respondeu ${res.status}`);
+  throw new ApiRejectedError(res.status);
+}
 let routeDemo = false;
 
 let mockDevice: DeviceStatus = {
@@ -122,12 +137,14 @@ export const api = {
 
   async scheduleMedicineReminder(deviceId: string, medicineName: string): Promise<void> {
     try {
-      await apiFetch(`/devices/${deviceId}/reminder`, {
+      const res = await apiFetch(`/devices/${deviceId}/reminder`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ medicineName })
       });
-    } catch {
+      checkWrite(res);
+    } catch (error) {
+      if (error instanceof AuthRequiredError || error instanceof ApiRejectedError) throw error;
       const newAlert: Alert = {
         id: Date.now(),
         deviceId,
@@ -145,7 +162,7 @@ export const api = {
 
   async sendSimulatedTelemetry(data: Partial<TelemetryPoint> & { indoorRoom?: string }): Promise<void> {
     try {
-      await apiFetch(`/telemetry`, {
+      const res = await apiFetch(`/telemetry`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -161,7 +178,10 @@ export const api = {
           indoorRoom: data.indoorRoom
         })
       });
-    } catch {
+      // O proxy do Vite responde 5xx quando o backend está fora: trata como offline (modo demonstração)
+      checkWrite(res);
+    } catch (error) {
+      if (error instanceof AuthRequiredError || error instanceof ApiRejectedError) throw error;
       robotApi.demo().setPersonRoom(data.indoorRoom);
       mockDevice = {
         ...mockDevice,
@@ -189,7 +209,7 @@ export const api = {
 
   async sendSimulatedAlert(alertType: Alert['alertType'], message: string, indoorRoom?: string): Promise<void> {
     try {
-      await apiFetch(`/alerts`, {
+      const res = await apiFetch(`/alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -203,7 +223,10 @@ export const api = {
           indoorRoom
         })
       });
-    } catch {
+      // O proxy do Vite responde 5xx quando o backend está fora: cai no modo demonstração como os outros métodos
+      checkWrite(res);
+    } catch (error) {
+      if (error instanceof AuthRequiredError || error instanceof ApiRejectedError) throw error;
       const newAlert: Alert = {
         id: Date.now(),
         deviceId: mockDevice.deviceId,

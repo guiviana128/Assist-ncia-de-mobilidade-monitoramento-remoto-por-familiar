@@ -1,0 +1,102 @@
+/* Início (Figma 1:2, 14:635, 34:2283, 34:2466, 36:3357) e componentes de linha do tempo / fato. */
+
+.inicio { display: flex; flex-direction: column; gap: 24px; }
+.inicio-acoes { display: flex; gap: 12px; }
+.inicio-principal { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 24px; align-items: stretch; }
+
+/* Casa agora */
+.inicio-casa { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px 24px; }
+.inicio-casa .painel-cabecalho { gap: 24px; flex-wrap: nowrap; }
+.inicio-casa .painel-cabecalho .titulo-painel { margin-right: 0; }
+.inicio-dica { margin-left: auto; text-align: right; }
+.inicio-mapa { display: grid; place-items: center; border-radius: 16px; background: var(--superficie-fundo); }
+.inicio-mapa .planta { max-height: 600px; }
+.inicio-nota-robo { margin-top: -4px; }
+
+.legenda { display: flex; gap: 18px; align-items: center; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--texto-secundario); }
+.legenda li { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.legenda-pessoa { width: 12px; height: 12px; border-radius: 999px; background: var(--pessoa); }
+.legenda-robo { width: 12px; height: 12px; border-radius: 4px; background: var(--acento); }
+.legenda-rota { width: 18px; height: 0; border-top: 2.5px dashed var(--acento); }
+.legenda-rota.is-perigo { border-top-color: var(--perigo); }
+
+/* Hoje */
+.inicio-hoje { display: flex; flex-direction: column; gap: 8px; padding: 20px 12px 16px; }
+.inicio-hoje-cabecalho { padding: 0 12px; }
+.inicio-hoje-cabecalho .titulo-painel { margin-right: auto; }
+.inicio-separador { border: none; height: 1px; background: var(--borda-padrao); margin: 0; }
+.inicio-mais-tarde { padding: 16px 12px 4px; }
+.inicio-hoje-rodape { margin-top: auto; padding: 8px 12px 0; }
+.inicio-vazio { padding: 12px; font-size: 14px; }
+.inicio-encerrar { width: 100%; justify-content: center; }
+
+/* Item da linha do tempo */
+.linha-tempo { display: flex; flex-direction: column; }
+.item-tempo { display: grid; grid-template-columns: 44px auto minmax(0, 1fr); gap: 14px; padding: 0 12px; border-radius: 12px; }
+.item-tempo-hora { padding-top: 12px; font-size: 13px; line-height: 20px; font-weight: 600; color: var(--texto-secundario); font-variant-numeric: tabular-nums; }
+.item-tempo-trilho { display: flex; flex-direction: column; align-items: center; gap: 6px; padding-top: 17px; }
+.item-tempo-marcador { width: 10px; height: 10px; border-radius: 999px; background: var(--planta-parede); flex-shrink: 0; }
+.item-tempo-linha { flex: 1; width: 2px; min-height: 16px; background: var(--borda-padrao); }
+.item-tempo-conteudo { display: flex; flex-direction: column; gap: 2px; padding: 10px 0 16px; min-width: 0; }
+.item-tempo-titulo { font-size: 15px; line-height: 22px; font-weight: 600; color: var(--texto-principal); }
+.item-tempo-detalhe { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--texto-secundario); overflow-wrap: anywhere; }
+.item-tempo.is-sucesso .item-tempo-marcador { background: var(--sucesso-ponto); }
+.item-tempo.is-aviso .item-tempo-marcador { background: var(--aviso-ponto); }
+.item-tempo.is-perigo { background: var(--perigo-fundo); }
+.item-tempo.is-perigo .item-tempo-marcador { background: var(--perigo); }
+.item-tempo.is-perigo .item-tempo-hora,
+.item-tempo.is-perigo .item-tempo-titulo,
+.item-tempo.is-perigo .item-tempo-detalhe { color: var(--perigo-texto); }
+.item-tempo.is-perigo .item-tempo-titulo { font-weight: 700; }
+.item-tempo.is-perigo .item-tempo-linha { background: var(--perigo-borda); }
+.item-tempo.is-futuro { opacity: .72; }
+
+/* Fatos */
+.inicio-fatos { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 28px; }
+.inicio-fatos .fato + .fato { border-left: 1px solid var(--borda-padrao); padding-left: 16px; }
+.fato { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.fato-icone { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--superficie-fundo); color: var(--texto-principal); flex-shrink: 0; }
+.fato-textos { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-weight: 600; }
+.fato-rotulo { font-size: 12px; line-height: 16px; color: var(--texto-secundario); }
+.fato-valor { font-size: 15px; line-height: 22px; color: var(--texto-principal); }
+
+/* Emergência */
+.inicio.is-emergencia .inicio-hoje .item-tempo.is-perigo { margin: 0 -2px; }
+
+@media (max-width: 1240px) {
+  .inicio-principal { grid-template-columns: minmax(0, 1fr) 360px; }
+  .inicio-fatos { flex-wrap: wrap; justify-content: flex-start; }
+  .inicio-fatos .fato { flex: 1 1 40%; }
+  .inicio-fatos .fato + .fato { border-left: none; padding-left: 0; }
+}
+
+/* Tablet e celular: fatos em lista, planta simplificada */
+@media (max-width: 1023px) {
+  .inicio { gap: 20px; }
+  .inicio .frase-estado { flex-direction: column; align-items: stretch; }
+  .inicio .frase-estado.tem-indicador { padding-left: 0; }
+  .inicio .frase-indicador { display: none; }
+  .inicio .frase-estado.tem-indicador .frase-detalhe { padding-left: 0; font-size: 13px; line-height: 18px; }
+  .inicio .frase-estado-acoes { display: block; }
+  .inicio-acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .inicio-acoes .btn { min-height: 52px; border-radius: 14px; font-size: 15px; }
+  .inicio-principal { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .inicio-casa { padding: 16px; gap: 12px; }
+  .inicio-hoje { padding: 16px 8px; }
+  .inicio-hoje-cabecalho { padding: 0 8px; }
+  .inicio-mapa { display: block; background: transparent; }
+  .inicio-dica { font-size: 13px; }
+  .inicio-fatos { flex-direction: column; align-items: stretch; gap: 0; padding: 8px 16px; }
+  .inicio-fatos .fato { flex: none; padding: 10px 0; }
+  .inicio-fatos .fato + .fato { border-top: 1px solid var(--borda-padrao); }
+  .fato-valor { font-size: 16px; }
+}
+
+@media (max-width: 767px) {
+  .inicio { gap: 16px; }
+  .inicio-acoes.is-empilhado { grid-template-columns: 1fr; }
+  .inicio-principal { grid-template-columns: minmax(0, 1fr); }
+  .inicio.is-emergencia .inicio-casa { border-color: var(--perigo-borda); }
+  .item-tempo-titulo { font-size: 16px; }
+  .item-tempo-detalhe { font-size: 14px; line-height: 20px; }
+}

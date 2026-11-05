@@ -91,6 +91,9 @@ ul, ol { list-style: none; }
 .btn-perigo { background: var(--perigo); color: var(--texto-invertido); font-weight: 700; }
 .btn-perigo:hover:not(:disabled) { background: var(--perigo-texto); }
 
+.btn-escuro { background: var(--texto-principal); color: var(--texto-invertido); font-weight: 700; }
+.btn-escuro:hover:not(:disabled) { background: #1E293B; }
+
 .btn-perigo-suave { background: var(--superficie-base); color: var(--perigo-texto); border-color: var(--perigo-borda); }
 .btn-perigo-suave:hover:not(:disabled) { background: var(--perigo-fundo); }
 

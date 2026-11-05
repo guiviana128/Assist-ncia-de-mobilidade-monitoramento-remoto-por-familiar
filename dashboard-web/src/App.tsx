@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LiveMonitoringView } from './components/LiveMonitoringView';
 import { HouseView3D } from './components/HouseView3D';
 import { LoginScreen } from './components/LoginScreen';
-import { TelemetryCards } from './components/TelemetryCards';
+import { InicioView } from './components/inicio/InicioView';
 import { MapTracker } from './components/MapTracker';
 import { AlertCenter } from './components/AlertCenter';
 import { AdvancedTelemetryView } from './components/AdvancedTelemetryView';
@@ -13,13 +13,12 @@ import { FaixaEmergencia } from './components/layout/FaixaEmergencia';
 import { MenuConta } from './components/layout/MenuConta';
 import { ABA_PADRAO, type AppTab, type AppView } from './components/layout/navegacao';
 import { Camada } from './components/ui/Camada';
-import { FraseEstado } from './components/ui/FraseEstado';
 import type { EstadoConexao } from './components/ui/StatusConexao';
 import { auth, AuthRequiredError } from './services/auth';
 import { api } from './services/api';
 import { useRobo } from './hooks/useRobo';
 import { ATE_TABLET, CELULAR, useMediaQuery } from './hooks/useMediaQuery';
-import { comodoCurto, emergenciaPendente, haQuanto, nomePessoa, resumoDoEstado, TITULO_EMERGENCIA } from './lib/resumoDoEstado';
+import { comodoCurto, naNo, emergenciaPendente, haQuanto, nomePessoa, resumoDoEstado, TITULO_EMERGENCIA } from './lib/resumoDoEstado';
 import { DashboardSummary, TelemetryPoint } from './types';
 
 type CamadaAberta = null | 'avisos' | 'conta' | 'simulador';
@@ -103,6 +102,8 @@ export const App: React.FC = () => {
   const fecharCamada = useCallback(() => setCamada(null), []);
   const alternar = (c: Exclude<CamadaAberta, null>) => setCamada(atual => atual === c ? null : c);
   const irPara = (v: AppView) => { setView(v); setCamada(null); };
+  const [comodoCasa, setComodoCasa] = useState<string | null>(null);
+  const abrirCasa = (roomId?: string) => { setComodoCasa(roomId ?? null); irPara('casa'); };
 
   if (needsLogin) {
     return <LoginScreen onLoggedIn={() => { setNeedsLogin(false); setLoading(true); setView(ABA_PADRAO); void fetchData(); }}
@@ -111,11 +112,11 @@ export const App: React.FC = () => {
 
   const faixa = emergency ? (() => {
     const onde = comodoCurto(robo.layout, emergency.indoorRoom);
-    const titulo = `${TITULO_EMERGENCIA[emergency.alertType] ?? 'Pedido de socorro'}${onde ? ` na ${onde}` : ''}`;
+    const titulo = `${TITULO_EMERGENCIA[emergency.alertType] ?? 'Pedido de socorro'}${onde ? ` ${naNo(onde)}` : ''}`;
     const robot = robo.robot?.mode === 'RESPONDING' ? `o robô assistente está indo até ${pessoa}`
       : robo.robot?.mode === 'CHECKING_PERSON' ? `o robô assistente está ao lado de ${pessoa}` : 'confirme se alguém pode ir até ele';
     const detalhe = `${haQuanto(emergency.createdAt)} · ${robot}`;
-    return <FaixaEmergencia titulo={titulo} detalhe={detalhe} demo={demo} compacta={ateTablet} onVerCasa={() => irPara('casa')} />;
+    return <FaixaEmergencia titulo={titulo} detalhe={detalhe} demo={demo} compacta={ateTablet} onVerCasa={() => abrirCasa(emergency.indoorRoom ?? undefined)} />;
   })() : undefined;
 
   const botoesTopo = {
@@ -143,17 +144,13 @@ export const App: React.FC = () => {
         ) : !device ? (
           <div className="estado-vazio painel"><h3>Nenhuma bengala cadastrada</h3><p>Confira o cadastro e a conexão do dispositivo.</p></div>
         ) : <>
-          {view === 'inicio' && <>
-            <FraseEstado tom={resumo.tom} forte={resumo.forte} apoio={resumo.apoio} detalhe={resumo.detalhe} indicador />
-            <TelemetryCards device={device} />
-            <div className="monitor-grid">
-              <MapTracker device={device} routeHistory={routeHistory} isDarkMode={false} geofenceRadius={geofenceRadius} onLocationUpdated={fetchData} />
-              <AlertCenter alerts={alerts} onResolve={handleResolveAlert} />
-            </div>
-          </>}
-          {view === 'casa' && <HouseView3D alerts={alerts} isDarkMode={false} />}
+          {view === 'inicio' && <InicioView device={device} alerts={alerts} layout={robo.layout} robot={robo.robot}
+            missions={robo.missions} noComodoDesde={robo.noComodoDesde} resumo={resumo} demo={demo}
+            onAbrirCasa={abrirCasa} onResolver={id => void handleResolveAlert(id)} />}
+          {view === 'casa' && <HouseView3D alerts={alerts} isDarkMode={false} comodoInicial={comodoCasa} />}
           {view === 'monitorar' && <>
             <AdvancedTelemetryView device={device} />
+            <MapTracker device={device} routeHistory={routeHistory} isDarkMode={false} geofenceRadius={geofenceRadius} onLocationUpdated={fetchData} />
             {routeDemo && <p className="nota">Trajeto com dados demonstrativos.</p>}
           </>}
           {view === 'camera' && <LiveMonitoringView device={device} onTriggerAlert={() => { void fetchData(); }} />}

@@ -10,6 +10,8 @@ import { ApiError, AuthRequiredError } from '../services/auth';
 interface HouseView3DProps {
   alerts: Alert[];
   isDarkMode: boolean;
+  /** Cômodo tocado na planta do Início: fica destacado ao abrir. */
+  comodoInicial?: string | null;
 }
 
 const EMERGENCY_TYPES: Alert['alertType'][] = ['SOS_BUTTON', 'FALL_DETECTED', 'HAND_GESTURE_SOS'];
@@ -43,7 +45,7 @@ const STATUS_LABEL: Record<RobotMission['status'], string> = {
 const errorMessage = (error: unknown) =>
   error instanceof ApiError || error instanceof Error ? error.message : 'Não foi possível enviar o comando.';
 
-export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode }) => {
+export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, comodoInicial }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const eyesRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -53,7 +55,7 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode }) 
   const [robot, setRobot] = useState<RobotState | null>(null);
   const [missions, setMissions] = useState<RobotMission[]>([]);
   const [pendingPoint, setPendingPoint] = useState<Point2D | null>(null);
-  const [hoverRoom, setHoverRoom] = useState<string | null>(null);
+  const [hoverRoom, setHoverRoom] = useState<string | null>(comodoInicial ?? null);
   const [feedback, setFeedback] = useState<{ text: string; error?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [arSupported, setArSupported] = useState(false);

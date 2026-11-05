@@ -51,7 +51,7 @@ button.planta-simples-comodo { cursor: pointer; }
 button.planta-simples-comodo:hover { background: var(--acento-suave); }
 .planta-simples-comodo.is-pessoa { background: var(--pessoa-suave); }
 .planta-simples.is-emergencia .planta-simples-comodo.is-pessoa { background: var(--perigo-fundo); border-color: var(--perigo); }
-.planta-simples-nome { font-size: 13px; line-height: 18px; font-weight: 700; color: var(--texto-principal); overflow-wrap: anywhere; }
+.planta-simples-nome { font-size: 13px; line-height: 18px; font-weight: 700; color: var(--texto-principal); }
 .planta-simples-estado { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
 .planta-simples-estado.is-pessoa { color: var(--pessoa); }
 .planta-simples-estado.is-perigo { color: var(--perigo-texto); font-weight: 700; }

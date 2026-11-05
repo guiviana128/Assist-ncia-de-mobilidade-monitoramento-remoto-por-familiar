@@ -33,6 +33,15 @@ export function comodoCurto(layout: HouseLayout, id?: string | null): string | n
   return nome === 'Sala de estar' ? 'Sala' : nome;
 }
 
+/** "na Sala", "no Quarto": cômodos terminados em "a" (e Sala/Cozinha) são femininos. */
+export const naNo = (comodo: string) => `${/a$/i.test(comodo) ? 'na' : 'no'} ${comodo}`;
+
+/** Preposição + cômodo para frases, a partir do id ("cozinha" -> "na Cozinha"). */
+export const noComodo = (layout: HouseLayout, id?: string | null): string | null => {
+  const nome = comodoCurto(layout, id);
+  return nome ? naNo(nome) : null;
+};
+
 export function haQuanto(desde: Date | string | number | null | undefined, agora = Date.now()): string {
   if (desde == null) return '';
   const ms = agora - new Date(desde).getTime();
@@ -57,7 +66,7 @@ export function descricaoRobo(robot: RobotState | null | undefined, layout: Hous
   const onde = comodoCurto(layout, robot.currentMission?.targetRoom ?? robot.personRoom);
   switch (robot.mode) {
     case 'PATROLLING': return 'robô fazendo a ronda';
-    case 'RESPONDING': return onde ? `robô indo até a ${onde}` : 'robô a caminho';
+    case 'RESPONDING': return onde ? `robô indo até ${onde.toLowerCase().startsWith('sala') || onde === 'Cozinha' ? 'a' : 'o'} ${onde}` : 'robô a caminho';
     case 'CHECKING_PERSON': return 'robô ao lado dele';
     case 'GOING_TO_GOAL': return 'robô cumprindo um comando';
     case 'RETURNING': return 'robô voltando à base';
@@ -92,12 +101,21 @@ export function resumoDoEstado(e: EntradaResumo): Resumo {
   const emergencia = emergenciaPendente(e.alerts);
   if (emergencia) {
     const onde = comodoCurto(e.layout, emergencia.indoorRoom);
-    const titulo = TITULO_EMERGENCIA[emergencia.alertType] ?? 'Pedido de socorro';
+    const naOnde = onde ? ` ${naNo(onde)}` : '';
+    const forte = emergencia.alertType === 'FALL_DETECTED' ? `${pessoa} caiu${naOnde}.`
+      : emergencia.alertType === 'SOS_BUTTON' ? `${pessoa} pediu socorro${naOnde}.`
+        : `${pessoa} fez o sinal de socorro.`;
+    const robo = e.robot?.online === false ? ' O robô está fora do ar.'
+      : e.robot?.mode === 'RESPONDING' ? ' O robô está indo até ele.'
+        : e.robot?.mode === 'CHECKING_PERSON' ? ' O robô está ao lado dele.' : ' Ligue para ele agora.';
+    const origem = emergencia.alertType === 'FALL_DETECTED' ? 'Queda detectada pela bengala'
+      : emergencia.alertType === 'SOS_BUTTON' ? 'Botão de socorro da bengala' : 'Gesto reconhecido pela câmera';
+    const hora = new Date(emergencia.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     return {
       tom: 'perigo',
-      forte: `${titulo}${onde ? ` na ${onde}` : ''}.`,
-      apoio: ` ${pessoa} pode precisar de ajuda.`,
-      detalhe: [`Recebido ${haQuanto(emergencia.createdAt, agora)}`, descricaoRobo(e.robot, e.layout)].join('  ·  ')
+      forte,
+      apoio: robo,
+      detalhe: `${origem} às ${hora}  ·  ${haQuanto(emergencia.createdAt, agora)}`
     };
   }
 
@@ -113,7 +131,7 @@ export function resumoDoEstado(e: EntradaResumo): Resumo {
   const pendentes = e.alerts.filter(a => a.status === 'PENDING');
   const onde = comodoCurto(e.layout, e.robot?.personRoom);
   const ondeFrase = onde
-    ? ` ${pessoa} está na ${onde}${e.noComodoDesde ? ` ${haQuanto(e.noComodoDesde, agora)}` : ''}.`
+    ? ` ${pessoa} está ${naNo(onde)}${e.noComodoDesde ? ` ${haQuanto(e.noComodoDesde, agora)}` : ''}.`
     : ` ${pessoa} está com a bengala.`;
 
   if (pendentes.length > 0) {
