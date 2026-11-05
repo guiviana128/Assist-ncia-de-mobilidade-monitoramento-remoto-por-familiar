@@ -71,6 +71,11 @@
 .casa3d-tag.is-escuro { background: var(--texto-principal); color: var(--texto-invertido); }
 .casa3d-tag.is-perigo { background: var(--perigo); color: var(--texto-invertido); }
 .ponto-vivo { width: 8px; height: 8px; border-radius: 999px; background: #EF4444; flex-shrink: 0; }
+/* "Ao vivo": o ponto pisca devagar (opacidade 1 → 0,4, 1,6 s). Parado com movimento reduzido. */
+@media (prefers-reduced-motion: no-preference) {
+  .ponto-vivo { animation: ponto-vivo 0.8s ease-in-out infinite alternate; } /* ida e volta = 1,6 s */
+}
+@keyframes ponto-vivo { from { opacity: 1; } to { opacity: .4; } }
 .casa3d-tag-pip { position: absolute; top: 8px; left: 8px; z-index: 2; }
 
 /* Falha do WebGL / sem conexão */

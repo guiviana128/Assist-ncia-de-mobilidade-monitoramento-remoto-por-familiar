@@ -19,7 +19,10 @@
 .camera-video {
   position: relative; aspect-ratio: 938 / 500; border-radius: 14px; overflow: hidden; background: var(--superficie-rebaixada);
 }
-.camera-video.is-gesto { outline: 3px solid var(--perigo); outline-offset: -3px; }
+.camera-video.is-gesto { outline: 3px solid var(--perigo); outline-offset: -3px; box-shadow: 0 0 0 4px rgba(220, 38, 38, .24); }
+/* "Foi engano": a sombra some em 250 ms. Na entrada quem anima é o GSAP (um pulso), por isso sem transição aqui. */
+.camera-video { transition: box-shadow 250ms var(--ease), outline-color 250ms var(--ease); }
+.camera-video.is-gesto { transition: none; }
 .camera-video:fullscreen { border-radius: 0; }
 .camera-video-oculto { display: none; }
 .camera-canvas { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -68,6 +71,8 @@
 .passos-gesto { display: flex; gap: 0; margin-top: 12px; }
 .passo-gesto { position: relative; display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
 .passo-gesto-icone {
+  transition: background-color var(--dur-curta) var(--ease), border-color var(--dur-curta) var(--ease), color var(--dur-curta) var(--ease);
+  border: 2px solid transparent;
   display: grid; place-items: center; width: 56px; height: 56px; border-radius: 999px; flex-shrink: 0;
   background: var(--superficie-fundo); color: var(--texto-principal);
 }
@@ -75,8 +80,9 @@
 .passo-gesto-textos strong { font-size: 15px; line-height: 22px; }
 .passo-gesto-textos span { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
 .passo-gesto-textos .passo-gesto-estado { font-weight: 700; color: var(--texto-principal); }
-.passo-gesto-ligacao { width: 40px; height: 2px; margin: 0 16px; background: var(--borda-padrao); flex-shrink: 0; }
-.passo-gesto.is-visto .passo-gesto-icone { background: var(--superficie-base); border: 2px solid var(--perigo); color: var(--perigo); }
+.passo-gesto-ligacao { width: 40px; height: 2px; margin: 0 16px; background: var(--borda-padrao); flex-shrink: 0; transition: background-color var(--dur-curta) var(--ease); }
+/* Passo visto: o fundo vai do cinza para o vermelho-claro (200 ms) */
+.passo-gesto.is-visto .passo-gesto-icone { background: var(--perigo-fundo); border-color: var(--perigo); color: var(--perigo); }
 .passo-gesto.is-visto .passo-gesto-estado, .passo-gesto-hora { color: var(--perigo-texto); }
 .passo-gesto.is-visto .passo-gesto-ligacao { background: var(--perigo); }
 .passo-gesto-hora { margin-left: auto; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -155,7 +161,7 @@
   .camera-passos { padding: 16px; }
   .passos-gesto { margin-top: 8px; }
   .passo-gesto-icone { width: 44px; height: 44px; }
-  .passo-gesto.is-visto .passo-gesto-icone { background: var(--perigo-fundo); border: none; }
+  .passo-gesto.is-visto .passo-gesto-icone { background: var(--perigo-fundo); border-color: transparent; }
   .passo-gesto-textos strong { font-size: 16px; }
   .passo-gesto-textos span { font-size: 14px; line-height: 20px; }
   .camera-fazer { padding: 16px; }

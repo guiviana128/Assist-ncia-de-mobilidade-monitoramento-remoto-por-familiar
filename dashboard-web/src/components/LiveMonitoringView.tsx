@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, type Variants } from 'motion/react';
 import { Bot, Camera, Download, Lock, MapPin, Maximize2, Moon, Phone, RotateCcw, Video } from 'lucide-react';
 import { api } from '../services/api';
 import { visionApi } from '../services/visionApi';
@@ -13,6 +14,8 @@ import { useCuidado } from '../lib/cuidado';
 import { artigo, comodoCurto, deComodo, naNo, nomePessoa } from '../lib/resumoDoEstado';
 import { horaCurta, ehHoje, limparTexto, tituloAviso, tomAviso } from '../lib/avisos';
 import { CELULAR, useMediaQuery } from '../hooks/useMediaQuery';
+import { gsap, movimentoReduzido, useGSAP } from '../motion/gsap';
+import { DESLOCA, DUR, EASE_MOTION, QUEDA } from '../motion/tokens';
 
 interface LiveMonitoringViewProps {
   device?: DeviceStatus;
@@ -61,6 +64,23 @@ function passosVistos(m: VisionMetadata | null): [boolean, boolean, boolean] {
 
 const segundosRelogio = (t: number) => new Date(t).toLocaleTimeString('pt-BR');
 
+/** "Foi engano": tudo volta em 250 ms. */
+const VOLTA = 0.25;
+/** Painéis que trocam com o gesto (contatos ⇄ "O que fazer agora"): entram com fade. */
+const PAINEL: Variants = {
+  fora: { opacity: 0 },
+  dentro: { opacity: 1, transition: { duration: DUR.curta, ease: EASE_MOTION, when: 'beforeChildren', staggerChildren: QUEDA.stagger } }
+};
+const PAINEL_VOLTA: Variants = { fora: { opacity: 0 }, dentro: { opacity: 1, transition: { duration: VOLTA, ease: EASE_MOTION } } };
+/** Os 4 botões de "O que fazer agora" entram em stagger de 60 ms. */
+const BOTAO: Variants = {
+  fora: { opacity: 0, y: -DESLOCA },
+  dentro: { opacity: 1, y: 0, transition: { duration: DUR.curta, ease: EASE_MOTION } }
+};
+/** Botão desativado (simulação): termina na mesma opacidade do CSS de .btn[aria-disabled]. */
+const BOTAO_DESATIVADO: Variants = { ...BOTAO, dentro: { opacity: 0.55, y: 0, transition: { duration: DUR.curta, ease: EASE_MOTION } } };
+const MOLDURA = 'rgba(220, 38, 38, 0.24)';
+
 export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({ device, alerts, layout, demo, onTriggerAlert, onResolver }) => {
   const celular = useMediaQuery(CELULAR);
   const { contatos, telefonePessoa, endereco } = useCuidado();
@@ -91,6 +111,9 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({ device, 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const molduraRef = useRef<HTMLDivElement | null>(null);
+  const passosGestoRef = useRef<HTMLOListElement | null>(null);
+  const vistosAntes = useRef<string>('');
+  const gestoAntes = useRef<boolean | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<number | null>(null);
@@ -359,6 +382,31 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({ device, 
   };
   const duracaoGesto = vistos[0] && vistos[2] ? Math.max(1, Math.round((vistos[2] - vistos[0]) / 1000)) : 3;
 
+  // Cada passo do gesto acende quando o detector confirma aquela parte: o fundo vai do cinza
+  // para o vermelho-claro (CSS, 200 ms) e o ícone dá uma escala 0,9 → 1
+  const vistosChave = PASSOS.map((_, i) => (estadoPasso(i).classe === 'is-visto' ? '1' : '0')).join('');
+  useGSAP(() => {
+    const antes = vistosAntes.current;
+    vistosAntes.current = vistosChave;
+    if (!antes || movimentoReduzido()) return;
+    const icones = gsap.utils.toArray<HTMLElement>('.passo-gesto-icone');
+    [...vistosChave].forEach((v, i) => {
+      if (v === '1' && antes[i] !== '1' && icones[i]) gsap.fromTo(icones[i]!, { scale: 0.9 }, { scale: 1, duration: DUR.curta, clearProps: 'transform' });
+    });
+  }, { scope: passosGestoRef, dependencies: [vistosChave] });
+
+  // Gesto reconhecido: a moldura vermelha entra com um único pulso (sombra 0 → 8 px → 4 px, 450 ms).
+  // "Foi engano": a sombra some em 250 ms (transição CSS). Com movimento reduzido, sem pulso.
+  useGSAP(() => {
+    const antes = gestoAntes.current;
+    gestoAntes.current = gestoAtivo;
+    const moldura = molduraRef.current;
+    if (!moldura || antes === null || !gestoAtivo || antes || movimentoReduzido()) return;
+    gsap.timeline()
+      .fromTo(moldura, { boxShadow: `0 0 0 0px ${MOLDURA}` }, { boxShadow: `0 0 0 8px ${MOLDURA}`, duration: 0.2 })
+      .to(moldura, { boxShadow: `0 0 0 4px ${MOLDURA}`, duration: 0.25, clearProps: 'boxShadow' });
+  }, { dependencies: [gestoAtivo] });
+
   const contatosAjuda = [
     { id: 'pessoa', nome: pessoa, papel: 'Telefone da casa', discagem: telefonePessoa, iniciais: pessoa.charAt(0), tom: 'pessoa' },
     ...contatos.filter(c => c.id === 'maria').map(c => ({ id: c.id, nome: c.nome, papel: `Filha · ${c.telefone}`, discagem: c.discagem, iniciais: c.nome.split(' ').map(p => p[0]).join('').slice(0, 2), tom: 'acento' }))
@@ -383,7 +431,7 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({ device, 
         {gestoAtivo && celular ? `Gesto visto em ${duracaoGesto} s` : celular ? `Como ${pessoa} pede ajuda` : `Como ${pessoa} pede ajuda pela câmera`}
       </h2>
       {!celular && <p className="texto-pequeno">Sinal internacional de socorro, feito com uma mão. O detector só avisa se vir os 3 passos em ordem.</p>}
-      <ol className="passos-gesto">
+      <ol ref={passosGestoRef} className="passos-gesto">
         {PASSOS.map((p, i) => {
           const e = estadoPasso(i);
           return (
@@ -483,20 +531,22 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({ device, 
         </div>
 
         <aside className="camera-lateral">
+          <AnimatePresence initial={false}>
           {gestoAtivo && (
-            <section className="painel camera-fazer" aria-labelledby="titulo-fazer">
+            <motion.section key="fazer" className="painel camera-fazer" aria-labelledby="titulo-fazer" variants={PAINEL} initial="fora" animate="dentro">
               <h2 id="titulo-fazer" className="titulo-painel">O que fazer agora</h2>
               {!celular && <p className="texto-pequeno">Comece falando com ele. Se não atender, mande o robô ou chame o SAMU.</p>}
-              <a className="btn btn-escuro btn-bloco btn-grande" href={`tel:${telefonePessoa}`}><Phone size={20} aria-hidden="true" />Ligar para {pessoa}</a>
-              <button className="btn btn-primario btn-bloco btn-grande" onClick={() => void mandarRobo()} disabled={roboEnviado}>
+              <motion.a variants={BOTAO} className="btn btn-escuro btn-bloco btn-grande" href={`tel:${telefonePessoa}`}><Phone size={20} aria-hidden="true" />Ligar para {pessoa}</motion.a>
+              <motion.button variants={BOTAO} className="btn btn-primario btn-bloco btn-grande" onClick={() => void mandarRobo()} disabled={roboEnviado}>
                 <Bot size={20} aria-hidden="true" />{roboEnviado ? 'Robô a caminho' : `Mandar o robô até ${artigo(comodoCurto(layout, destinoRobo) ?? 'Sala')}`}
-              </button>
+              </motion.button>
               {demo
-                ? <span className="btn btn-perigo btn-bloco btn-grande" aria-disabled="true" title="Simulação: nenhuma ligação é feita no modo demonstração"><Phone size={20} aria-hidden="true" />Ligar 192 · SAMU</span>
-                : <a className="btn btn-perigo btn-bloco btn-grande" href="tel:192"><Phone size={20} aria-hidden="true" />Ligar 192 · SAMU</a>}
-              <button className="btn-link camera-engano" onClick={encerrar}>Foi engano, encerrar aviso</button>
-            </section>
+                ? <motion.span variants={BOTAO_DESATIVADO} className="btn btn-perigo btn-bloco btn-grande" aria-disabled="true" title="Simulação: nenhuma ligação é feita no modo demonstração"><Phone size={20} aria-hidden="true" />Ligar 192 · SAMU</motion.span>
+                : <motion.a variants={BOTAO} className="btn btn-perigo btn-bloco btn-grande" href="tel:192"><Phone size={20} aria-hidden="true" />Ligar 192 · SAMU</motion.a>}
+              <motion.button variants={BOTAO} className="btn-link camera-engano" onClick={encerrar}>Foi engano, encerrar aviso</motion.button>
+            </motion.section>
           )}
+          </AnimatePresence>
 
           {gestoAtivo && !celular && (
             <section className="painel camera-ate-agora" aria-labelledby="titulo-ate-agora">
@@ -512,8 +562,9 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({ device, 
 
           {celular && comoPede}
 
+          <AnimatePresence initial={false}>
           {!gestoAtivo && (
-            <section className="painel camera-ajuda" aria-labelledby="titulo-ajuda">
+            <motion.section key="ajuda" className="painel camera-ajuda" aria-labelledby="titulo-ajuda" variants={PAINEL_VOLTA} initial="fora" animate="dentro">
               <h2 id="titulo-ajuda" className="titulo-painel">Se precisar de ajuda</h2>
               <ul className="contatos">
                 {contatosAjuda.map(c => (
@@ -534,8 +585,9 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({ device, 
               {!celular && (
                 <p className="camera-endereco"><MapPin size={16} aria-hidden="true" /><span><span>Endereço para o socorro</span><strong>{endereco}</strong></span></p>
               )}
-            </section>
+            </motion.section>
           )}
+          </AnimatePresence>
 
           {!gestoAtivo && !celular && <>
             <section className="painel camera-sensibilidade" aria-labelledby="titulo-sensibilidade">
