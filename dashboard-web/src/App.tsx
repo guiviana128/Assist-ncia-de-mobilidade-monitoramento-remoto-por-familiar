@@ -1,25 +1,34 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LiveMonitoringView } from './components/LiveMonitoringView';
-import { AppTab, Navbar } from './components/Navbar';
 import { HouseView3D } from './components/HouseView3D';
 import { LoginScreen } from './components/LoginScreen';
-import { auth, AuthRequiredError } from './services/auth';
-import { roomName, FALLBACK_LAYOUT } from './robot/houseLayout';
 import { TelemetryCards } from './components/TelemetryCards';
 import { MapTracker } from './components/MapTracker';
 import { AlertCenter } from './components/AlertCenter';
-import { RadarWidget } from './components/RadarWidget';
 import { AdvancedTelemetryView } from './components/AdvancedTelemetryView';
 import { SettingsView } from './components/SettingsView';
 import { SimulatorModal } from './components/SimulatorModal';
+import { Navbar, TopoMobile, BarraInferior } from './components/layout/Navbar';
+import { FaixaEmergencia } from './components/layout/FaixaEmergencia';
+import { MenuConta } from './components/layout/MenuConta';
+import { ABA_PADRAO, type AppTab, type AppView } from './components/layout/navegacao';
+import { Camada } from './components/ui/Camada';
+import { FraseEstado } from './components/ui/FraseEstado';
+import type { EstadoConexao } from './components/ui/StatusConexao';
+import { auth, AuthRequiredError } from './services/auth';
 import { api } from './services/api';
+import { useRobo } from './hooks/useRobo';
+import { ATE_TABLET, CELULAR, useMediaQuery } from './hooks/useMediaQuery';
+import { comodoCurto, emergenciaPendente, haQuanto, nomePessoa, resumoDoEstado, TITULO_EMERGENCIA } from './lib/resumoDoEstado';
 import { DashboardSummary, TelemetryPoint } from './types';
+
+type CamadaAberta = null | 'avisos' | 'conta' | 'simulador';
 
 export const App: React.FC = () => {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [routeHistory, setRouteHistory] = useState<TelemetryPoint[]>([]);
-  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<AppTab>('house');
+  const [view, setView] = useState<AppView>(ABA_PADRAO);
+  const [camada, setCamada] = useState<CamadaAberta>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [username, setUsername] = useState<string | null>(auth.username);
   const [geofenceRadius, setGeofenceRadius] = useState(500);
@@ -30,14 +39,9 @@ export const App: React.FC = () => {
   const [error, setError] = useState('');
   const busy = useRef(false);
   const mounted = useRef(false);
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    try { return localStorage.getItem('assistmob_theme') === 'dark'; } catch { return false; }
-  });
-
-  useEffect(() => {
-    document.body.classList.toggle('light-mode', !isDarkMode);
-    try { localStorage.setItem('assistmob_theme', isDarkMode ? 'dark' : 'light'); } catch { /* Storage may be unavailable. */ }
-  }, [isDarkMode]);
+  const celular = useMediaQuery(CELULAR);
+  const ateTablet = useMediaQuery(ATE_TABLET);
+  const robo = useRobo();
 
   const fetchData = useCallback(async () => {
     if (busy.current) return;
@@ -65,6 +69,7 @@ export const App: React.FC = () => {
     }
   }, []);
 
+  // Atualização automática a cada 3,5 s
   useEffect(() => {
     mounted.current = true;
     void fetchData();
@@ -77,81 +82,98 @@ export const App: React.FC = () => {
     if (!auth.isLoggedIn()) setNeedsLogin(true);
   }), []);
 
+  // Volta ao topo ao trocar de tela
+  useEffect(() => { window.scrollTo(0, 0); }, [view]);
+
   const handleResolveAlert = async (id: number) => {
     try { await api.resolveAlert(id); await fetchData(); }
     catch { setError('Não foi possível confirmar a resolução do alerta. Tente novamente.'); }
   };
+
   const device = summary?.devices[0];
-  const emergency = summary?.recentAlerts.find(alert => alert.status === 'PENDING' && (alert.alertType === 'HAND_GESTURE_SOS' || alert.alertType === 'SOS_BUTTON' || alert.alertType === 'FALL_DETECTED'));
-  const titles: Record<AppTab, string> = { house: 'Casa inteligente e robô assistente', live: 'Câmera e sinal de socorro', monitor: 'Acompanhamento familiar', telemetry: 'Telemetria e sensores', settings: 'Preferências de cuidado' };
+  const alerts = useMemo(() => summary?.recentAlerts ?? [], [summary]);
+  const emergency = emergenciaPendente(alerts);
+  const pessoa = nomePessoa(device);
+  const conexao: EstadoConexao = demo ? 'demonstracao' : device?.isOnline ? 'conectado' : loading ? 'demonstracao' : 'sem-conexao';
+  const resumo = resumoDoEstado({
+    carregando: loading, demo, device, alerts, robot: robo.robot, layout: robo.layout,
+    noComodoDesde: robo.noComodoDesde, atualizado: updated
+  });
+
+  const fecharCamada = useCallback(() => setCamada(null), []);
+  const alternar = (c: Exclude<CamadaAberta, null>) => setCamada(atual => atual === c ? null : c);
+  const irPara = (v: AppView) => { setView(v); setCamada(null); };
 
   if (needsLogin) {
-    return <LoginScreen onLoggedIn={() => { setNeedsLogin(false); setLoading(true); void fetchData(); }}
+    return <LoginScreen onLoggedIn={() => { setNeedsLogin(false); setLoading(true); setView(ABA_PADRAO); void fetchData(); }}
       onContinueDemo={() => setNeedsLogin(false)} />;
   }
 
+  const faixa = emergency ? (() => {
+    const onde = comodoCurto(robo.layout, emergency.indoorRoom);
+    const titulo = `${TITULO_EMERGENCIA[emergency.alertType] ?? 'Pedido de socorro'}${onde ? ` na ${onde}` : ''}`;
+    const robot = robo.robot?.mode === 'RESPONDING' ? `o robô assistente está indo até ${pessoa}`
+      : robo.robot?.mode === 'CHECKING_PERSON' ? `o robô assistente está ao lado de ${pessoa}` : 'confirme se alguém pode ir até ele';
+    const detalhe = `${haQuanto(emergency.createdAt)} · ${robot}`;
+    return <FaixaEmergencia titulo={titulo} detalhe={detalhe} demo={demo} compacta={ateTablet} onVerCasa={() => irPara('casa')} />;
+  })() : undefined;
+
+  const botoesTopo = {
+    avisosPendentes: summary?.pendingAlertsCount ?? 0,
+    avisosAbertos: camada === 'avisos',
+    contaAberta: camada === 'conta',
+    usuario: username,
+    onAvisos: () => alternar('avisos'),
+    onConta: () => alternar('conta')
+  };
+
+  const selecionar = (tab: AppTab) => irPara(tab);
+
   return (
-    <div className="app-shell">
-      <a className="skip-link" href="#main-content">Pular para o conteúdo</a>
-      <Navbar isOnline={!loading && !demo && !!device?.isOnline}
-        pendingAlertsCount={summary?.pendingAlertsCount ?? 0} isDarkMode={isDarkMode}
-        onToggleTheme={() => setIsDarkMode(value => !value)} activeTab={activeTab}
-        onSelectTab={setActiveTab} onOpenSimulator={() => setIsSimulatorOpen(true)} deviceId={device?.deviceId}
-        username={username} onLogout={() => { void auth.logout(); }} />
-      <main id="main-content" className="workspace">
-        <section className="page-heading">
-          <div><p className="eyebrow">AMPARO / CENTRAL DE CUIDADO</p>
-            <h2>{titles[activeTab]}</h2>
-            <p className="muted">Informações essenciais para acompanhar quem você ama.</p>
-          </div>
-          <button className="btn btn-secondary" onClick={() => void fetchData()} disabled={loading}>Atualizar painel</button>
-        </section>
-        <div className={demo || routeDemo || error ? 'connection-banner is-warning' : 'connection-banner'} role="status">
-          <strong>{loading ? 'Conectando ao painel…' : error ? 'Atualização indisponível' : demo ? 'Modo demonstração • API indisponível' : routeDemo ? 'Trajeto demonstrativo • histórico indisponível' : 'Dados recebidos da API'}</strong>
-          <span>{demo ? 'Dados de exemplo; não representam monitoramento real.' : routeDemo ? 'O percurso exibido contém dados de exemplo.' : 'A conexão com a API não confirma o funcionamento de todos os sensores.'}</span>
-          {updated && <span>Consulta: {updated.toLocaleTimeString('pt-BR')}</span>}
-        </div>
-        {emergency && <section className="emergency-panel" aria-label="Socorro pendente">
-          <div role="alert"><span className="eyebrow">{demo ? 'SIMULAÇÃO DE SOCORRO' : 'SOCORRO RECEBIDO'}</span>
-            <h2>{emergency.alertType === 'FALL_DETECTED' ? 'Alerta de queda recebido' : emergency.alertType === 'HAND_GESTURE_SOS' ? 'Gesto de socorro na câmera' : 'Pedido de SOS acionado'}</h2>
-            <p>{emergency.message}</p>
-            <p>Dispositivo: {emergency.deviceId} · {new Date(emergency.createdAt).toLocaleString('pt-BR')}</p>
-            {emergency.indoorRoom && <p>Cômodo: <strong>{roomName(FALLBACK_LAYOUT, emergency.indoorRoom)}</strong> · o robô assistente foi enviado automaticamente</p>}
-            {Number.isFinite(emergency.latitude) && Number.isFinite(emergency.longitude) && <p>Localização informada: {emergency.latitude.toFixed(6)}, {emergency.longitude.toFixed(6)}</p>}
-          </div>
-          <div className="emergency-actions">
-            {demo ? <span className="badge badge-warning">Teste: nenhuma ligação será iniciada</span> : <a className="btn btn-danger" href="tel:192">Ligar para emergência · SAMU 192</a>}
-            <button className="btn btn-secondary" onClick={() => setActiveTab('house')}>Ver robô e casa em 3D</button>
-            <button className="btn btn-secondary" onClick={() => setActiveTab('monitor')}>Ver ocorrência no painel</button>
-          </div>
-          <p className="muted">{demo ? 'O botão de ligação fica disponível para ocorrências recebidas da API.' : 'Abre o discador do aparelho. A chamada depende da confirmação e do suporte do dispositivo.'}</p>
-        </section>}
-        {error && <p className="feedback-error" role="alert">{error}</p>}
-        {loading ? <div className="empty-state" aria-busy="true">Carregando dispositivos e alertas…</div> :
-          !device ? <div className="empty-state"><h3>Nenhum dispositivo disponível</h3><p>Verifique o cadastro e a conexão da dispositivo de assistência.</p></div> : <>
-            <section className="person-strip" aria-label="Dispositivo acompanhado">
-              <div className="person-avatar" aria-hidden="true">A</div>
-              <div><strong>{device.name}</strong><p className="muted">{device.deviceId}</p></div>
-              <div className="person-status"><span className="eyebrow">ÚLTIMA TELEMETRIA</span><p>{device.lastUpdate ? new Date(device.lastUpdate).toLocaleString('pt-BR') : 'Sem data informada'}</p></div>
-              <span className="badge badge-warning">{summary?.pendingAlertsCount ?? 0} alertas pendentes</span>
-            </section>
-            {activeTab === 'house' && <HouseView3D alerts={summary?.recentAlerts ?? []} isDarkMode={isDarkMode} />}
-            {activeTab === 'monitor' && <>
-              <TelemetryCards device={device} />
-              <div className="monitor-grid">
-                <MapTracker device={device} routeHistory={routeHistory} isDarkMode={isDarkMode} geofenceRadius={geofenceRadius} onLocationUpdated={fetchData} />
-                <div className="monitor-aside"><AlertCenter alerts={summary?.recentAlerts ?? []} onResolve={handleResolveAlert} />{device.lastDistanceCm != null && <RadarWidget distanceCm={device.lastDistanceCm} />}</div>
-              </div>
-            </>}
-            {activeTab === 'live' && <LiveMonitoringView device={device} onTriggerAlert={() => { void fetchData(); }} />}
-            {activeTab === 'telemetry' && <AdvancedTelemetryView device={device} />}
-            {activeTab === 'settings' && <><p className="section-notice">Preferências desta sessão: listas de medicamentos e áreas de exemplo não são um cadastro persistente.</p><SettingsView geofenceRadius={geofenceRadius} onUpdateGeofenceRadius={setGeofenceRadius} deviceId={device.deviceId} /></>}
+    <div className={`app${emergency ? ' is-emergencia' : ''}${demo ? ' is-demonstracao' : ''}`}>
+      <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
+      {ateTablet
+        ? <TopoMobile conexao={conexao} faixa={faixa} {...botoesTopo} />
+        : <Navbar view={view} conexao={conexao} onSelecionar={selecionar} faixa={faixa} {...botoesTopo} />}
+
+      <main id="conteudo" className="pagina" tabIndex={-1}>
+        {error && <p className="nota is-aviso" role="status">{error}</p>}
+        {loading && !summary ? (
+          <div className="estado-vazio" aria-busy="true"><span className="carregando" aria-hidden="true" />Carregando a casa e os avisos…</div>
+        ) : !device ? (
+          <div className="estado-vazio painel"><h3>Nenhuma bengala cadastrada</h3><p>Confira o cadastro e a conexão do dispositivo.</p></div>
+        ) : <>
+          {view === 'inicio' && <>
+            <FraseEstado tom={resumo.tom} forte={resumo.forte} apoio={resumo.apoio} detalhe={resumo.detalhe} indicador />
+            <TelemetryCards device={device} />
+            <div className="monitor-grid">
+              <MapTracker device={device} routeHistory={routeHistory} isDarkMode={false} geofenceRadius={geofenceRadius} onLocationUpdated={fetchData} />
+              <AlertCenter alerts={alerts} onResolve={handleResolveAlert} />
+            </div>
           </>}
-        <footer className="workspace-footer">Amparo · Mobilidade e cuidado familiar <span>Atualização automática a cada 3,5 segundos</span></footer>
+          {view === 'casa' && <HouseView3D alerts={alerts} isDarkMode={false} />}
+          {view === 'monitorar' && <>
+            <AdvancedTelemetryView device={device} />
+            {routeDemo && <p className="nota">Trajeto com dados demonstrativos.</p>}
+          </>}
+          {view === 'camera' && <LiveMonitoringView device={device} onTriggerAlert={() => { void fetchData(); }} />}
+          {view === 'configuracoes' && <SettingsView geofenceRadius={geofenceRadius} onUpdateGeofenceRadius={setGeofenceRadius} deviceId={device.deviceId} />}
+        </>}
       </main>
-      <SimulatorModal isOpen={isSimulatorOpen} onClose={() => setIsSimulatorOpen(false)} onRefresh={fetchData} />
+
+      {ateTablet && <BarraInferior view={view} onSelecionar={selecionar} />}
+
+      <Camada aberta={camada === 'avisos'} onFechar={fecharCamada} modo={celular ? 'folha' : 'popover'} titulo="Avisos" className="camada-avisos">
+        <AlertCenter alerts={alerts} onResolve={handleResolveAlert} />
+      </Camada>
+      <Camada aberta={camada === 'conta'} onFechar={fecharCamada} modo={celular ? 'folha' : 'popover'} titulo="Sua conta"
+        semCabecalho={!celular} className="camada-conta">
+        <MenuConta usuario={username} pessoa={pessoa} emConfiguracoes={view === 'configuracoes'}
+          onConfiguracoes={() => irPara('configuracoes')} onSimulador={() => setCamada('simulador')}
+          onSair={() => { setCamada(null); void auth.logout(); }} />
+      </Camada>
+      <SimulatorModal isOpen={camada === 'simulador'} onClose={fecharCamada} onRefresh={fetchData} />
     </div>
   );
 };
 export default App;
-

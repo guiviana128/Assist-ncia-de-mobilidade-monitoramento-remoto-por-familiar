@@ -1,0 +1,186 @@
+/* Estrutura do app: navbar (≥1024), topo + barra inferior (<1024), página, frase de estado, camadas. */
+
+.app { min-height: 100vh; }
+
+/* ---------- Página e grade ---------- */
+.pagina {
+  display: flex; flex-direction: column; gap: 24px;
+  width: 100%; max-width: var(--largura-max); margin: 0 auto;
+  padding: 12px var(--margem-pagina) 40px;
+}
+.pagina:focus { outline: none; }
+.grade-12 { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 24px; }
+
+@media (max-width: 1023px) {
+  .pagina { padding-top: 8px; padding-bottom: calc(var(--altura-barra-inferior) + env(safe-area-inset-bottom) + 24px); gap: 20px; }
+}
+@media (max-width: 767px) {
+  .pagina { gap: 16px; }
+}
+
+/* ---------- Marca ---------- */
+.marca { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.marca-simbolo {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px;
+  background: var(--acento); color: var(--texto-invertido); flex-shrink: 0;
+}
+.marca-simbolo.is-pequeno { width: 36px; height: 36px; border-radius: 10px; }
+.marca-nome { display: flex; flex-direction: column; font-family: var(--fonte-titulo); font-weight: 700; font-size: 22px; line-height: 26px; white-space: nowrap; }
+.marca-nome small { font-family: var(--fonte-corpo); font-weight: 500; font-size: 13px; line-height: 18px; color: var(--texto-secundario); }
+
+/* ---------- Navbar (computador) ---------- */
+.navbar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; flex-direction: column; gap: 8px;
+  width: 100%; max-width: var(--largura-max); margin: 0 auto; padding: 16px 24px;
+  background: var(--superficie-fundo);
+}
+.navbar-barra {
+  display: flex; align-items: center; gap: 28px; padding: 14px 20px 14px 24px;
+  background: var(--superficie-base); border: 1px solid var(--borda-padrao); border-radius: 20px;
+  box-shadow: var(--sombra-navbar);
+}
+.navbar-divisor { width: 1px; height: 36px; background: var(--borda-padrao); flex-shrink: 0; }
+.navbar-abas { display: flex; gap: 8px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 11px 18px 11px 16px;
+  border-radius: 12px; font-size: 15px; line-height: 22px; font-weight: 600; color: var(--texto-principal); white-space: nowrap;
+}
+.nav-item:hover { background: var(--superficie-rebaixada); }
+.nav-item.is-ativo { background: var(--acento-suave); color: var(--acento-forte); font-weight: 700; }
+.navbar-acoes { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex: 1; min-width: 0; }
+
+@media (max-width: 1240px) {
+  .navbar-barra { gap: 16px; }
+  .marca-nome small { display: none; }
+  .nav-item { padding: 11px 12px; }
+  .navbar-acoes .selo { font-size: 0; gap: 0; padding: 8px; }
+}
+
+/* ---------- Faixa de emergência ---------- */
+.faixa-emergencia {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 24px;
+  background: var(--perigo-fundo); border: 1px solid var(--perigo-borda); border-radius: 16px; color: var(--perigo-texto);
+}
+.faixa-emergencia > svg { flex-shrink: 0; }
+.faixa-emergencia-texto { flex: 1; min-width: 0; font-size: 15px; line-height: 22px; font-weight: 500; }
+.faixa-emergencia-texto strong { font-weight: 700; margin-right: 4px; }
+.faixa-emergencia-acoes { display: flex; gap: 12px; flex-shrink: 0; }
+.faixa-emergencia.is-compacta { padding: 12px 14px; gap: 10px; border-radius: 14px; }
+.faixa-emergencia.is-compacta .faixa-emergencia-texto { font-size: 12px; line-height: 16px; }
+.faixa-emergencia.is-compacta strong { display: block; font-size: 14px; line-height: 20px; }
+
+/* ---------- Topo do celular / tablet ---------- */
+.topo-mobile {
+  position: sticky; top: 0; z-index: 50; background: var(--superficie-fundo);
+  padding-top: env(safe-area-inset-top);
+}
+.topo-mobile-barra {
+  display: flex; align-items: center; gap: 10px;
+  max-width: var(--largura-max); margin: 0 auto; padding: 12px var(--margem-pagina) 8px;
+}
+.topo-mobile-nome { flex: 1; min-width: 0; font-family: var(--fonte-titulo); font-weight: 700; font-size: 20px; line-height: 24px; }
+.btn-icone.is-claro { background: var(--superficie-base); }
+.btn-icone.is-claro:hover { background: var(--superficie-rebaixada); }
+.topo-mobile-faixa { max-width: var(--largura-max); margin: 0 auto; padding: 0 var(--margem-pagina) 8px; }
+
+/* ---------- Barra inferior ---------- */
+.barra-inferior {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  display: flex; padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  background: var(--superficie-base); border-top: 1px solid var(--borda-padrao);
+}
+.barra-inferior-aba {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0;
+  min-height: 56px; font-size: 11px; line-height: 14px; font-weight: 600; color: var(--texto-secundario); white-space: nowrap;
+}
+.barra-inferior-indicador { display: grid; place-items: center; width: 56px; height: 30px; border-radius: 999px; color: var(--texto-principal); }
+.barra-inferior-aba:hover .barra-inferior-indicador { background: var(--superficie-rebaixada); }
+.barra-inferior-aba.is-ativo { color: var(--acento-forte); font-weight: 700; }
+.barra-inferior-aba.is-ativo .barra-inferior-indicador { background: var(--acento-suave); color: var(--acento-forte); }
+
+/* ---------- Frase de estado ---------- */
+.frase-estado { display: flex; align-items: center; gap: 16px 24px; }
+.frase-estado.tem-indicador { padding-left: 14px; }
+.frase-estado-texto { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.frase-indicador {
+  display: inline-block; width: 16px; height: 16px; margin-right: 14px; border-radius: 999px; vertical-align: 2px;
+  background: var(--planta-parede); box-shadow: 0 0 0 6px rgba(148, 163, 184, .22);
+}
+.frase-estado.is-sucesso .frase-indicador { background: var(--sucesso-ponto); box-shadow: 0 0 0 6px rgba(15, 186, 128, .22); }
+.frase-estado.is-aviso .frase-indicador { background: var(--aviso-ponto); box-shadow: 0 0 0 6px rgba(245, 158, 11, .22); }
+.frase-estado.is-perigo .frase-indicador { background: var(--perigo); box-shadow: 0 0 0 6px rgba(220, 38, 38, .2); }
+.frase-estado.is-perigo .frase { color: var(--perigo-texto); }
+.frase-detalhe { font-size: 15px; line-height: 22px; font-weight: 500; color: var(--texto-secundario); white-space: pre-wrap; }
+.frase-estado.tem-indicador .frase-detalhe { padding-left: 30px; }
+.frase-estado-acoes { display: flex; gap: 12px; flex-shrink: 0; }
+
+@media (max-width: 767px) {
+  .frase-estado { flex-direction: column; align-items: stretch; }
+  .frase-estado.tem-indicador { padding-left: 0; }
+  .frase-indicador { display: none; }
+  .frase-estado.tem-indicador .frase-detalhe { padding-left: 0; }
+  .frase-detalhe { font-size: 13px; line-height: 18px; }
+  .frase-estado-acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .frase-estado-acoes .btn { min-height: 52px; border-radius: 14px; font-size: 15px; }
+}
+
+/* ---------- Camadas (popover, painel lateral, folha inferior) ---------- */
+.camada { position: fixed; inset: 0; z-index: 100; }
+.camada-fundo { position: absolute; inset: 0; }
+.camada-folha .camada-fundo, .camada-lateral .camada-fundo { background: rgba(15, 23, 42, .32); }
+.camada-painel {
+  position: absolute; display: flex; flex-direction: column; background: var(--superficie-base);
+  border: 1px solid var(--borda-padrao); box-shadow: var(--sombra-flutuante); overflow: hidden;
+}
+.camada-painel:focus { outline: none; }
+.camada-cabecalho { display: flex; align-items: center; gap: 12px; padding: 16px 16px 8px 20px; }
+.camada-titulo { flex: 1; font-size: 20px; line-height: 26px; }
+.camada-conteudo { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+.camada-popover .camada-painel {
+  top: 96px; right: max(44px, calc((100vw - var(--largura-max)) / 2 + 44px));
+  width: 420px; max-width: calc(100vw - 32px); max-height: calc(100vh - 120px); border-radius: 16px;
+}
+.camada-popover .camada-painel.camada-conta { width: 280px; }
+.is-emergencia .camada-popover .camada-painel { top: 96px; }
+
+.camada-lateral .camada-painel {
+  top: 16px; right: 16px; bottom: 16px; width: 440px; max-width: calc(100vw - 32px); border-radius: 20px;
+}
+
+.camada-folha .camada-painel {
+  left: 0; right: 0; bottom: 0; max-height: 88vh; border-radius: 24px 24px 0 0; border-bottom: none;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.camada-alca { align-self: center; width: 40px; height: 4px; margin-top: 10px; border-radius: 999px; background: var(--borda-forte); }
+
+/* Em telas menores que 1024 a navbar é o topo compacto: popover encosta no topo dele */
+@media (max-width: 1023px) {
+  .camada-popover .camada-painel { top: 68px; right: var(--margem-pagina); }
+}
+
+/* ---------- Menu da conta ---------- */
+.menu-conta { display: flex; flex-direction: column; gap: 2px; padding: 8px; }
+.menu-conta-quem { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+.menu-conta-avatar {
+  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 999px; flex-shrink: 0;
+  background: var(--acento-suave); color: var(--acento-forte); font-weight: 700; font-size: 13px; line-height: 18px;
+}
+.menu-conta-nome { font-weight: 700; font-size: 14px; line-height: 20px; }
+.menu-conta-papel { font-weight: 500; font-size: 12px; line-height: 16px; color: var(--texto-secundario); }
+.menu-conta-divisor { border: none; height: 1px; background: var(--borda-padrao); margin: 0; }
+.menu-conta-opcao {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 40px; padding: 10px 12px;
+  border-radius: 10px; text-align: left; font-weight: 600; font-size: 14px; line-height: 20px; color: var(--texto-principal);
+}
+.menu-conta-opcao > span { flex: 1; }
+button.menu-conta-opcao:hover, .menu-conta-opcao.is-ativo { background: var(--superficie-rebaixada); }
+.menu-conta-opcao.is-perigo { color: var(--perigo-texto); }
+.menu-conta-opcao.is-desativado { cursor: default; }
+.menu-conta-opcao .interruptor:disabled { opacity: .6; cursor: not-allowed; }
+
+@media (max-width: 767px) {
+  .menu-conta { padding: 0 12px 12px; }
+  .menu-conta-opcao { min-height: 48px; font-size: 15px; }
+}
