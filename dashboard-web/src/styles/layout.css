@@ -43,11 +43,15 @@
 .navbar-divisor { width: 1px; height: 36px; background: var(--borda-padrao); flex-shrink: 0; }
 .navbar-abas { display: flex; gap: 8px; }
 .nav-item {
+  position: relative; isolation: isolate;
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 11px 18px 11px 16px;
   border-radius: 12px; font-size: 15px; line-height: 22px; font-weight: 600; color: var(--texto-principal); white-space: nowrap;
 }
 .nav-item:hover { background: var(--superficie-rebaixada); }
-.nav-item.is-ativo { background: var(--acento-suave); color: var(--acento-forte); font-weight: 700; }
+.nav-item.is-ativo { color: var(--acento-forte); font-weight: 700; }
+.nav-item.is-ativo:hover { background: transparent; }
+/* Fundo da aba ativa: um só elemento que desliza entre as abas (layoutId) */
+.nav-item-fundo { position: absolute; inset: 0; z-index: -1; border-radius: 12px; background: var(--acento-suave); }
 .navbar-acoes { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex: 1; min-width: 0; }
 
 @media (max-width: 1240px) {
@@ -94,10 +98,12 @@
   flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0;
   min-height: 56px; font-size: 11px; line-height: 14px; font-weight: 600; color: var(--texto-secundario); white-space: nowrap;
 }
-.barra-inferior-indicador { display: grid; place-items: center; width: 56px; height: 30px; border-radius: 999px; color: var(--texto-principal); }
+.barra-inferior-indicador { position: relative; isolation: isolate; display: grid; place-items: center; width: 56px; height: 30px; border-radius: 999px; color: var(--texto-principal); }
 .barra-inferior-aba:hover .barra-inferior-indicador { background: var(--superficie-rebaixada); }
 .barra-inferior-aba.is-ativo { color: var(--acento-forte); font-weight: 700; }
-.barra-inferior-aba.is-ativo .barra-inferior-indicador { background: var(--acento-suave); color: var(--acento-forte); }
+.barra-inferior-aba.is-ativo .barra-inferior-indicador { color: var(--acento-forte); }
+.barra-inferior-aba.is-ativo:hover .barra-inferior-indicador { background: transparent; }
+.barra-inferior-fundo { position: absolute; inset: 0; z-index: -1; border-radius: 999px; background: var(--acento-suave); }
 
 /* ---------- Frase de estado ---------- */
 .frase-estado { display: flex; align-items: center; gap: 16px 24px; }
@@ -153,7 +159,13 @@
   left: 0; right: 0; bottom: 0; max-height: 88vh; border-radius: 24px 24px 0 0; border-bottom: none;
   padding-bottom: env(safe-area-inset-bottom);
 }
-.camada-alca { align-self: center; width: 40px; height: 4px; margin-top: 10px; border-radius: 999px; background: var(--borda-forte); }
+.camada-alca {
+  align-self: center; width: 40px; height: 4px; margin-top: 10px; border-radius: 999px; background: var(--borda-forte);
+  box-sizing: content-box; padding: 8px 40px; margin-top: 2px; background-clip: content-box; /* alvo de toque maior */
+}
+/* Arrastar a alça ou o cabeçalho para baixo fecha a folha (o conteúdo continua rolando normalmente) */
+.camada-folha .camada-alca, .camada-folha .camada-cabecalho { touch-action: none; cursor: grab; user-select: none; }
+.camada-folha .camada-cabecalho button { cursor: pointer; }
 
 /* Em telas menores que 1024 a navbar é o topo compacto: popover encosta no topo dele */
 @media (max-width: 1023px) {
@@ -184,3 +196,6 @@ button.menu-conta-opcao:hover, .menu-conta-opcao.is-ativo { background: var(--su
   .menu-conta { padding: 0 12px 12px; }
   .menu-conta-opcao { min-height: 48px; font-size: 15px; }
 }
+
+/* Conteúdo da aba (envolve a tela atual para a troca animada) */
+.pagina-vista { display: flex; flex-direction: column; gap: inherit; min-width: 0; }

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { LiveMonitoringView } from './components/LiveMonitoringView';
 import { HouseView3D } from './components/HouseView3D';
 import { LoginScreen } from './components/LoginScreen';
@@ -21,8 +22,16 @@ import { useRobo } from './hooks/useRobo';
 import { ATE_TABLET, CELULAR, useMediaQuery } from './hooks/useMediaQuery';
 import { comodoCurto, naNo, emergenciaPendente, haQuanto, nomePessoa, resumoDoEstado, TITULO_EMERGENCIA } from './lib/resumoDoEstado';
 import { DashboardSummary, TelemetryPoint } from './types';
+import { DESLOCA, DUR, EASE_MOTION, saida } from './motion/tokens';
 
 type CamadaAberta = null | 'avisos' | 'conta' | 'simulador';
+
+/** Troca de aba: o conteúdo novo entra com fade + 8 px para cima (200 ms); o antigo sai só com fade (140 ms). */
+const VISTA = {
+  initial: { opacity: 0, y: DESLOCA },
+  animate: { opacity: 1, y: 0, transition: { duration: DUR.curta, ease: EASE_MOTION } },
+  exit: { opacity: 0, transition: { duration: saida(DUR.curta), ease: EASE_MOTION } }
+};
 
 export const App: React.FC = () => {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -80,9 +89,6 @@ export const App: React.FC = () => {
     setUsername(auth.username);
     if (!auth.isLoggedIn()) setNeedsLogin(true);
   }), []);
-
-  // Volta ao topo ao trocar de tela
-  useEffect(() => { window.scrollTo(0, 0); }, [view]);
 
   const handleResolveAlert = async (id: number) => {
     try { await api.resolveAlert(id); await fetchData(); }
@@ -146,7 +152,9 @@ export const App: React.FC = () => {
           <div className="estado-vazio" aria-busy="true"><span className="carregando" aria-hidden="true" />Carregando a casa e os avisos…</div>
         ) : !device ? (
           <div className="estado-vazio painel"><h3>Nenhuma bengala cadastrada</h3><p>Confira o cadastro e a conexão do dispositivo.</p></div>
-        ) : <>
+        ) : (
+          <AnimatePresence mode="wait" initial={false} onExitComplete={() => window.scrollTo(0, 0)}>
+          <motion.div key={view} className="pagina-vista" {...VISTA}>
           {view === 'inicio' && <InicioView device={device} alerts={alerts} layout={robo.layout} robot={robo.robot}
             missions={robo.missions} noComodoDesde={robo.noComodoDesde} resumo={resumo} demo={demo}
             onAbrirCasa={abrirCasa} onResolver={id => void handleResolveAlert(id)} />}
@@ -155,7 +163,9 @@ export const App: React.FC = () => {
           {view === 'camera' && <LiveMonitoringView device={device} alerts={alerts} layout={robo.layout} demo={demo}
             onTriggerAlert={() => { void fetchData(); }} onResolver={id => void handleResolveAlert(id)} />}
           {view === 'configuracoes' && <ConfiguracoesView deviceId={device.deviceId} pessoa={pessoa} />}
-        </>}
+          </motion.div>
+          </AnimatePresence>
+        )}
       </main>
 
       {ateTablet && <BarraInferior view={view} onSelecionar={selecionar} />}

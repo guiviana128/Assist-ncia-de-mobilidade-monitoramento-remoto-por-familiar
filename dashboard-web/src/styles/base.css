@@ -1,7 +1,7 @@
 /*
  * Base do redesign: reset, tipografia, painéis, botões, chips, selos e foco.
- * Versão estática: sem transition/animation. Estados usam classes (is-ativo, is-emergencia…)
- * para que a animação possa ser adicionada depois sem reescrever os componentes.
+ * Estados usam classes (is-ativo, is-emergencia…). Animações: src/motion (tokens, GSAP) e Motion nos componentes;
+ * aqui ficam só as transições de cor/borda de hover e foco (150 ms), que valem também com movimento reduzido.
  */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -24,6 +24,13 @@ button { cursor: pointer; background: none; border: none; }
 a { color: inherit; }
 img, svg, canvas, video { display: block; max-width: 100%; }
 ul, ol { list-style: none; }
+
+/* Hover e foco: só cor e borda, 150 ms (nunca transform/opacity aqui, que são do GSAP e do Motion) */
+button, a, label, input, select, textarea, [role='button'], .chip, .chip-comodo, .selo, .nota, .interruptor, .planta-piso {
+  transition-property: color, background-color, border-color, box-shadow, outline-color, fill, stroke;
+  transition-duration: var(--dur-rapida);
+  transition-timing-function: var(--ease);
+}
 
 /* Foco visível em tudo: anel 2px na cor de acento com afastamento */
 :focus { outline: none; }

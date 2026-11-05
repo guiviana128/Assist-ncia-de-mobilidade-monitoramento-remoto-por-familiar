@@ -1,5 +1,7 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { Activity, Bell, HeartPulse, User } from 'lucide-react';
+import { DUR, EASE_MOTION } from '../../motion/tokens';
 import { ABAS, type AppTab, type AppView } from './navegacao';
 import { StatusConexao, type EstadoConexao } from '../ui/StatusConexao';
 
@@ -39,6 +41,9 @@ interface NavbarProps extends BotoesTopoProps {
   faixa?: React.ReactNode;
 }
 
+/** O fundo da aba ativa desliza de uma aba para a outra (layoutId do Motion, 300 ms). */
+const DESLIZE = { layout: { duration: DUR.media, ease: EASE_MOTION } };
+
 /** Navbar flutuante do computador (≥ 1024 px). Variantes Normal / Demonstração / Emergência. */
 export const Navbar: React.FC<NavbarProps> = ({ view, conexao, onSelecionar, faixa, ...botoes }) => (
   <header className={`navbar${faixa ? ' is-emergencia' : ''}${conexao === 'demonstracao' ? ' is-demonstracao' : ''}`}>
@@ -52,6 +57,7 @@ export const Navbar: React.FC<NavbarProps> = ({ view, conexao, onSelecionar, fai
         {ABAS.map(({ id, rotulo, Icone }) => (
           <button key={id} className={`nav-item${view === id ? ' is-ativo' : ''}`}
             aria-current={view === id ? 'page' : undefined} onClick={() => onSelecionar(id)}>
+            {view === id && <motion.span layoutId="navbar-aba-ativa" className="nav-item-fundo" transition={DESLIZE} aria-hidden="true" />}
             <Icone size={20} aria-hidden="true" />{rotulo}
           </button>
         ))}
@@ -89,7 +95,10 @@ export const BarraInferior: React.FC<{ view: AppView; onSelecionar: (tab: AppTab
     {ABAS.map(({ id, rotulo, Icone }) => (
       <button key={id} className={`barra-inferior-aba${view === id ? ' is-ativo' : ''}`}
         aria-current={view === id ? 'page' : undefined} onClick={() => onSelecionar(id)}>
-        <span className="barra-inferior-indicador"><Icone size={20} aria-hidden="true" /></span>
+        <span className="barra-inferior-indicador">
+          {view === id && <motion.span layoutId="barra-inferior-ativa" className="barra-inferior-fundo" transition={DESLIZE} aria-hidden="true" />}
+          <Icone size={20} aria-hidden="true" />
+        </span>
         {rotulo}
       </button>
     ))}

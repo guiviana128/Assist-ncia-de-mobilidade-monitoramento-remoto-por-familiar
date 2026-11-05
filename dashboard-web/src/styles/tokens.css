@@ -58,6 +58,13 @@
   --sombra-flutuante: 0 12px 32px -6px rgba(15, 23, 41, 0.18), 0 2px 6px 0 rgba(15, 23, 41, 0.06);
   --sombra-controle: 0 2px 8px 0 rgba(15, 23, 41, 0.12);
 
+  /* Movimento (espelha src/motion/tokens.ts) */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-rapida: 150ms;
+  --dur-curta: 200ms;
+  --dur-media: 300ms;
+  --dur-longa: 450ms;
+
   /* Layout */
   --largura-max: 1440px;
   --margem-pagina: 24px;
