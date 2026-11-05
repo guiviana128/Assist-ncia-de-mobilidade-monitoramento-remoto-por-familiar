@@ -3,9 +3,8 @@ import { LiveMonitoringView } from './components/LiveMonitoringView';
 import { HouseView3D } from './components/HouseView3D';
 import { LoginScreen } from './components/LoginScreen';
 import { InicioView } from './components/inicio/InicioView';
-import { MapTracker } from './components/MapTracker';
+import { MonitorarView } from './components/monitorar/MonitorarView';
 import { AlertCenter } from './components/AlertCenter';
-import { AdvancedTelemetryView } from './components/AdvancedTelemetryView';
 import { SettingsView } from './components/SettingsView';
 import { SimulatorModal } from './components/SimulatorModal';
 import { Navbar, TopoMobile, BarraInferior } from './components/layout/Navbar';
@@ -148,11 +147,7 @@ export const App: React.FC = () => {
             missions={robo.missions} noComodoDesde={robo.noComodoDesde} resumo={resumo} demo={demo}
             onAbrirCasa={abrirCasa} onResolver={id => void handleResolveAlert(id)} />}
           {view === 'casa' && <HouseView3D alerts={alerts} isDarkMode={false} comodoInicial={comodoCasa} pessoa={pessoa} demo={demo} />}
-          {view === 'monitorar' && <>
-            <AdvancedTelemetryView device={device} />
-            <MapTracker device={device} routeHistory={routeHistory} isDarkMode={false} geofenceRadius={geofenceRadius} onLocationUpdated={fetchData} />
-            {routeDemo && <p className="nota">Trajeto com dados demonstrativos.</p>}
-          </>}
+          {view === 'monitorar' && <MonitorarView device={device} alerts={alerts} routeHistory={routeHistory} routeDemo={routeDemo} demo={demo} />}
           {view === 'camera' && <LiveMonitoringView device={device} onTriggerAlert={() => { void fetchData(); }} />}
           {view === 'configuracoes' && <SettingsView geofenceRadius={geofenceRadius} onUpdateGeofenceRadius={setGeofenceRadius} deviceId={device.deviceId} />}
         </>}

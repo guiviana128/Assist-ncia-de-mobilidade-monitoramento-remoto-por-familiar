@@ -1,0 +1,164 @@
+/* Monitorar (Figma 21:1004, 21:1234, 35:2471). */
+
+.monitorar { display: flex; flex-direction: column; gap: 20px; }
+.monitorar-resumo { display: flex; align-items: center; gap: 16px 24px; padding-left: 8px; }
+.monitorar-resumo-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.monitorar-frase { font-size: 32px; line-height: 40px; }
+.monitorar-resumo .frase-detalhe { font-size: 14px; line-height: 20px; }
+
+.monitorar-linha { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: stretch; }
+.monitorar-cabecalho { display: flex; align-items: center; gap: 12px; }
+.monitorar-cabecalho > div:first-child { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.btn-pequeno { min-height: 36px; padding: 8px 14px 8px 12px; border-radius: 10px; font-size: 13px; line-height: 18px; }
+
+/* Passos */
+.monitorar-passos { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; }
+.mobilidade { display: flex; align-items: center; gap: 12px; }
+.mobilidade-texto { display: flex; flex-direction: column; align-items: flex-end; }
+.mobilidade-texto span { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--texto-secundario); }
+.mobilidade-texto strong { font-size: 13px; line-height: 18px; }
+.mobilidade-texto .is-sucesso { color: var(--sucesso-texto); }
+.mobilidade-texto .is-aviso { color: var(--aviso-texto); }
+.mobilidade-texto .is-perigo { color: var(--perigo-texto); }
+.mobilidade-nota {
+  display: grid; place-items: center; width: 52px; height: 52px; border-radius: 999px; flex-shrink: 0;
+  border: 3px solid var(--sucesso-ponto); background: var(--sucesso-fundo); color: var(--sucesso-texto);
+  font-family: var(--fonte-titulo); font-weight: 700; font-size: 20px; line-height: 24px;
+}
+.mobilidade-nota.is-aviso { border-color: var(--aviso-ponto); background: var(--aviso-fundo); color: var(--aviso-texto); }
+.mobilidade-nota.is-perigo { border-color: var(--perigo); background: var(--perigo-fundo); color: var(--perigo-texto); }
+.monitorar-numeros { display: flex; justify-content: space-between; gap: 16px; padding-top: 4px; }
+.monitorar-numeros .fato + .fato { border-left: 1px solid var(--borda-padrao); padding-left: 16px; }
+
+/* Gráficos */
+.grafico { width: 100%; min-width: 0; }
+.grafico svg { display: block; overflow: visible; font-family: var(--fonte-corpo); }
+.grafico-grade { stroke: var(--borda-padrao); stroke-width: 1; }
+.grafico-eixo { font-size: 12px; font-weight: 500; fill: var(--texto-secundario); }
+.grafico-eixo.is-hoje { font-weight: 700; fill: var(--texto-principal); }
+.grafico-barra { cursor: default; }
+.grafico-barra:focus { outline: none; }
+.grafico-barra-forma { fill: var(--acento); }
+.grafico-barra.is-ativa .grafico-barra-forma, .grafico-barra:focus-visible .grafico-barra-forma { stroke: var(--acento-forte); stroke-width: 2; }
+.grafico-meta { stroke: var(--texto-principal); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.grafico-meta-fundo { fill: var(--superficie-base); }
+.grafico-meta-rotulo { font-size: 11px; font-weight: 700; fill: var(--texto-principal); }
+.grafico-valor rect { fill: var(--texto-principal); }
+.grafico-valor text { font-size: 12px; font-weight: 700; fill: var(--texto-invertido); }
+.grafico-faixa { fill: var(--perigo-fundo); }
+.grafico-faixa-rotulo { font-size: 11px; font-weight: 700; fill: var(--perigo-texto); }
+.grafico-linha { fill: none; stroke: var(--sucesso-ponto); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.grafico-agora { fill: var(--sucesso-ponto); stroke: var(--superficie-base); stroke-width: 2; }
+
+/* Equilíbrio */
+.monitorar-equilibrio { display: flex; flex-direction: column; gap: 14px; padding: 20px; }
+.nota.com-ponto::before { content: ''; width: 10px; height: 10px; margin-top: 4px; border-radius: 999px; background: currentColor; flex-shrink: 0; }
+.nota.is-sucesso.com-ponto::before { background: var(--sucesso-ponto); }
+.nota.is-aviso.com-ponto::before { background: var(--aviso-ponto); }
+.nota.com-ponto { font-weight: 600; }
+.monitorar-divisor { border: none; height: 1px; background: var(--borda-padrao); margin: 0; }
+.monitorar-quedas { display: flex; flex-direction: column; gap: 2px; }
+.monitorar-quedas-titulo { font-size: 15px; line-height: 22px; font-weight: 700; }
+
+/* Saídas */
+.monitorar-saidas { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px 24px; }
+.monitorar-saidas-corpo { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 24px; }
+.monitorar-saidas-lista { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.monitorar-saidas-titulo { font-size: 15px; line-height: 22px; font-weight: 700; }
+.monitorar-saidas-itens { display: flex; flex-direction: column; }
+.monitorar-saidas-itens li { display: flex; gap: 12px; padding: 10px 0; }
+.monitorar-saidas-itens li + li { border-top: 1px solid var(--borda-padrao); }
+.monitorar-saida-quando { width: 40px; flex-shrink: 0; font-size: 13px; line-height: 20px; font-weight: 700; }
+.monitorar-saida-quando.is-destaque { color: var(--acento-forte); }
+.monitorar-saida-textos { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.monitorar-saida-textos strong { font-size: 14px; line-height: 20px; }
+.monitorar-saida-textos span { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
+.monitorar-saidas-todas { margin-top: auto; align-self: flex-start; }
+
+.mapa-saidas { position: relative; height: 360px; border-radius: 14px; overflow: hidden; background: var(--superficie-rebaixada); }
+.mapa-leaflet { width: 100%; height: 100%; font-family: var(--fonte-corpo); background: var(--superficie-rebaixada); }
+.mapa-leaflet .leaflet-control-attribution { font-size: 10px; background: rgba(255, 255, 255, .8); }
+.mapa-saidas.is-ruas .leaflet-tile-pane { filter: grayscale(1) brightness(1.12) contrast(.7); opacity: .85; }
+.mapa-icone { background: none; border: none; }
+.mapa-casa {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px;
+  background: var(--texto-principal); border: 3px solid var(--superficie-base);
+  box-shadow: 0 0 0 12px rgba(194, 65, 12, .14), 0 2px 6px rgba(15, 23, 41, .14);
+}
+.mapa-pessoa {
+  display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px;
+  background: var(--pessoa); border: 2px solid var(--superficie-base); color: var(--texto-invertido);
+  font: 700 11px/14px var(--fonte-corpo);
+}
+.mapa-controles { position: absolute; top: 16px; right: 16px; z-index: 500; display: flex; flex-direction: column; gap: 8px; }
+.mapa-botao {
+  display: grid; place-items: center; width: 44px; height: 44px; border-radius: 10px;
+  background: var(--superficie-base); box-shadow: 0 2px 6px rgba(15, 23, 41, .14); color: var(--texto-principal);
+}
+.mapa-botao:hover { background: var(--superficie-fundo); }
+.mapa-legenda {
+  position: absolute; left: 16px; bottom: 16px; z-index: 500; display: flex; gap: 14px; padding: 8px 12px; border-radius: 10px;
+  background: var(--superficie-base); box-shadow: 0 2px 6px rgba(15, 23, 41, .14); font-size: 12px; line-height: 16px; font-weight: 600;
+}
+.mapa-legenda li { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.mapa-legenda-casa { width: 10px; height: 10px; border-radius: 999px; background: var(--texto-principal); }
+.mapa-legenda-trajeto { width: 16px; height: 4px; border-radius: 2px; background: var(--acento); }
+.mapa-legenda-perimetro { width: 12px; height: 12px; border-radius: 999px; border: 1.5px dashed var(--acento); }
+
+/* Saúde da bengala */
+.monitorar-saude { display: flex; flex-direction: column; gap: 8px; padding: 20px 24px 12px; }
+.acelerometro { display: flex; align-items: center; gap: 14px; font-size: 12px; }
+.acelerometro-titulo { font-weight: 600; color: var(--texto-secundario); }
+.acelerometro div { display: flex; gap: 6px; align-items: center; }
+.acelerometro div dt { font-weight: 700; color: var(--texto-secundario); }
+.acelerometro dd { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sensores { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 24px; }
+.item-sensor { display: flex; align-items: center; gap: 12px; padding: 12px 0; min-width: 0; }
+.item-sensor-ponto { width: 10px; height: 10px; border-radius: 999px; background: var(--sucesso-ponto); flex-shrink: 0; }
+.item-sensor-textos { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.item-sensor-textos strong { font-size: 14px; line-height: 20px; }
+.item-sensor-textos span { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
+.item-sensor-status { font-size: 12px; line-height: 16px; font-weight: 700; color: var(--sucesso-texto); white-space: nowrap; }
+.item-sensor.is-atencao .item-sensor-ponto { background: var(--aviso-ponto); }
+.item-sensor.is-atencao .item-sensor-status { color: var(--aviso-texto); }
+.item-sensor.is-sem-leitura .item-sensor-ponto { background: var(--borda-forte); }
+.item-sensor.is-sem-leitura .item-sensor-status { color: var(--texto-secundario); font-weight: 600; }
+.monitorar-saude-total { font-size: 13px; font-weight: 700; color: var(--aviso-texto); }
+.monitorar-saude-total.is-ok { color: var(--sucesso-texto); }
+.monitorar-ver-todos { align-self: center; }
+
+.monitorar-aviso { display: flex; align-items: center; gap: 6px; padding-left: 8px; font-size: 12px; }
+
+.monitorar-lista-valores { display: flex; flex-direction: column; gap: 10px; }
+.monitorar-lista-valores > div, .monitorar-lista-valores > li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; line-height: 20px; }
+.monitorar-lista-valores dt, .monitorar-lista-valores li > span { color: var(--texto-secundario); font-weight: 500; }
+.monitorar-lista-valores dd, .monitorar-lista-valores strong { font-weight: 700; text-align: right; }
+
+@media (max-width: 1240px) {
+  .monitorar-linha { grid-template-columns: minmax(0, 1fr) 320px; }
+  .sensores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .monitorar-numeros { flex-wrap: wrap; justify-content: flex-start; }
+  .monitorar-numeros .fato + .fato { border-left: none; padding-left: 0; }
+  .monitorar-numeros .fato { flex: 1 1 40%; }
+}
+
+@media (max-width: 1023px) {
+  .monitorar { gap: 16px; }
+  .monitorar-resumo { flex-direction: column; align-items: stretch; padding-left: 0; }
+  .monitorar-resumo .segmento { display: grid; grid-template-columns: repeat(3, 1fr); }
+  .monitorar-linha { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .monitorar-saidas-corpo { grid-template-columns: minmax(0, 1fr); }
+  .acelerometro { display: none; }
+}
+
+@media (max-width: 767px) {
+  .monitorar-frase { font-size: 26px; line-height: 32px; }
+  .monitorar-resumo .frase-detalhe { font-size: 13px; }
+  .monitorar-passos, .monitorar-equilibrio, .monitorar-saidas, .monitorar-saude { padding: 16px; }
+  .monitorar-numeros { flex-direction: column; gap: 10px; }
+  .monitorar-numeros .fato { flex: none; }
+  .mobilidade-nota { width: 44px; height: 44px; font-size: 18px; }
+  .mapa-saidas { height: 160px; }
+  .sensores { grid-template-columns: minmax(0, 1fr); }
+  .item-sensor { padding: 10px 0; }
+}

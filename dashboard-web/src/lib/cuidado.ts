@@ -4,6 +4,8 @@
 import { useSyncExternalStore } from 'react';
 
 export interface Remedio { id: number; nome: string; hora: string; detalhe?: string }
+export interface AreaSegura { id: string; nome: string; detalhe: string; lat: number; lng: number; raio: number; ativa: boolean }
+export interface PreferenciasBengala { distanciaAvisoCm: number; vibracao: boolean; apito: boolean; farol: boolean; detectarQuedas: boolean }
 export interface Contato { id: string; nome: string; papel: string; telefone: string; discagem: string }
 
 interface Estado {
@@ -11,6 +13,9 @@ interface Estado {
   contatos: Contato[];
   /** Telefone de quem é acompanhado (botão "Ligar para José"). */
   telefonePessoa: string;
+  /** A primeira área é a casa: centro do perímetro do mapa. */
+  areas: AreaSegura[];
+  bengala: PreferenciasBengala;
 }
 
 let estado: Estado = {
@@ -24,7 +29,14 @@ let estado: Estado = {
     { id: 'samu', nome: 'SAMU', papel: 'Emergência médica', telefone: '192', discagem: '192' },
     { id: 'bombeiros', nome: 'Bombeiros', papel: 'Resgate e incêndio', telefone: '193', discagem: '193' }
   ],
-  telefonePessoa: '+5511912345678'
+  telefonePessoa: '+5511912345678',
+  areas: [
+    { id: 'casa', nome: 'Casa', detalhe: 'Perímetro principal', lat: -23.550520, lng: -46.633308, raio: 500, ativa: true },
+    { id: 'praca', nome: 'Praça do bairro', detalhe: 'Caminhada da tarde', lat: -23.552200, lng: -46.635100, raio: 150, ativa: true },
+    { id: 'farmacia', nome: 'Farmácia', detalhe: 'A 600 m de casa', lat: -23.548900, lng: -46.631000, raio: 100, ativa: true },
+    { id: 'posto', nome: 'Posto de saúde', detalhe: 'Consultas de rotina', lat: -23.553500, lng: -46.637000, raio: 200, ativa: false }
+  ],
+  bengala: { distanciaAvisoCm: 100, vibracao: true, apito: true, farol: true, detectarQuedas: true }
 };
 
 const ouvintes = new Set<() => void>();
@@ -35,6 +47,18 @@ export const cuidado = {
   assinar(o: () => void) { ouvintes.add(o); return () => { ouvintes.delete(o); }; },
   adicionarRemedio(r: Omit<Remedio, 'id'>) {
     estado = { ...estado, remedios: [...estado.remedios, { ...r, id: Date.now() }].sort((a, b) => a.hora.localeCompare(b.hora)) };
+    avisar();
+  },
+  alternarArea(id: string) {
+    estado = { ...estado, areas: estado.areas.map(a => a.id === id ? { ...a, ativa: !a.ativa } : a) };
+    avisar();
+  },
+  definirRaioCasa(raio: number) {
+    estado = { ...estado, areas: estado.areas.map((a, i) => i === 0 ? { ...a, raio } : a) };
+    avisar();
+  },
+  definirBengala(parcial: Partial<PreferenciasBengala>) {
+    estado = { ...estado, bengala: { ...estado.bengala, ...parcial } };
     avisar();
   },
   removerRemedio(id: number) {
