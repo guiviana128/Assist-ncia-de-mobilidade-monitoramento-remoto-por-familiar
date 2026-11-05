@@ -26,6 +26,12 @@ import { DESLOCA, DUR, EASE_MOTION, saida } from './motion/tokens';
 
 type CamadaAberta = null | 'avisos' | 'conta' | 'simulador';
 
+const CROSSFADE = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: DUR.media, ease: EASE_MOTION } },
+  exit: { opacity: 0, transition: { duration: saida(DUR.media), ease: EASE_MOTION } }
+};
+
 /** Troca de aba: o conteúdo novo entra com fade + 8 px para cima (200 ms); o antigo sai só com fade (140 ms). */
 const VISTA = {
   initial: { opacity: 0, y: DESLOCA },
@@ -45,6 +51,7 @@ export const App: React.FC = () => {
   const [routeDemo, setRouteDemo] = useState(false);
   const [updated, setUpdated] = useState<Date | null>(null);
   const [error, setError] = useState('');
+  const [esqueleto, setEsqueleto] = useState(false);
   const busy = useRef(false);
   const mounted = useRef(false);
   const celular = useMediaQuery(CELULAR);
@@ -85,6 +92,14 @@ export const App: React.FC = () => {
     return () => { mounted.current = false; window.clearInterval(interval); };
   }, [fetchData]);
 
+  // Esqueleto só se a primeira carga passar de 300 ms (evita piscar em respostas rápidas)
+  const esperando = loading && !summary;
+  useEffect(() => {
+    if (!esperando) { setEsqueleto(false); return; }
+    const timer = window.setTimeout(() => setEsqueleto(true), 300);
+    return () => window.clearTimeout(timer);
+  }, [esperando]);
+
   useEffect(() => auth.onChange(() => {
     setUsername(auth.username);
     if (!auth.isLoggedIn()) setNeedsLogin(true);
@@ -111,10 +126,6 @@ export const App: React.FC = () => {
   const [comodoCasa, setComodoCasa] = useState<string | null>(null);
   const abrirCasa = (roomId?: string) => { setComodoCasa(roomId ?? null); irPara('casa'); };
 
-  if (needsLogin) {
-    return <LoginScreen onLoggedIn={() => { setNeedsLogin(false); setLoading(true); setView(ABA_PADRAO); void fetchData(); }}
-      onContinueDemo={() => setNeedsLogin(false)} />;
-  }
 
   const faixa = emergency ? (() => {
     const onde = comodoCurto(robo.layout, emergency.indoorRoom);
@@ -139,8 +150,16 @@ export const App: React.FC = () => {
 
   const selecionar = (tab: AppTab) => irPara(tab);
 
+  // Login ⇄ painel: crossfade (só opacidade, para não criar contêiner de position: fixed)
   return (
-    <div className={`app${emergency ? ' is-emergencia' : ''}${demo ? ' is-demonstracao' : ''}`}>
+    <AnimatePresence mode="wait" initial={false}>
+    {needsLogin ? (
+      <motion.div key="login" {...CROSSFADE}>
+        <LoginScreen onLoggedIn={() => { setNeedsLogin(false); setLoading(true); setView(ABA_PADRAO); void fetchData(); }}
+          onContinueDemo={() => setNeedsLogin(false)} />
+      </motion.div>
+    ) : (
+    <motion.div key="app" {...CROSSFADE} className={`app${emergency ? ' is-emergencia' : ''}${demo ? ' is-demonstracao' : ''}`}>
       <a className="skip-link" href="#conteudo">Pular para o conteúdo</a>
       {ateTablet
         ? <TopoMobile conexao={conexao} faixa={faixa} {...botoesTopo} />
@@ -149,7 +168,17 @@ export const App: React.FC = () => {
       <main id="conteudo" className="pagina" tabIndex={-1}>
         {error && <p className="nota is-aviso" role="status">{error}</p>}
         {loading && !summary ? (
-          <div className="estado-vazio" aria-busy="true"><span className="carregando" aria-hidden="true" />Carregando a casa e os avisos…</div>
+          esqueleto ? (
+            <div className="esqueleto" aria-busy="true" role="status">
+              <span className="sr-only">Carregando a casa e os avisos…</span>
+              <span className="esqueleto-bloco esqueleto-linha" />
+              <span className="esqueleto-bloco esqueleto-linha is-curta" />
+              <div className="esqueleto-paineis">
+                <span className="esqueleto-bloco esqueleto-painel" />
+                <span className="esqueleto-bloco esqueleto-painel" />
+              </div>
+            </div>
+          ) : <div aria-busy="true" />
         ) : !device ? (
           <div className="estado-vazio painel"><h3>Nenhuma bengala cadastrada</h3><p>Confira o cadastro e a conexão do dispositivo.</p></div>
         ) : (
@@ -184,7 +213,9 @@ export const App: React.FC = () => {
         <Simulador layout={robo.layout} demo={demo} onAtualizar={() => { void fetchData(); void robo.atualizar(); }}
           onSairDemo={() => { setCamada(null); robotApi.stopDemo(); setNeedsLogin(true); }} />
       </Camada>
-    </div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 };
 export default App;

@@ -1,9 +1,12 @@
-import React, { useEffect, useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Check, HeartPulse, Lock, User, WifiOff } from 'lucide-react';
 import { ApiError, auth } from '../services/auth';
 import { FALLBACK_LAYOUT, planPath } from '../robot/houseLayout';
 import { PlantaCasa, PlantaSimplificada } from './planta/PlantaCasa';
 import { CELULAR, useMediaQuery } from '../hooks/useMediaQuery';
+import { gsap, movimentoReduzido, useGSAP } from '../motion/gsap';
+import { DESLOCA, DUR, EASE_MOTION } from '../motion/tokens';
 
 interface LoginScreenProps {
   onLoggedIn: () => void;
@@ -56,6 +59,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoggedIn, onContinue
   const [agora, setAgora] = useState(Date.now());
   const celular = useMediaQuery(CELULAR);
   const erroId = useId();
+  const caixaSenha = useRef<HTMLDivElement>(null);
+  const [tentativa, setTentativa] = useState(0);
+
+  // Erro: o campo treme de leve uma vez (x: 0 → −4 → 4 → 0, 240 ms). Com movimento reduzido, não treme.
+  useGSAP(() => {
+    if (!tentativa || !caixaSenha.current || movimentoReduzido()) return;
+    gsap.to(caixaSenha.current, { keyframes: { x: [0, -4, 4, 0] }, duration: 0.24, ease: 'none', clearProps: 'transform' });
+  }, { dependencies: [tentativa] });
 
   // Contagem regressiva enquanto o backend mantém o acesso em espera
   useEffect(() => {
@@ -92,6 +103,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoggedIn, onContinue
         setBloqueadoAte(fim > Date.now() ? fim : Date.now() + JANELA_MS);
         setAgora(Date.now());
         setErro(e.message || 'Muitas tentativas. Aguarde alguns minutos.');
+        setTentativa(n => n + 1);
         return;
       }
       if (e.status === 401) {
@@ -101,9 +113,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoggedIn, onContinue
         setErro(restam > 1 ? `Usuário ou senha não conferem. Restam ${restam} tentativas.`
           : restam === 1 ? 'Usuário ou senha não conferem. Resta 1 tentativa.'
             : 'Usuário ou senha não conferem. O acesso vai esperar alguns minutos.');
+        setTentativa(n => n + 1);
         return;
       }
       setErro(e.message);
+      setTentativa(n => n + 1);
     } finally {
       setBusy(false);
     }
@@ -128,7 +142,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoggedIn, onContinue
       </section>
 
       <section className="login-formulario">
-        <form className="login-caixa" onSubmit={e => void submit(e)} noValidate>
+        {/* Primeira carga: o formulário entra com fade + 8 px */}
+        <motion.form className="login-caixa" onSubmit={e => void submit(e)} noValidate
+          initial={{ opacity: 0, y: DESLOCA }} animate={{ opacity: 1, y: 0 }} transition={{ duration: DUR.media, ease: EASE_MOTION }}>
           <h1 className="sr-only">Amparo · Entrar</h1>
           <div className="login-titulos">
             <h2 className="login-titulo">Entrar</h2>
@@ -146,7 +162,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoggedIn, onContinue
 
           <div className="campo">
             <label className="campo-rotulo" htmlFor="login-senha">Senha</label>
-            <div className={`campo-caixa${temErro ? ' is-erro' : ''}`}>
+            <div ref={caixaSenha} className={`campo-caixa${temErro ? ' is-erro' : ''}`}>
               <Lock size={18} aria-hidden="true" />
               <input id="login-senha" className="campo-entrada" type={mostrar ? 'text' : 'password'} value={password}
                 onChange={e => setPassword(e.target.value)} autoComplete="current-password" required maxLength={120}
@@ -156,11 +172,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoggedIn, onContinue
                 {mostrar ? 'Ocultar' : 'Mostrar'}
               </button>
             </div>
-            {temErro && (
-              <p id={erroId} className="campo-erro" role="alert">
-                {erro}{bloqueadoAte && esperaRestante > 0 ? ` Tente de novo em ${esperaTexto}.` : ''}
-              </p>
-            )}
+            <AnimatePresence initial={false}>
+              {temErro && (
+                <motion.p key="erro" id={erroId} className="campo-erro" role="alert"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.14 } }} transition={{ duration: DUR.curta, ease: EASE_MOTION }}>
+                  {erro}{bloqueadoAte && esperaRestante > 0 ? ` Tente de novo em ${esperaTexto}.` : ''}
+                </motion.p>
+              )}
+            </AnimatePresence>
           </div>
 
           <label className="caixa-selecao">
@@ -189,7 +208,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoggedIn, onContinue
             <span className="login-seguranca-longa">Conexão protegida. Após 5 tentativas erradas, o acesso espera 5 minutos.</span>
             <span className="login-seguranca-curta">Após 5 tentativas erradas, o acesso espera 5 minutos.</span>
           </p>
-        </form>
+        </motion.form>
       </section>
     </main>
   );

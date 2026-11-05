@@ -1,10 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Circle, MapContainer, Marker, TileLayer, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import { Activity, Info, MapPin, Phone, Pill, Plus, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { cuidado, useCuidado, type PreferenciasBengala } from '../../lib/cuidado';
 import { CELULAR, useMediaQuery } from '../../hooks/useMediaQuery';
+import { gsap, movimentoReduzido, useGSAP } from '../../motion/gsap';
+import { DUR, EASE_MOTION, saida } from '../../motion/tokens';
+
+/** Check que se desenha (DrawSVG, 300 ms) ao aparecer; com movimento reduzido aparece pronto. */
+const CheckDesenhado: React.FC = () => {
+  const ref = useRef<SVGSVGElement>(null);
+  useGSAP(() => {
+    if (movimentoReduzido()) return;
+    gsap.fromTo('path', { drawSVG: '0%' }, { drawSVG: '100%', duration: DUR.media, delay: 0.1, ease: 'power2.out' });
+  }, { scope: ref });
+  return <svg ref={ref} className="check-desenhado" width={16} height={16} viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5" /></svg>;
+};
 
 interface ConfiguracoesViewProps {
   deviceId: string;
@@ -120,7 +133,15 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({ deviceId, 
                 </div>
               </form>
             )}
-            {msg && <p className="nota is-sucesso" role="status">{msg}</p>}
+            <AnimatePresence>
+              {msg && (
+                <motion.p key={msg} className="nota is-sucesso" role="status"
+                  initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { duration: DUR.curta, ease: EASE_MOTION } }}
+                  exit={{ opacity: 0, transition: { duration: saida(DUR.curta), ease: EASE_MOTION } }}>
+                  <CheckDesenhado />{msg}
+                </motion.p>
+              )}
+            </AnimatePresence>
             <ul className="config-lista">
               {remedios.map(r => {
                 const falta = minutosAte(r.hora);

@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { DESLOCA, DUR, EASE_MOTION, QUEDA } from '../../motion/tokens';
 import { Battery, Bot, Camera, Check, Copy, Footprints, MapPin, Pill, TriangleAlert, WifiOff, type LucideIcon } from 'lucide-react';
 import type { Alert, AlertType } from '../../types';
 import type { HouseLayout } from '../../types/robot';
@@ -59,6 +61,7 @@ export const CentralAvisos: React.FC<CentralAvisosProps> = ({ alerts, layout, on
   };
 
   const criticos = pendentes.filter(a => a.severity === 'CRITICAL').length;
+  let ordemNaoLido = 0;
 
   return (
     <div className="avisos">
@@ -81,19 +84,28 @@ export const CentralAvisos: React.FC<CentralAvisosProps> = ({ alerts, layout, on
           <section key={g.titulo} aria-label={g.titulo}>
             <h3 className="rotulo-secao avisos-grupo">{g.titulo}</h3>
             <ul>
+              <AnimatePresence initial={false}>
               {g.itens.map(a => {
                 const tom = tomAviso(a);
                 const Icone = ICONE[a.alertType] ?? TriangleAlert;
                 const naoLido = !vistos.has(a.id) && (a.status === 'PENDING' || Date.now() - new Date(a.createdAt).getTime() < 3600_000);
                 const temPosicao = Number.isFinite(a.latitude) && Number.isFinite(a.longitude);
+                const ordem = naoLido ? ordemNaoLido++ : 0;
                 return (
-                  <li key={a.id} className={`aviso is-${tom}${a.status === 'PENDING' ? ' is-pendente' : ''}`}>
+                  // Aviso novo entra no topo da lista (240 ms, desliza 8 px)
+                  <motion.li key={a.id} className={`aviso is-${tom}${a.status === 'PENDING' ? ' is-pendente' : ''}`}
+                    initial={{ opacity: 0, y: -DESLOCA }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: QUEDA.duracaoEvento, ease: EASE_MOTION }}>
                     <span className="aviso-icone" aria-hidden="true"><Icone size={18} /></span>
                     <div className="aviso-corpo">
                       <div className="aviso-linha">
                         <strong>{tituloAviso(a, layout)}</strong>
                         <span className="aviso-hora">{ehHoje(a.createdAt) || ehOntem(a.createdAt) ? horaCurta(a.createdAt) : new Date(a.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
-                        {naoLido && <span className="aviso-nao-lido" aria-label="não visto" />}
+                        {/* "Marcar como vistos": os pontos azuis apagam um depois do outro */}
+                        <AnimatePresence initial={false}>
+                          {naoLido && <motion.span key="ponto" className="aviso-nao-lido" aria-label="não visto"
+                            exit={{ opacity: 0, scale: 0.4, transition: { duration: DUR.curta, ease: EASE_MOTION, delay: ordem * 0.05 } }} />}
+                        </AnimatePresence>
                       </div>
                       <p>{limparTexto(a.message)}{a.status === 'RESOLVED' && a.resolvedAt ? ` · resolvido às ${horaCurta(a.resolvedAt)}` : ''}</p>
                       <div className="aviso-acoes">
@@ -104,9 +116,10 @@ export const CentralAvisos: React.FC<CentralAvisosProps> = ({ alerts, layout, on
                         {a.status === 'PENDING' && <button className="btn-link is-forte" onClick={() => onResolver(a.id)}>Marcar como resolvido</button>}
                       </div>
                     </div>
-                  </li>
+                  </motion.li>
                 );
               })}
+              </AnimatePresence>
             </ul>
           </section>
         ))}

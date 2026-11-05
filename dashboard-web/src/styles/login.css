@@ -25,6 +25,7 @@
 .login .campo { gap: 8px; }
 
 .campo-caixa {
+  transition: border-color var(--dur-rapida) var(--ease), box-shadow var(--dur-rapida) var(--ease), background-color var(--dur-rapida) var(--ease);
   display: flex; align-items: center; gap: 10px; padding: 0 14px; min-height: 48px;
   border: 1px solid var(--borda-forte); border-radius: 12px; background: var(--superficie-base); color: var(--texto-secundario);
 }
