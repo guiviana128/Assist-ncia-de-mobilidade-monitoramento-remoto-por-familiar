@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { ArrowRight, Battery, Box, DoorOpen, Footprints, Phone, Pill } from 'lucide-react';
 import type { Alert, DeviceStatus } from '../../types';
 import type { HouseLayout, Point2D, RobotMission, RobotState, Room } from '../../types/robot';
@@ -10,6 +11,9 @@ import { descricaoRobo, emergenciaPendente, haQuanto, nomePessoa, type Resumo } 
 import { ehHoje, horaCurta, itemDeAviso, itemDeMissao, type ItemDia } from '../../lib/avisos';
 import { proximoRemedio, useCuidado } from '../../lib/cuidado';
 import { ATE_TABLET, CELULAR, useMediaQuery } from '../../hooks/useMediaQuery';
+import { gsap, movimentoReduzido, useGSAP } from '../../motion/gsap';
+import { Contador } from '../../motion/Contador';
+import { DESLOCA, DUR, QUEDA } from '../../motion/tokens';
 
 interface InicioViewProps {
   device: DeviceStatus;
@@ -27,11 +31,12 @@ interface InicioViewProps {
 const dataLonga = (d: Date) => d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).replace('-feira', '');
 const dataCurta = (d: Date) => d.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '').replace(',', ',');
 
+/** Bateria com o número que conta quando muda (300 ms). */
 function textoBateria(p: number) {
-  const pct = `${Math.round(p)}%`;
-  if (p <= 15) return `${pct} · carregue agora`;
-  if (p <= 35) return `${pct} · carregue hoje à noite`;
-  return `${pct} · carga boa para hoje`;
+  const pct = <><Contador valor={Math.round(p)} />%</>;
+  if (p <= 15) return <>{pct} · carregue agora</>;
+  if (p <= 35) return <>{pct} · carregue hoje à noite</>;
+  return <>{pct} · carga boa para hoje</>;
 }
 
 /** Tela Início (Figma 1:2, 14:635, 34:2283, 34:2466, 36:3357). */
@@ -43,6 +48,18 @@ export const InicioView: React.FC<InicioViewProps> = ({ device, alerts, layout, 
   const emergencia = emergenciaPendente(alerts);
   const pessoa = nomePessoa(device);
   const agora = new Date();
+  const raiz = useRef<HTMLDivElement>(null);
+  const emergenciaAntes = useRef<boolean | null>(null);
+
+  // Queda (passo 5): os botões de ação entram de cima para baixo, um a um (stagger 60 ms)
+  useGSAP(() => {
+    const antes = emergenciaAntes.current;
+    emergenciaAntes.current = !!emergencia;
+    if (antes !== false || !emergencia) return;
+    gsap.from('.inicio-acoes > *', movimentoReduzido()
+      ? { opacity: 0, duration: DUR.curta, stagger: QUEDA.stagger, delay: QUEDA.botoes }
+      : { opacity: 0, y: -DESLOCA, duration: DUR.curta, stagger: QUEDA.stagger, delay: QUEDA.botoes });
+  }, { scope: raiz, dependencies: [!!emergencia] });
 
   // ---- onde estão José e o robô
   const comodoPessoa = emergencia?.indoorRoom ?? robot?.personRoom ?? null;
@@ -84,7 +101,7 @@ export const InicioView: React.FC<InicioViewProps> = ({ device, alerts, layout, 
   const fatos = [
     { Icone: Battery, rotulo: 'Bengala', valor: textoBateria(device.batteryPercent) },
     { Icone: Pill, rotulo: 'Próximo remédio', valor: prox ? `${prox.amanha ? 'Amanhã, ' : ''}${prox.remedio.hora} · ${prox.remedio.nome.toLowerCase()}` : 'Nenhum lembrete' },
-    { Icone: Footprints, rotulo: 'Caminhada hoje', valor: device.stepsToday != null ? `${device.stepsToday.toLocaleString('pt-BR')} passos${device.activeMinutes ? ` · ${device.activeMinutes} min ativo` : ''}` : 'Sem dados hoje' },
+    { Icone: Footprints, rotulo: 'Caminhada hoje', valor: device.stepsToday != null ? <><Contador valor={device.stepsToday} /> passos{device.activeMinutes ? ` · ${device.activeMinutes} min ativo` : ''}</> : 'Sem dados hoje' },
     { Icone: DoorOpen, rotulo: 'Última saída', valor: saida ? `${ehHoje(saida.createdAt) ? 'Hoje' : new Date(saida.createdAt).toLocaleDateString('pt-BR')}, ${horaCurta(saida.createdAt)}` : 'Nenhuma saída registrada' }
   ];
 
@@ -114,7 +131,7 @@ export const InicioView: React.FC<InicioViewProps> = ({ device, alerts, layout, 
   const detalhe = celular || ateTablet ? detalheCurto.charAt(0).toUpperCase() + detalheCurto.slice(1) : resumo.detalhe;
 
   return (
-    <div className={`inicio${emergencia ? ' is-emergencia' : ''}`}>
+    <div ref={raiz} className={`inicio${emergencia ? ' is-emergencia' : ''}`}>
       <FraseEstado tom={resumo.tom} forte={resumo.forte} apoio={resumo.apoio} detalhe={detalhe}
         indicador acoes={<div className={`inicio-acoes${emergencia && celular ? ' is-empilhado' : ''}`}>{acoes}</div>} />
 
@@ -135,7 +152,7 @@ export const InicioView: React.FC<InicioViewProps> = ({ device, alerts, layout, 
             {ateTablet
               ? <PlantaSimplificada layout={layout} comodoPessoa={comodoPessoa} comodoRobo={roboOnline ? comodoRobo : null}
                   emergencia={!!emergencia} estados={estados} onComodo={abrirComodo} />
-              : <PlantaCasa layout={layout} comodoPessoa={comodoPessoa} robo={roboOnline ? posRobo : null} rota={rota}
+              : <PlantaCasa layout={layout} comodoPessoa={comodoPessoa} robo={roboOnline ? posRobo : null} comodoRobo={roboOnline ? comodoRobo : null} rota={rota}
                   emergencia={!!emergencia} estados={estados} onComodo={abrirComodo} />}
           </div>
           {!roboOnline && <p className="nota inicio-nota-robo">O robô está fora do ar. A posição do {pessoa} vem da bengala.</p>}
@@ -148,7 +165,13 @@ export const InicioView: React.FC<InicioViewProps> = ({ device, alerts, layout, 
           </div>
           {visiveis.length === 0
             ? <p className="inicio-vazio texto-secundario">Nada aconteceu ainda hoje. Os eventos da bengala e do robô aparecem aqui.</p>
-            : <ol className="linha-tempo">{visiveis.map((item, i) => <ItemLinhaDoTempo key={item.id} item={item} ultimo={i === visiveis.length - 1} />)}</ol>}
+            : <ol className="linha-tempo">
+                {/* Evento novo entra no topo (240 ms, 8 px); o da queda entra no passo 4 da sequência */}
+                <AnimatePresence initial={false}>
+                  {visiveis.map((item, i) => <ItemLinhaDoTempo key={item.id} item={item} ultimo={i === visiveis.length - 1}
+                    entra atraso={item.tom === 'perigo' ? QUEDA.evento : 0} />)}
+                </AnimatePresence>
+              </ol>}
           {maisTarde.length > 0 && !diaTodo && <>
             <hr className="inicio-separador" />
             <p className="rotulo-secao inicio-mais-tarde">Mais tarde</p>

@@ -1,4 +1,6 @@
 import React from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { DUR, EASE_MOTION } from '../../motion/tokens';
 import type { Tom } from '../../lib/resumoDoEstado';
 
 interface FraseEstadoProps {
@@ -19,7 +21,14 @@ export const FraseEstado: React.FC<FraseEstadoProps> = ({ tom = 'neutro', forte,
     <div className="frase-estado-texto">
       <Tag className="frase">
         {indicador && <span className="frase-indicador" aria-hidden="true" />}
-        {forte}<span className="frase-apoio">{apoio}</span>
+        {/* Quando a frase muda (ex.: a queda), o texto novo entra com fade de 200 ms */}
+        <AnimatePresence initial={false}>
+          <motion.span key={`${forte}|${apoio ?? ''}`} className="frase-texto"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            transition={{ duration: DUR.curta, ease: EASE_MOTION }}>
+            {forte}<span className="frase-apoio">{apoio}</span>
+          </motion.span>
+        </AnimatePresence>
       </Tag>
       {detalhe && <p className="frase-detalhe">{detalhe}</p>}
     </div>

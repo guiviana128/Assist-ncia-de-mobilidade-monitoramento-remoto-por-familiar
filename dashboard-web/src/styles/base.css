@@ -247,3 +247,4 @@ input[type='range'] { width: 100%; accent-color: var(--acento); min-height: 32px
   .chip, .btn-pequeno, .btn-link { min-height: 44px; }
   .btn-icone, .config-remover { min-width: 44px; min-height: 44px; }
 }
+.contador-numero { font-variant-numeric: tabular-nums; }

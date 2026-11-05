@@ -1,9 +1,9 @@
-/* Planta 2D (Início, Login) e planta simplificada do celular. Marcadores estáticos: o movimento fica para a etapa de animação. */
+/* Planta 2D (Início, Login) e planta simplificada do celular. Movimento: PlantaCasa.tsx (GSAP) e as transições abaixo. */
 
 .planta { display: block; width: 100%; height: auto; font-family: var(--fonte-corpo); }
 .planta-piso { fill: var(--superficie-base); }
 .planta-comodo.is-pessoa .planta-piso { fill: var(--pessoa-suave); }
-.planta.is-emergencia .planta-comodo.is-pessoa .planta-piso { fill: var(--perigo-fundo); }
+.planta-onda { fill: var(--perigo-fundo); pointer-events: none; opacity: 0; }
 .planta-comodo[role='button'] { cursor: pointer; }
 .planta-comodo[role='button']:hover .planta-piso { fill: var(--acento-suave); }
 .planta-comodo.is-pessoa[role='button']:hover .planta-piso { fill: #FFE2C2; }
@@ -19,6 +19,10 @@
 .planta-estado { font-size: 12px; font-weight: 500; fill: var(--texto-secundario); }
 .planta-estado.is-pessoa { fill: var(--pessoa); }
 .planta-estado.is-perigo { fill: var(--perigo-texto); font-weight: 700; }
+.planta-contornos { pointer-events: none; }
+.planta-contorno { fill: none; stroke: transparent; stroke-width: 2; transition: stroke var(--dur-rapida) var(--ease); }
+.planta-contorno.is-sobre { stroke: var(--acento); }
+.planta-rota-mascara { fill: none; stroke: #fff; stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
 .planta-rota { fill: none; stroke-width: 2.5; stroke-dasharray: 6 6; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
 .planta-destino { fill: var(--superficie-base); stroke-width: 2.5; }
 
@@ -36,6 +40,12 @@
 .marcador-robo-corpo { fill: var(--acento); stroke: var(--superficie-base); stroke-width: 2.5; }
 .marcador-robo.is-socorro .marcador-robo-halo,
 .marcador-robo.is-socorro .marcador-robo-corpo { fill: var(--perigo); }
+/* Queda: o robô fica vermelho depois da onda (passo 3); na volta, sem espera e em 60% do tempo */
+.marcador-robo-halo, .marcador-robo-corpo { transition: fill 120ms var(--ease); }
+.marcador-robo.is-socorro .marcador-robo-halo,
+.marcador-robo.is-socorro .marcador-robo-corpo { transition: fill var(--dur-curta) var(--ease) 350ms; }
+.marcador-pessoa-pulso1, .marcador-pessoa-pulso2, .marcador-pessoa-pino { transition: fill var(--dur-curta) var(--ease); }
+.planta-rota, .planta-destino { transition: stroke var(--dur-curta) var(--ease); }
 
 /* ---------- Planta simplificada (celular) ---------- */
 .planta-simples {
@@ -43,27 +53,45 @@
   border-radius: 12px; background: var(--superficie-rebaixada);
 }
 .planta-simples-comodo {
-  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-width: 0;
+  position: relative; isolation: isolate; display: flex; flex-direction: column; align-items: flex-start; gap: 0; min-width: 0;
   padding: 8px 8px 10px; border: 1.5px solid var(--planta-parede); border-radius: 6px;
   background: var(--superficie-base); text-align: left; font: inherit; color: inherit;
 }
 button.planta-simples-comodo { cursor: pointer; }
 button.planta-simples-comodo:hover { background: var(--acento-suave); }
 .planta-simples-comodo.is-pessoa { background: var(--pessoa-suave); }
-.planta-simples.is-emergencia .planta-simples-comodo.is-pessoa { background: var(--perigo-fundo); border-color: var(--perigo); }
+.planta-simples.is-emergencia .planta-simples-comodo.is-pessoa { border-color: var(--perigo); }
+/* Onda vermelha da queda: cresce a partir do pino (clip-path, 600 ms); volta em 60% do tempo */
+.planta-simples-comodo::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--perigo-fundo);
+  clip-path: circle(0% at 50% 78%); transition: clip-path 360ms var(--ease);
+}
+.planta-simples.is-emergencia .planta-simples-comodo.is-pessoa::before { clip-path: circle(150% at 50% 78%); transition: clip-path 600ms var(--ease) 100ms; }
+.planta-simples-comodo { transition-property: color, background-color, border-color; transition-duration: var(--dur-curta); }
+@media (prefers-reduced-motion: reduce) {
+  .planta-simples-comodo::before { clip-path: none; opacity: 0; transition: opacity 180ms var(--ease); }
+  .planta-simples.is-emergencia .planta-simples-comodo.is-pessoa::before { clip-path: none; opacity: 1; transition: opacity var(--dur-media) var(--ease) 100ms; }
+}
 .planta-simples-nome { font-size: 13px; line-height: 18px; font-weight: 700; color: var(--texto-principal); }
 .planta-simples-estado { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--texto-secundario); }
 .planta-simples-estado.is-pessoa { color: var(--pessoa); }
 .planta-simples-estado.is-perigo { color: var(--perigo-texto); font-weight: 700; }
 .planta-simples-pessoa {
+  position: relative; isolation: isolate;
   align-self: center; margin-top: auto; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px;
   background: var(--pessoa); color: var(--texto-invertido); border: 2px solid var(--superficie-base);
   font-family: var(--fonte-titulo); font-weight: 700; font-size: 13px;
-  box-shadow: 0 0 0 10px rgba(194, 65, 12, .14), 0 0 0 20px rgba(194, 65, 12, .08);
+  transition: background-color var(--dur-curta) var(--ease);
 }
-.planta-simples-pessoa.is-alerta { background: var(--perigo); box-shadow: 0 0 0 10px rgba(220, 38, 38, .16), 0 0 0 20px rgba(220, 38, 38, .08); }
+.planta-simples-pessoa.is-alerta { background: var(--perigo); }
+/* Pulso 1 e Pulso 2 (usePulso): anéis atrás do pino */
+.planta-simples-pulso { position: absolute; z-index: -1; border-radius: 999px; background: var(--pessoa); pointer-events: none; }
+.planta-simples-pulso.is-1 { inset: -12px; opacity: .14; }
+.planta-simples-pulso.is-2 { inset: -22px; opacity: .08; }
+.planta-simples-pessoa.is-alerta .planta-simples-pulso { background: var(--perigo); }
 .planta-simples-robo {
+  transition: background-color 120ms var(--ease);
   align-self: flex-end; margin-top: auto; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px;
   background: var(--acento); color: var(--texto-invertido);
 }
-.planta-simples-robo.is-socorro { background: var(--perigo); }
+.planta-simples-robo.is-socorro { background: var(--perigo); transition: background-color var(--dur-curta) var(--ease) 350ms; }

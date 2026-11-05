@@ -1,7 +1,7 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Activity, Bell, HeartPulse, User } from 'lucide-react';
-import { DUR, EASE_MOTION } from '../../motion/tokens';
+import { DESLOCA, DUR, EASE_MOTION, QUEDA } from '../../motion/tokens';
 import { ABAS, type AppTab, type AppView } from './navegacao';
 import { StatusConexao, type EstadoConexao } from '../ui/StatusConexao';
 
@@ -44,6 +44,16 @@ interface NavbarProps extends BotoesTopoProps {
 /** O fundo da aba ativa desliza de uma aba para a outra (layoutId do Motion, 300 ms). */
 const DESLIZE = { layout: { duration: DUR.media, ease: EASE_MOTION } };
 
+/**
+ * Faixa de emergência: desce da navbar no passo 5 da queda; na volta ao normal, sai só com fade em 60% do tempo.
+ * (Com movimento reduzido o MotionConfig desliga o deslocamento e fica só o fade.)
+ */
+const FAIXA = {
+  initial: { opacity: 0, y: -DESLOCA * 2 },
+  animate: { opacity: 1, y: 0, transition: { duration: DUR.media, ease: EASE_MOTION, delay: QUEDA.faixa } },
+  exit: { opacity: 0, transition: { duration: DUR.media * QUEDA.volta, ease: EASE_MOTION } }
+};
+
 /** Navbar flutuante do computador (≥ 1024 px). Variantes Normal / Demonstração / Emergência. */
 export const Navbar: React.FC<NavbarProps> = ({ view, conexao, onSelecionar, faixa, ...botoes }) => (
   <header className={`navbar${faixa ? ' is-emergencia' : ''}${conexao === 'demonstracao' ? ' is-demonstracao' : ''}`}>
@@ -67,7 +77,9 @@ export const Navbar: React.FC<NavbarProps> = ({ view, conexao, onSelecionar, fai
         <BotoesTopo {...botoes} />
       </div>
     </div>
-    {faixa}
+    <AnimatePresence initial={false}>
+      {faixa && <motion.div key="faixa" className="navbar-faixa" {...FAIXA}>{faixa}</motion.div>}
+    </AnimatePresence>
   </header>
 );
 
@@ -85,7 +97,9 @@ export const TopoMobile: React.FC<TopoMobileProps> = ({ conexao, faixa, ...botoe
       <StatusConexao estado={conexao} curto />
       <BotoesTopo {...botoes} compacto />
     </div>
-    {faixa && <div className="topo-mobile-faixa">{faixa}</div>}
+    <AnimatePresence initial={false}>
+      {faixa && <motion.div key="faixa" className="topo-mobile-faixa" {...FAIXA}>{faixa}</motion.div>}
+    </AnimatePresence>
   </header>
 );
 

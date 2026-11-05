@@ -11,6 +11,9 @@ import { artigo, comodoCurto, deComodo, emergenciaPendente, haQuanto, naNo } fro
 import { horaCurta } from '../lib/avisos';
 import { useCuidado } from '../lib/cuidado';
 import { PassosMissao, MarcadorRoboIcone, type Passo } from './ui/PassoMissao';
+import { Flip, movimentoReduzido, useGSAP } from '../motion/gsap';
+import { zoomCasa } from '../motion/zoomCasa';
+import { EASE_GSAP } from '../motion/tokens';
 
 interface HouseView3DProps {
   alerts: Alert[];
@@ -62,6 +65,8 @@ const COR_CAMADA: Record<Camada, string> = { patrulha: '#10b981', socorro: '#dc2
 const VELOCIDADE_MEDIA = 0.6;
 /** O aviso de comando some sozinho depois de 6 s. */
 const DURACAO_AVISO_MS = 6000;
+/** Zoom do cômodo da planta até a vista da Casa 3D (s). */
+const ZOOM_CASA = 0.4;
 
 const errorMessage = (error: unknown) =>
   error instanceof ApiError || error instanceof Error ? error.message : 'Não foi possível enviar o comando.';
@@ -77,6 +82,8 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
   const overlayRef = useRef<HTMLDivElement>(null);
   const vistaRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HouseScene | null>(null);
+  /** Quando termina o zoom de entrada (performance.now), para a cena 3D esperar por ele. */
+  const zoomAte = useRef(0);
   const celular = useMediaQuery(CELULAR);
   const ateTablet = useMediaQuery(ATE_TABLET);
   const { telefonePessoa } = useCuidado();
@@ -96,8 +103,22 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
   const [trocado, setTrocado] = useState<boolean | null>(null);
   const [historico, setHistorico] = useState(false);
   const [reconectando, setReconectando] = useState(false);
+  /** Muda quando a cena 3D fica pronta, para reaplicar robô, destino e camadas. */
+  const [cenaPronta, setCenaPronta] = useState(0);
 
   const emergency = useMemo(() => emergenciaPendente(alerts), [alerts]);
+
+  // Veio de um cômodo tocado na planta do Início: a vista cresce a partir dele (Flip, 400 ms).
+  // Com movimento reduzido fica só o fade da troca de aba.
+  useGSAP(() => {
+    const estado = zoomCasa.retirar();
+    const vista = vistaRef.current;
+    if (!estado || !vista || movimentoReduzido()) return;
+    vista.setAttribute('data-flip-id', 'zoom-casa');
+    zoomAte.current = performance.now() + ZOOM_CASA * 1000;
+    Flip.from(estado, { targets: vista, duration: ZOOM_CASA, ease: EASE_GSAP, scale: true, clearProps: 'transform' });
+    vista.removeAttribute('data-flip-id');
+  }, []);
 
   // ---------------------------------------------------------------- dados
   useEffect(() => {
@@ -142,31 +163,39 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
 
   useEffect(() => {
     if (!containerRef.current || !eyesRef.current) return;
-    try {
-      const scene = new HouseScene({
-        container: containerRef.current,
-        eyesContainer: eyesRef.current,
-        layout,
-        dark: isDarkMode,
-        onFloorClick: point => handleFloorClick(point),
-        onARChange: setInAR
-      });
-      sceneRef.current = scene;
-      setSceneError('');
-      return () => { scene.dispose(); sceneRef.current = null; };
-    } catch (error) {
-      console.error('[Casa 3D] WebGL indisponível', error);
-      setSceneError(errorMessage(error));
-      return undefined;
-    }
+    let scene: HouseScene | null = null;
+    const criar = () => {
+      if (!containerRef.current || !eyesRef.current) return;
+      try {
+        scene = new HouseScene({
+          container: containerRef.current,
+          eyesContainer: eyesRef.current,
+          layout,
+          dark: isDarkMode,
+          onFloorClick: point => handleFloorClick(point),
+          onARChange: setInAR
+        });
+        sceneRef.current = scene;
+        setSceneError('');
+        setCenaPronta(v => v + 1);
+      } catch (error) {
+        console.error('[Casa 3D] WebGL indisponível', error);
+        setSceneError(errorMessage(error));
+      }
+    };
+    // Montar o WebGL trava a página por alguns quadros: se a vista está crescendo a partir do cômodo (Flip),
+    // a cena só é criada quando o zoom termina, para ele não engasgar.
+    const espera = Math.max(0, zoomAte.current - performance.now());
+    const timer = espera ? window.setTimeout(criar, espera) : (criar(), 0);
+    return () => { window.clearTimeout(timer); scene?.dispose(); if (sceneRef.current === scene) sceneRef.current = null; };
     // isDarkMode é aplicado no efeito abaixo; recriar a cena só quando a planta mudar
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout, handleFloorClick]);
 
-  useEffect(() => { sceneRef.current?.setDark(isDarkMode); }, [isDarkMode]);
-  useEffect(() => { sceneRef.current?.setPendingPoint(pendente?.ponto ?? null); }, [pendente]);
-  useEffect(() => { sceneRef.current?.setHighlightRoom(pendente?.room?.id ?? hoverRoom); }, [hoverRoom, pendente]);
-  useEffect(() => { sceneRef.current?.setLidarVisible(camadas.lidar); }, [camadas.lidar]);
+  useEffect(() => { sceneRef.current?.setDark(isDarkMode); }, [isDarkMode, cenaPronta]);
+  useEffect(() => { sceneRef.current?.setPendingPoint(pendente?.ponto ?? null); }, [pendente, cenaPronta]);
+  useEffect(() => { sceneRef.current?.setHighlightRoom(pendente?.room?.id ?? hoverRoom); }, [hoverRoom, pendente, cenaPronta]);
+  useEffect(() => { sceneRef.current?.setLidarVisible(camadas.lidar); }, [camadas.lidar, cenaPronta]);
 
   const personRoom = emergency?.indoorRoom ?? robot?.personRoom ?? null;
   const mission = robot?.currentMission ?? null;
@@ -184,7 +213,7 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
     } else {
       scene.setGoal(null, []);
     }
-  }, [robot, emergency, personRoom, mission, layout, camadas, pessoa]);
+  }, [robot, emergency, personRoom, mission, layout, camadas, pessoa, cenaPronta]);
 
   // Em socorro a câmera do robô vira a vista principal (a pessoa pode trocar de volta)
   // A troca de vistas é só do computador; no tablet e no celular a câmera do robô tem painel próprio

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Box, Phone, TriangleAlert } from 'lucide-react';
+import { gsap, movimentoReduzido, useGSAP } from '../../motion/gsap';
+import { DESLOCA, DUR, QUEDA } from '../../motion/tokens';
 
 interface FaixaEmergenciaProps {
   titulo: string;
@@ -11,8 +13,16 @@ interface FaixaEmergenciaProps {
 }
 
 /** Faixa vermelha logo abaixo da navegação quando há socorro pendente (Navbar · Emergência). */
-export const FaixaEmergencia: React.FC<FaixaEmergenciaProps> = ({ titulo, detalhe, demo, compacta, onVerCasa }) => (
-  <div className={`faixa-emergencia${compacta ? ' is-compacta' : ''}`} role="alert">
+export const FaixaEmergencia: React.FC<FaixaEmergenciaProps> = ({ titulo, detalhe, demo, compacta, onVerCasa }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  // Os botões entram de cima para baixo depois que a faixa desce (stagger 60 ms)
+  useGSAP(() => {
+    gsap.from('.faixa-emergencia-acoes > *', movimentoReduzido()
+      ? { opacity: 0, duration: DUR.curta, stagger: QUEDA.stagger, delay: QUEDA.botoes }
+      : { opacity: 0, y: -DESLOCA, duration: DUR.curta, stagger: QUEDA.stagger, delay: QUEDA.botoes });
+  }, { scope: ref });
+  return (
+  <div ref={ref} className={`faixa-emergencia${compacta ? ' is-compacta' : ''}`} role="alert">
     <TriangleAlert size={compacta ? 18 : 20} aria-hidden="true" />
     <p className="faixa-emergencia-texto">
       <strong>{titulo}</strong> <span>{detalhe}</span>
@@ -26,4 +36,5 @@ export const FaixaEmergencia: React.FC<FaixaEmergenciaProps> = ({ titulo, detalh
       </div>
     )}
   </div>
-);
+  );
+};
