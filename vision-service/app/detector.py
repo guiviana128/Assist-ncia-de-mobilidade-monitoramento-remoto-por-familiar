@@ -50,7 +50,17 @@ class SignalForHelpDetector:
             handedness = classification.label
             detector_score = float(classification.score)
 
-        phase, shape_score = self._classify(landmarks)
+        # Image x/y use different normalization scales and z is relative.
+        # World landmarks share metric units on every axis, suitable for
+        # Euclidean distances and joint angles. Keep image landmarks for the box.
+        world_hands = result.multi_hand_world_landmarks
+        phase, shape_score = "NONE", 0.0
+        if world_hands:
+            world_landmarks = [
+                (point.x, point.y, point.z)
+                for point in world_hands[0].landmark
+            ]
+            phase, shape_score = self._classify(world_landmarks)
         sequence = self._sequence.update(session_id, phase)
 
         xs = [point[0] for point in landmarks]
@@ -72,7 +82,10 @@ class SignalForHelpDetector:
                 height=max_y - min_y,
             ),
             "phase": phase,
-            "confidence": round(min(1.0, 0.55 * shape_score + 0.45 * detector_score), 4),
+            "confidence": (
+                round(min(1.0, 0.55 * shape_score + 0.45 * detector_score), 4)
+                if world_hands else 0.0
+            ),
             "sequence": sequence,
         }
 
