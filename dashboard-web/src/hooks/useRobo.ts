@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { HouseLayout, RobotMission, RobotState } from '../types/robot';
-import { FALLBACK_LAYOUT } from '../robot/houseLayout';
-import { robotApi } from '../services/robotApi';
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { HouseLayout, RobotMission, RobotState } from "../types/robot";
+import { FALLBACK_LAYOUT } from "../robot/houseLayout";
+import { auth } from "../services/auth";
+import { robotApi } from "../services/robotApi";
 
 /**
  * Estado do robô e da planta para as telas fora da Casa 3D (Início, frase de estado).
@@ -17,13 +18,35 @@ export function useRobo(intervaloMs = 3500) {
 
   useEffect(() => {
     let ativo = true;
-    robotApi.getLayout().then(l => { if (ativo) setLayout(l); }).catch(() => undefined);
-    return () => { ativo = false; };
+    robotApi
+      .getLayout()
+      .then((l) => {
+        if (ativo) setLayout(l);
+      })
+      .catch(() => undefined);
+    return () => {
+      ativo = false;
+    };
   }, []);
 
+  useEffect(
+    () =>
+      auth.onChange(() => {
+        setRobot(null);
+        setMissions([]);
+        setNoComodoDesde(null);
+        ultimoComodo.current = undefined;
+      }),
+    [],
+  );
   const atualizar = useCallback(async () => {
+    const generation = auth.generation;
     try {
-      const [state, lista] = await Promise.all([robotApi.getState(), robotApi.listMissions(12)]);
+      const [state, lista] = await Promise.all([
+        robotApi.getState(),
+        robotApi.listMissions(12),
+      ]);
+      if (generation !== auth.generation) return;
       setRobot(state);
       setMissions(lista);
       const comodo = state.personRoom ?? null;
@@ -34,7 +57,9 @@ export function useRobo(intervaloMs = 3500) {
         ultimoComodo.current = comodo;
         setNoComodoDesde(Date.now());
       }
-    } catch { /* login é tratado no App; demais falhas: tenta no próximo ciclo */ }
+    } catch {
+      /* login é tratado no App; demais falhas: tenta no próximo ciclo */
+    }
   }, []);
 
   useEffect(() => {
@@ -43,5 +68,12 @@ export function useRobo(intervaloMs = 3500) {
     return () => window.clearInterval(timer);
   }, [atualizar, intervaloMs]);
 
-  return { layout, robot, missions, noComodoDesde, atualizar, demo: robotApi.isDemo() };
+  return {
+    layout,
+    robot,
+    missions,
+    noComodoDesde,
+    atualizar,
+    demo: robotApi.isDemo(),
+  };
 }

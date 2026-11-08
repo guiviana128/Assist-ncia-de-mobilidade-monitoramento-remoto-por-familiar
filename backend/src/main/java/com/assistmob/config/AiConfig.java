@@ -8,10 +8,13 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class AiConfig {
 
-    @Bean("ollamaRestClient")
-    public RestClient ollamaRestClient(
-            RestClient.Builder builder,
-            @Value("${assistmob.ai.base-url:http://localhost:11434}") String baseUrl) {
-        return builder.baseUrl(baseUrl).build();
-    }
+  @Bean("ollamaRestClient")
+  public RestClient ollamaRestClient(
+      RestClient.Builder builder,
+      @Value("${assistmob.ai.base-url:http://localhost:11434}") String baseUrl) {
+    var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+    factory.setConnectTimeout(2000);
+    factory.setReadTimeout(20000);
+    return builder.requestFactory(factory).baseUrl(baseUrl).build();
+  }
 }

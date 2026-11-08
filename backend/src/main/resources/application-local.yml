@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: jdbc:h2:amparo:./data/amparo
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ${AMPARO_DB_PASSWORD:}
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+assistmob:
+  security:
+    cors-origins: http://localhost:3001,http://127.0.0.1:3001,http://localhost:3000,http://127.0.0.1:3000

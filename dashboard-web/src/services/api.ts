@@ -1,8 +1,13 @@
-import { Alert, DashboardSummary, DeviceStatus, TelemetryPoint } from '../types';
-import type { VisionMetadata } from './visionApi';
+import {
+  Alert,
+  DashboardSummary,
+  DeviceStatus,
+  TelemetryPoint,
+} from "../types";
+import type { VisionMetadata } from "./visionApi";
 
-import { AuthRequiredError, apiFetch } from './auth';
-import { robotApi } from './robotApi';
+import { auth, AuthRequiredError, apiFetch } from "./auth";
+import { robotApi } from "./robotApi";
 
 let summaryDemo = false;
 
@@ -10,7 +15,7 @@ let summaryDemo = false;
 export class ApiRejectedError extends Error {
   constructor(readonly status: number) {
     super(`A API recusou o pedido (${status}).`);
-    this.name = 'ApiRejectedError';
+    this.name = "ApiRejectedError";
   }
 }
 
@@ -23,10 +28,10 @@ function checkWrite(res: Response) {
 let routeDemo = false;
 
 let mockDevice: DeviceStatus = {
-  deviceId: 'ESP32-MOB-001',
-  name: 'Dispositivo Amparo (José Silva)',
+  deviceId: "ESP32-MOB-001",
+  name: "Dispositivo Amparo (José Silva)",
   isOnline: true,
-  currentLatitude: -23.550520,
+  currentLatitude: -23.55052,
   currentLongitude: -46.633308,
   batteryPercent: 88,
   lastDistanceCm: 145,
@@ -35,36 +40,36 @@ let mockDevice: DeviceStatus = {
   isGripHolding: true,
   stepsToday: 1840,
   activeMinutes: 42,
-  mobilityScore: 86
+  mobilityScore: 86,
 };
 
 let mockAlerts: Alert[] = [
   {
     id: 1,
-    deviceId: 'ESP32-MOB-001',
-    alertType: 'CHECKIN_SAFE',
-    severity: 'INFO',
-    status: 'RESOLVED',
+    deviceId: "ESP32-MOB-001",
+    alertType: "CHECKIN_SAFE",
+    severity: "INFO",
+    status: "RESOLVED",
     message: 'Check-in Seguro efetuado pelo idoso: "Cheguei bem na praça"',
-    latitude: -23.550520,
+    latitude: -23.55052,
     longitude: -46.633308,
     batteryLevel: 88,
     createdAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-    resolvedAt: new Date(Date.now() - 1000 * 60 * 10).toISOString()
+    resolvedAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
   },
   {
     id: 2,
-    deviceId: 'ESP32-MOB-001',
-    alertType: 'POTHOLE_HOLE_DETECTED',
-    severity: 'WARNING',
-    status: 'RESOLVED',
-    message: 'Desnível / degrau de 35cm detectado pelo sensor no piso',
-    latitude: -23.551200,
-    longitude: -46.634100,
+    deviceId: "ESP32-MOB-001",
+    alertType: "POTHOLE_HOLE_DETECTED",
+    severity: "WARNING",
+    status: "RESOLVED",
+    message: "Desnível / degrau de 35cm detectado pelo sensor no piso",
+    latitude: -23.5512,
+    longitude: -46.6341,
     batteryLevel: 90,
     createdAt: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-    resolvedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString()
-  }
+    resolvedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+  },
 ];
 
 export const api = {
@@ -73,19 +78,20 @@ export const api = {
   async getDashboardSummary(): Promise<DashboardSummary> {
     try {
       const res = await apiFetch(`/dashboard/summary`);
-      if (!res.ok) throw new Error('API Error');
+      if (!res.ok) throw new Error("API Error");
       const data = await res.json();
       summaryDemo = false;
       return data;
     } catch (error) {
-      if (error instanceof AuthRequiredError) throw error;
+      if (auth.isLoggedIn() || error instanceof AuthRequiredError) throw error;
       summaryDemo = true;
       return {
         totalDevices: 1,
         onlineDevices: mockDevice.isOnline ? 1 : 0,
-        pendingAlertsCount: mockAlerts.filter(a => a.status === 'PENDING').length,
+        pendingAlertsCount: mockAlerts.filter((a) => a.status === "PENDING")
+          .length,
         recentAlerts: mockAlerts,
-        devices: [mockDevice]
+        devices: [mockDevice],
       };
     }
   },
@@ -93,78 +99,136 @@ export const api = {
   async getRecentRoute(deviceId: string): Promise<TelemetryPoint[]> {
     try {
       const res = await apiFetch(`/telemetry/route/${deviceId}?hours=12`);
-      if (!res.ok) throw new Error('API Error');
+      if (!res.ok) throw new Error("API Error");
       const data = await res.json();
       routeDemo = false;
       return data;
-    } catch {
+    } catch (error) {
+      if (auth.isLoggedIn() || error instanceof AuthRequiredError) throw error;
       routeDemo = true;
       return [
-        { deviceId, latitude: -23.5520, longitude: -46.6350, speedKmh: 3.2, batteryPercent: 92, recordedAt: new Date(Date.now() - 1000 * 60 * 20).toISOString() },
-        { deviceId, latitude: -23.5515, longitude: -46.6342, speedKmh: 2.8, batteryPercent: 90, recordedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString() },
-        { deviceId, latitude: -23.5508, longitude: -46.6338, speedKmh: 3.0, batteryPercent: 89, recordedAt: new Date(Date.now() - 1000 * 60 * 8).toISOString() },
-        { deviceId, latitude: mockDevice.currentLatitude, longitude: mockDevice.currentLongitude, speedKmh: 0.0, batteryPercent: mockDevice.batteryPercent, recordedAt: new Date().toISOString() }
+        {
+          deviceId,
+          latitude: -23.552,
+          longitude: -46.635,
+          speedKmh: 3.2,
+          batteryPercent: 92,
+          recordedAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
+        },
+        {
+          deviceId,
+          latitude: -23.5515,
+          longitude: -46.6342,
+          speedKmh: 2.8,
+          batteryPercent: 90,
+          recordedAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+        },
+        {
+          deviceId,
+          latitude: -23.5508,
+          longitude: -46.6338,
+          speedKmh: 3.0,
+          batteryPercent: 89,
+          recordedAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
+        },
+        {
+          deviceId,
+          latitude: mockDevice.currentLatitude,
+          longitude: mockDevice.currentLongitude,
+          speedKmh: 0.0,
+          batteryPercent: mockDevice.batteryPercent,
+          recordedAt: new Date().toISOString(),
+        },
       ];
     }
   },
 
-  async resolveAlert(alertId: number, resolvedBy: string = 'Familiar'): Promise<Alert> {
+  async resolveAlert(
+    alertId: number,
+    resolvedBy: string = "Familiar",
+  ): Promise<Alert> {
     try {
-      const res = await apiFetch(`/alerts/${alertId}/resolve?resolvedBy=${encodeURIComponent(resolvedBy)}`, {
-        method: 'PATCH'
-      });
-      if (!res.ok) throw new Error('API Error');
+      const res = await apiFetch(
+        `/alerts/${alertId}/resolve?resolvedBy=${encodeURIComponent(resolvedBy)}`,
+        {
+          method: "PATCH",
+        },
+      );
+      if (!res.ok) throw new Error("API Error");
       return await res.json();
-    } catch {
-      const alert = mockAlerts.find(a => a.id === alertId);
+    } catch (error) {
+      if (auth.isLoggedIn() || error instanceof AuthRequiredError) throw error;
+      const alert = mockAlerts.find((a) => a.id === alertId);
       if (alert) {
-        alert.status = 'RESOLVED';
+        alert.status = "RESOLVED";
         alert.resolvedAt = new Date().toISOString();
       }
       return alert!;
     }
   },
 
-  async findMyCane(deviceId: string): Promise<{ success: boolean; message: string }> {
+  async findMyCane(
+    deviceId: string,
+  ): Promise<{ success: boolean; message: string }> {
     try {
-      const res = await apiFetch(`/devices/${deviceId}/find`, { method: 'POST' });
-      if (!res.ok) throw new Error('API Error');
-      return { success: true, message: 'Comando de localização sonoro e luminoso emitido para a dispositivo de assistência!' };
-    } catch {
-      return { success: true, message: 'Bengala localizada: apito e farol ligados por 10 s.' };
+      const res = await apiFetch(`/devices/${deviceId}/find`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("API Error");
+      return {
+        success: true,
+        message:
+          "Comando de localização sonoro e luminoso emitido para a dispositivo de assistência!",
+      };
+    } catch (error) {
+      if (auth.isLoggedIn() || error instanceof AuthRequiredError) throw error;
+      return {
+        success: true,
+        message: "Bengala localizada: apito e farol ligados por 10 s.",
+      };
     }
   },
 
-  async scheduleMedicineReminder(deviceId: string, medicineName: string): Promise<void> {
+  async scheduleMedicineReminder(
+    deviceId: string,
+    medicineName: string,
+  ): Promise<void> {
     try {
       const res = await apiFetch(`/devices/${deviceId}/reminder`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ medicineName })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ medicineName }),
       });
       checkWrite(res);
     } catch (error) {
-      if (error instanceof AuthRequiredError || error instanceof ApiRejectedError) throw error;
+      if (
+        auth.isLoggedIn() ||
+        error instanceof AuthRequiredError ||
+        error instanceof ApiRejectedError
+      )
+        throw error;
       const newAlert: Alert = {
         id: Date.now(),
         deviceId,
-        alertType: 'MEDICATION_REMINDER',
-        severity: 'INFO',
-        status: 'PENDING',
+        alertType: "MEDICATION_REMINDER",
+        severity: "INFO",
+        status: "PENDING",
         message: `⏰ Lembrete de Medicamento: ${medicineName}`,
         latitude: mockDevice.currentLatitude,
         longitude: mockDevice.currentLongitude,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       };
       mockAlerts = [newAlert, ...mockAlerts];
     }
   },
 
-  async sendSimulatedTelemetry(data: Partial<TelemetryPoint> & { indoorRoom?: string }): Promise<void> {
+  async sendSimulatedTelemetry(
+    data: Partial<TelemetryPoint> & { indoorRoom?: string },
+  ): Promise<void> {
     try {
       const res = await apiFetch(`/telemetry`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           deviceId: mockDevice.deviceId,
           latitude: data.latitude ?? mockDevice.currentLatitude,
@@ -175,13 +239,18 @@ export const api = {
           obstacleDetected: data.obstacleDetected ?? false,
           batteryPercent: data.batteryPercent ?? mockDevice.batteryPercent,
           fallDetected: data.fallDetected ?? false,
-          indoorRoom: data.indoorRoom
-        })
+          indoorRoom: data.indoorRoom,
+        }),
       });
       // O proxy do Vite responde 5xx quando o backend está fora: trata como offline (modo demonstração)
       checkWrite(res);
     } catch (error) {
-      if (error instanceof AuthRequiredError || error instanceof ApiRejectedError) throw error;
+      if (
+        auth.isLoggedIn() ||
+        error instanceof AuthRequiredError ||
+        error instanceof ApiRejectedError
+      )
+        throw error;
       robotApi.demo().setPersonRoom(data.indoorRoom);
       mockDevice = {
         ...mockDevice,
@@ -190,16 +259,19 @@ export const api = {
         batteryPercent: data.batteryPercent ?? mockDevice.batteryPercent,
         lastDistanceCm: data.obstacleDistanceCm ?? mockDevice.lastDistanceCm,
         obstacleAlert: data.obstacleDetected ?? mockDevice.obstacleAlert,
-        lastUpdate: new Date().toISOString()
+        lastUpdate: new Date().toISOString(),
       };
     }
   },
 
-  async registerVisionEvent(deviceId: string, metadata: VisionMetadata): Promise<{ supervisedAction?: { id: number } }> {
+  async registerVisionEvent(
+    deviceId: string,
+    metadata: VisionMetadata,
+  ): Promise<{ supervisedAction?: { id: number } }> {
     const response = await apiFetch(`/vision/events`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...metadata, deviceId })
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...metadata, deviceId }),
     });
     if (!response.ok) {
       throw new Error(`Vision event API respondeu ${response.status}`);
@@ -207,46 +279,85 @@ export const api = {
     return response.json();
   },
 
-  async sendSimulatedAlert(alertType: Alert['alertType'], message: string, indoorRoom?: string): Promise<void> {
+  async sendSimulatedAlert(
+    alertType: Alert["alertType"],
+    message: string,
+    indoorRoom?: string,
+  ): Promise<void> {
     try {
       const res = await apiFetch(`/alerts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           deviceId: mockDevice.deviceId,
           alertType,
-          severity: alertType === 'HAND_GESTURE_SOS' || alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED' ? 'CRITICAL' : alertType === 'CHECKIN_SAFE' || alertType === 'MEDICATION_REMINDER' ? 'INFO' : 'WARNING',
+          severity:
+            alertType === "HAND_GESTURE_SOS" ||
+            alertType === "SOS_BUTTON" ||
+            alertType === "FALL_DETECTED"
+              ? "CRITICAL"
+              : alertType === "CHECKIN_SAFE" ||
+                  alertType === "MEDICATION_REMINDER"
+                ? "INFO"
+                : "WARNING",
           message,
           latitude: mockDevice.currentLatitude,
           longitude: mockDevice.currentLongitude,
           batteryLevel: mockDevice.batteryPercent,
-          indoorRoom
-        })
+          indoorRoom,
+        }),
       });
       // O proxy do Vite responde 5xx quando o backend está fora: cai no modo demonstração como os outros métodos
       checkWrite(res);
     } catch (error) {
-      if (error instanceof AuthRequiredError || error instanceof ApiRejectedError) throw error;
+      if (
+        auth.isLoggedIn() ||
+        error instanceof AuthRequiredError ||
+        error instanceof ApiRejectedError
+      )
+        throw error;
       const newAlert: Alert = {
         id: Date.now(),
         deviceId: mockDevice.deviceId,
         alertType,
-        severity: alertType === 'HAND_GESTURE_SOS' || alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED' ? 'CRITICAL' : alertType === 'CHECKIN_SAFE' || alertType === 'MEDICATION_REMINDER' ? 'INFO' : 'WARNING',
-        status: alertType === 'CHECKIN_SAFE' ? 'RESOLVED' : 'PENDING',
+        severity:
+          alertType === "HAND_GESTURE_SOS" ||
+          alertType === "SOS_BUTTON" ||
+          alertType === "FALL_DETECTED"
+            ? "CRITICAL"
+            : alertType === "CHECKIN_SAFE" ||
+                alertType === "MEDICATION_REMINDER"
+              ? "INFO"
+              : "WARNING",
+        status: alertType === "CHECKIN_SAFE" ? "RESOLVED" : "PENDING",
         message,
         latitude: mockDevice.currentLatitude,
         longitude: mockDevice.currentLongitude,
         batteryLevel: mockDevice.batteryPercent,
         createdAt: new Date().toISOString(),
-        resolvedAt: alertType === 'CHECKIN_SAFE' ? new Date().toISOString() : undefined,
-        indoorRoom
+        resolvedAt:
+          alertType === "CHECKIN_SAFE" ? new Date().toISOString() : undefined,
+        indoorRoom,
       };
       mockAlerts = [newAlert, ...mockAlerts];
-      if (alertType === 'HAND_GESTURE_SOS' || alertType === 'SOS_BUTTON' || alertType === 'FALL_DETECTED') {
+      if (
+        alertType === "HAND_GESTURE_SOS" ||
+        alertType === "SOS_BUTTON" ||
+        alertType === "FALL_DETECTED"
+      ) {
         // Sem backend: o robô simulado no navegador reage ao alerta como o robô real reagiria
-        robotApi.demo().emergency(indoorRoom, alertType === 'FALL_DETECTED' ? 'Queda detectada pela bengala' : alertType === 'SOS_BUTTON' ? 'Botão SOS acionado' : 'Gesto de socorro na câmera', newAlert.id);
+        robotApi
+          .demo()
+          .emergency(
+            indoorRoom,
+            alertType === "FALL_DETECTED"
+              ? "Queda detectada pela bengala"
+              : alertType === "SOS_BUTTON"
+                ? "Botão SOS acionado"
+                : "Gesto de socorro na câmera",
+            newAlert.id,
+          );
       }
     }
-  }
+  },
 };
-

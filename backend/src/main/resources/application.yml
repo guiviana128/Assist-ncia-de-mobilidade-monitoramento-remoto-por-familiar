@@ -2,6 +2,10 @@ server:
   port: 8080
 
 spring:
+  task:
+    scheduling:
+      pool:
+        size: 2
   application:
     name: assistmob-backend
   datasource:
@@ -20,8 +24,8 @@ spring:
 
 # Configurações do Firebase Cloud Messaging (FCM)
 firebase:
-  enabled: false # Mudar para true ao fornecer o serviceAccountKey.json
-  config-path: classpath:firebase-service-account.json
+  enabled: ${FIREBASE_ENABLED:false}
+  config-path: ${FIREBASE_CONFIG_PATH:classpath:firebase-service-account.json}
 
 # Parâmetros de monitoramento e IA local
 assistmob:

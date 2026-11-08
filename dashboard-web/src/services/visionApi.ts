@@ -16,8 +16,8 @@ export interface VisionMetadata {
     height: number;
   };
   gesture: {
-    name: 'SIGNAL_FOR_HELP';
-    phase: 'NONE' | 'OPEN_PALM_THUMB_TUCKED' | 'THUMB_TRAPPED';
+    name: "SIGNAL_FOR_HELP";
+    phase: "NONE" | "OPEN_PALM_THUMB_TUCKED" | "THUMB_TRAPPED";
     sequenceState: string;
     confidence: number;
     sequenceProgress: number;
@@ -40,44 +40,53 @@ export interface VisionMetadata {
   };
 }
 
-const visionEnvironment = (import.meta as ImportMeta & {
-  readonly env?: Record<string, string | undefined>;
-}).env;
+const visionEnvironment = (
+  import.meta as ImportMeta & {
+    readonly env?: Record<string, string | undefined>;
+  }
+).env;
 
-const VISION_API_URL =
-  visionEnvironment?.VITE_VISION_API_URL ?? 'http://localhost:8001';
+const VISION_API_URL = visionEnvironment?.VITE_VISION_API_URL ?? "/vision-api";
 
 export const visionApi = {
   analyzeFrame(
     canvas: HTMLCanvasElement,
     sessionId: string,
-    deviceId: string
+    deviceId: string,
   ): Promise<VisionMetadata> {
     return new Promise((resolve, reject) => {
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          reject(new Error('Não foi possível gerar o quadro da câmera'));
-          return;
-        }
-
-        const form = new FormData();
-        form.append('file', blob, 'frame.jpg');
-        form.append('session_id', sessionId);
-        form.append('device_id', deviceId);
-
-        try {
-          const response = await fetch(`${VISION_API_URL}/api/v1/vision/analyze`, {
-            method: 'POST',
-            body: form
-          });
-          if (!response.ok) {
-            throw new Error(`Vision API respondeu ${response.status}`);
+      canvas.toBlob(
+        async (blob) => {
+          if (!blob) {
+            reject(new Error("Não foi possível gerar o quadro da câmera"));
+            return;
           }
-          resolve(await response.json());
-        } catch (error) {
-          reject(error);
-        }
-      }, 'image/jpeg', 0.72);
+
+          const form = new FormData();
+          form.append("file", blob, "frame.jpg");
+          form.append("session_id", sessionId);
+          form.append("device_id", deviceId);
+
+          try {
+            const response = await fetch(
+              `${VISION_API_URL}/api/v1/vision/analyze`,
+              {
+                method: "POST",
+                signal: AbortSignal.timeout(10000),
+                body: form,
+              },
+            );
+            if (!response.ok) {
+              throw new Error(`Vision API respondeu ${response.status}`);
+            }
+            resolve(await response.json());
+          } catch (error) {
+            reject(error);
+          }
+        },
+        "image/jpeg",
+        0.72,
+      );
     });
-  }
+  },
 };

@@ -1,0 +1,7 @@
+# Amparo: family monitoring
+
+User authorized all proposed improvements and delegated technical decisions. Retain React/Vite, Java 17 Spring Boot and Python 3.11/OpenCV. PostgreSQL is the deployment database; persistent H2 is available for local execution without Docker. Register individual email/password accounts with salted password hashing and opaque expiring persistent sessions. Each account belongs to a family; family membership restricts every API resource including robot commands and AI decisions. Generate device credentials rather than allowing arbitrary existing device claims. Do not expose password hashes or device secrets in routine reads.
+
+History records gesture metadata, alert, reviewer and timestamps. Acknowledging is separate from resolving. AI produces stored summaries and proposals, never automatic calls. Background capture is an explicitly launched local worker; browser-only capture cannot work when closed. Connection status uses received heartbeat age, not successful page rendering. Notifications have durable inbox and optional browser/FCM delivery; no delivery claim without provider success. Preserve old checkout and previous CI patch.
+
+Validation: multi-family integration tests, restart/session persistence, duplicate events, quality sequence tests, frontend build, browser registration/login and care console. Model installation and real device/push setup are deployment steps with explicit status.

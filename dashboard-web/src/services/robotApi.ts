@@ -1,17 +1,39 @@
 // API do robô assistente e da planta da casa.
 // Se o backend estiver offline (erro de rede), usa o robô simulado no navegador (modo demonstração).
-import type { HouseLayout, MissionRequest, RobotMission, RobotState } from '../types/robot';
-import { DemoRobot } from '../robot/demoRobot';
-import { FALLBACK_LAYOUT } from '../robot/houseLayout';
-import { ApiError, AuthRequiredError, apiJson } from './auth';
+import type {
+  HouseLayout,
+  MissionRequest,
+  RobotMission,
+  RobotState,
+} from "../types/robot";
+import { DemoRobot } from "../robot/demoRobot";
+import { FALLBACK_LAYOUT } from "../robot/houseLayout";
+import { ApiError, AuthRequiredError, apiJson, auth } from "./auth";
 
-const ROBOT_ID = 'AMPARO-BOT-01';
+const ROBOT_ID = "AMPARO-BOT-01";
+let realRobotId: string | null = null;
+async function familyRobot() {
+  if (!realRobotId) {
+    const generation = auth.generation;
+    const devices = await apiJson<{ robotId: string }[]>("/care/devices");
+    if (generation !== auth.generation) throw new AuthRequiredError();
+    if (!devices[0]) throw new ApiError(404, "Nenhum robô vinculado");
+    realRobotId = devices[0].robotId;
+  }
+  return realRobotId;
+}
+auth.onChange(() => {
+  realRobotId = null;
+});
 let demoRobot: DemoRobot | null = null;
 let demoTimer: number | null = null;
 let usingDemo = false;
 
 const isNetworkError = (error: unknown) =>
-  error instanceof ApiError ? error.offline : !(error instanceof AuthRequiredError);
+  !auth.isLoggedIn() &&
+  (error instanceof ApiError
+    ? error.offline
+    : !(error instanceof AuthRequiredError));
 
 function demo(): DemoRobot {
   if (!demoRobot) {
@@ -26,7 +48,10 @@ function demo(): DemoRobot {
   return demoRobot;
 }
 
-async function withDemo<T>(online: () => Promise<T>, offline: () => T): Promise<T> {
+async function withDemo<T>(
+  online: () => Promise<T>,
+  offline: () => T,
+): Promise<T> {
   try {
     const result = await online();
     usingDemo = false;
@@ -43,32 +68,51 @@ export const robotApi = {
   isDemo: () => usingDemo,
   demo,
 
-  getLayout: () => withDemo(() => apiJson<HouseLayout>('/house/layout'), () => FALLBACK_LAYOUT),
+  getLayout: () =>
+    withDemo(
+      () => apiJson<HouseLayout>("/house/layout"),
+      () => FALLBACK_LAYOUT,
+    ),
 
-  getState: () => withDemo(() => apiJson<RobotState>(`/robot/${ROBOT_ID}/state`), () => demo().getState()),
+  getState: () =>
+    withDemo(
+      async () => apiJson<RobotState>(`/robot/${await familyRobot()}/state`),
+      () => demo().getState(),
+    ),
 
   listMissions: (limit = 8) =>
-    withDemo(() => apiJson<RobotMission[]>(`/robot/${ROBOT_ID}/missions?limit=${limit}`), () => demo().listMissions(limit)),
+    withDemo(
+      async () =>
+        apiJson<RobotMission[]>(
+          `/robot/${await familyRobot()}/missions?limit=${limit}`,
+        ),
+      () => demo().listMissions(limit),
+    ),
 
   requestMission: (request: MissionRequest) =>
     withDemo(
-      () => apiJson<RobotMission>(`/robot/${ROBOT_ID}/missions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
-      }),
-      () => demo().request(request)
+      async () =>
+        apiJson<RobotMission>(`/robot/${await familyRobot()}/missions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(request),
+        }),
+      () => demo().request(request),
     ),
 
   cancelMission: (missionId: number) =>
     withDemo(
-      () => apiJson<RobotMission>(`/robot/${ROBOT_ID}/missions/${missionId}/cancel`, { method: 'POST' }),
-      () => demo().cancel(missionId) as RobotMission
+      async () =>
+        apiJson<RobotMission>(
+          `/robot/${await familyRobot()}/missions/${missionId}/cancel`,
+          { method: "POST" },
+        ),
+      () => demo().cancel(missionId) as RobotMission,
     ),
 
   stopDemo() {
     if (demoTimer !== null) window.clearInterval(demoTimer);
     demoTimer = null;
     demoRobot = null;
-  }
+  },
 };

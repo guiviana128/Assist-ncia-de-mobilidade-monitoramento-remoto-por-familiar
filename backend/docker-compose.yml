@@ -51,7 +51,7 @@ services:
       context: ../vision-service
     container_name: assistmob-vision
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     environment:
       VISION_ALLOWED_ORIGINS: ${VISION_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
     restart: unless-stopped

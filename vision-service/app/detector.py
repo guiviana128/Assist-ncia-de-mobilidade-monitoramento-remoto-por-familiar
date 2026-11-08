@@ -15,7 +15,7 @@ from .state import SignalSequenceTracker
 class SignalForHelpDetector:
     def __init__(self) -> None:
         self._hands = mp.solutions.hands.Hands(
-            static_image_mode=False,
+            static_image_mode=True,
             max_num_hands=2,
             model_complexity=1,
             min_detection_confidence=0.65,
@@ -30,6 +30,9 @@ class SignalForHelpDetector:
             result = self._hands.process(rgb)
 
         if not result.multi_hand_landmarks:
+            self._sequence.update(session_id + ":Left", "NONE")
+            self._sequence.update(session_id + ":Right", "NONE")
+            self._sequence.update(session_id + ":unknown", "NONE")
             sequence = self._sequence.update(session_id, "NONE")
             return {
                 "hand_detected": False,
@@ -50,8 +53,10 @@ class SignalForHelpDetector:
             handedness = classification.label
             detector_score = float(classification.score)
 
-        phase, shape_score = self._classify(landmarks)
-        sequence = self._sequence.update(session_id, phase)
+        world_hands = result.multi_hand_world_landmarks
+        phase, shape_score = (self._classify([(p.x,p.y,p.z) for p in world_hands[0].landmark])
+                              if world_hands else ("NONE",0.0))
+        sequence = self._sequence.update(session_id + ":" + (handedness or "unknown"), phase)
 
         xs = [point[0] for point in landmarks]
         ys = [point[1] for point in landmarks]

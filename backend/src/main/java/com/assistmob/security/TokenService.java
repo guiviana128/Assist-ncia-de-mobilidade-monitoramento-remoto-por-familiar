@@ -1,86 +1,64 @@
 package com.assistmob.security;
 
+import com.assistmob.family.*;
+import java.time.Instant;
+import java.util.*;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.util.Base64;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-
-/**
- * Sessões dos familiares: token aleatório de 256 bits, com validade, guardado só no servidor.
- * (Antes do pentest a API não tinha login nenhum.)
- */
 @Service
 public class TokenService {
+  private final FamilyAccounts accounts;
+  private final FamilySessions sessions;
+  private final SecurityProperties properties;
 
-    private record Session(String username, Instant expiresAt) {
-    }
+  public TokenService(
+      FamilyAccounts accounts, FamilySessions sessions, SecurityProperties properties) {
+    this.accounts = accounts;
+    this.sessions = sessions;
+    this.properties = properties;
+  }
 
-    private final SecureRandom random = new SecureRandom();
-    private final Map<String, Session> sessions = new ConcurrentHashMap<>();
-    private final SecurityProperties properties;
+  public boolean checkFamilyCredentials(String username, String password) {
+    if (username == null || password == null) return false;
+    return accounts
+        .findById(username.trim().toLowerCase(Locale.ROOT))
+        .map(a -> Secrets.matches(password, a.getPasswordHash()))
+        .orElse(false);
+  }
 
-    public TokenService(SecurityProperties properties) {
-        this.properties = properties;
-    }
+  @org.springframework.transaction.annotation.Transactional
+  public String issueToken(String username) {
+    sessions.deleteByExpiresAtBefore(Instant.now());
+    String raw = Secrets.token();
+    var s = new FamilySession();
+    s.setTokenHash(Secrets.digest(raw));
+    s.setEmail(username.trim().toLowerCase(Locale.ROOT));
+    s.setExpiresAt(Instant.now().plusSeconds(ttlSeconds()));
+    sessions.save(s);
+    return raw;
+  }
 
-    public boolean checkFamilyCredentials(String username, String password) {
-        if (username == null || password == null) {
-            return false;
-        }
-        // Comparação em tempo constante para não vazar informação por tempo de resposta
-        boolean userOk = constantTimeEquals(username, properties.getFamilyUsername());
-        boolean passOk = constantTimeEquals(password, properties.getFamilyPassword());
-        return userOk & passOk;
-    }
+  public Optional<String> validate(String token) {
+    if (token == null || token.isBlank()) return Optional.empty();
+    return sessions
+        .findById(Secrets.digest(token))
+        .filter(s -> s.getExpiresAt().isAfter(Instant.now()))
+        .map(FamilySession::getEmail);
+  }
 
-    public String issueToken(String username) {
-        byte[] bytes = new byte[32];
-        random.nextBytes(bytes);
-        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        sessions.put(token, new Session(username, Instant.now().plusSeconds(properties.getTokenTtlMinutes() * 60)));
-        return token;
-    }
+  public void revoke(String token) {
+    if (token != null) sessions.deleteById(Secrets.digest(token));
+  }
 
-    public Optional<String> validate(String token) {
-        if (token == null || token.isBlank()) {
-            return Optional.empty();
-        }
-        Session session = sessions.get(token);
-        if (session == null) {
-            return Optional.empty();
-        }
-        if (session.expiresAt().isBefore(Instant.now())) {
-            sessions.remove(token);
-            return Optional.empty();
-        }
-        return Optional.of(session.username());
-    }
+  public long ttlSeconds() {
+    return properties.getTokenTtlMinutes() * 60;
+  }
 
-    public void revoke(String token) {
-        if (token != null) {
-            sessions.remove(token);
-        }
-    }
-
-    public long ttlSeconds() {
-        return properties.getTokenTtlMinutes() * 60;
-    }
-
-    static boolean constantTimeEquals(String a, String b) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] ha = digest.digest(a.getBytes(StandardCharsets.UTF_8));
-            byte[] hb = MessageDigest.getInstance("SHA-256").digest(b.getBytes(StandardCharsets.UTF_8));
-            return MessageDigest.isEqual(ha, hb);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
-        }
-    }
+  static boolean constantTimeEquals(String a, String b) {
+    return a != null
+        && b != null
+        && java.security.MessageDigest.isEqual(
+            Secrets.digest(a).getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            Secrets.digest(b).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+  }
 }

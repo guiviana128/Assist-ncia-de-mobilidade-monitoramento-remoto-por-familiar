@@ -62,6 +62,8 @@ class SignalSequenceTracker:
                     return SequenceResult(1.0, True, "CONFIRMED")
                 return SequenceResult(0.75, False, "OBSERVING_STAGE_TWO")
 
+            state.stage_two_frames = 0
+            state.stage_one_frames = 0
             if timestamp > state.armed_until:
                 state.stage_one_frames = 0
                 state.stage_two_frames = 0

@@ -75,7 +75,10 @@ async def analyze_frame(
     blur_score = float(cv2.Laplacian(frame, cv2.CV_64F).var())
     usable = brightness >= 25.0 and blur_score >= 20.0
 
-    detection = detector.analyze(frame, session_id)
+    if width * height > 4096 * 4096:
+        raise HTTPException(status_code=413, detail="Resolução de imagem muito grande")
+    # Unusable frames must not advance or consume a confirmed gesture.
+    detection = detector.analyze(frame, session_id) if usable else detector.analyze(np.zeros((64,64,3), dtype=np.uint8), session_id)
     sequence = detection["sequence"]
     confirmed = bool(sequence.confirmed and usable)
 

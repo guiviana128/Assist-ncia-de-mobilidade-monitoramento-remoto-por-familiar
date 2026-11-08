@@ -1,5 +1,7 @@
 # 🛡️ Assistência de Mobilidade + Monitoramento Remoto por Familiar
 
+> **Contas e monitoramento familiar:** consulte [GUIA-DA-FAMILIA.md](GUIA-DA-FAMILIA.md) para iniciar esta versão, criar contas, configurar as chaves individuais dos equipamentos, captura contínua e Ollama. O acesso compartilhado antigo foi substituído por contas persistentes. Nesta versão, missões do robô dependem de comando do familiar; o texto sobre resposta autônoma abaixo descreve a versão anterior.
+
 Sistema IoT completo de ponta a ponta voltado para acessibilidade, segurança e assistência na mobilidade de idosos e pessoas com deficiência visual ou motora. 
 
 Composto por uma **dispositivo inteligente de assistência à mobilidade (ESP32)**, **backend em nuvem (Java / Spring Boot + PostgreSQL)**, **painel web de monitoramento para a família (React + TypeScript)** e **aplicativo móvel (React Native + TypeScript)**.

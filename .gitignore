@@ -23,6 +23,9 @@ __pycache__/
 .pytest_cache/
 .venv/
 *.pyc
+data/
+*.sqlite
+*.sqlite-journal
 
 # IDEs & System
 .idea/

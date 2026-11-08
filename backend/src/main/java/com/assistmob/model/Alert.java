@@ -4,13 +4,13 @@ import com.assistmob.model.enums.AlertSeverity;
 import com.assistmob.model.enums.AlertStatus;
 import com.assistmob.model.enums.AlertType;
 import jakarta.persistence.*;
-import lombok.*;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @Entity
-@Table(name = "tb_alerts", indexes = {
-    @Index(name = "idx_alert_device_status", columnList = "deviceId, status")
-})
+@Table(
+    name = "tb_alerts",
+    indexes = {@Index(name = "idx_alert_device_status", columnList = "deviceId, status")})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,40 +18,43 @@ import java.time.LocalDateTime;
 @Builder
 public class Alert {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @Column(nullable = false)
-    private String deviceId;
+  @Column(nullable = false)
+  private String deviceId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private AlertType alertType;
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private AlertType alertType;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private AlertSeverity severity;
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private AlertSeverity severity;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private AlertStatus status;
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false)
+  private AlertStatus status;
 
-    private String message;
+  private String message;
 
-    private Double latitude;
+  private Double latitude;
 
-    private Double longitude;
+  private Double longitude;
 
-    private Float batteryLevel;
+  private Float batteryLevel;
 
-    /** Cômodo da casa onde a pessoa estava (id do HouseLayout), quando conhecido. */
-    private String indoorRoom;
+  /** Cômodo da casa onde a pessoa estava (id do HouseLayout), quando conhecido. */
+  private String indoorRoom;
 
-    private LocalDateTime resolvedAt;
+  private LocalDateTime resolvedAt;
 
-    private String resolvedBy;
+  private String resolvedBy;
+  private String acknowledgedBy;
+  private LocalDateTime acknowledgedAt;
+  private String notificationState;
+  @Version private Long version;
 
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+  @Builder.Default private LocalDateTime createdAt = LocalDateTime.now();
 }
