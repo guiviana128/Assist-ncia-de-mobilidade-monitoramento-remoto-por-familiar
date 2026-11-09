@@ -53,6 +53,12 @@ public class CareController {
     return Map.of("invite", accounts.invite(access.family()), "expiresInHours", 24);
   }
 
+  @PostMapping("/recovery-code")
+  public Object recoveryCode() {
+    access.family();
+    return Map.of("recoveryCode", accounts.rotateRecovery(access.actor()));
+  }
+
   @GetMapping("/devices")
   public Object devices() {
     return access.devices().stream()

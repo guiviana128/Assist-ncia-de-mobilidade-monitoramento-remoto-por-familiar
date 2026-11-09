@@ -41,6 +41,8 @@ public class AccountService {
   public Map<String, Object> register(
       String name, String email, String password, String personName, String invite) {
     String normalized = email.trim().toLowerCase(Locale.ROOT);
+    String person =
+        personName == null || personName.isBlank() ? "Pessoa acompanhada" : personName.trim();
     if (accounts.existsById(normalized))
       throw new ResponseStatusException(
           HttpStatus.CONFLICT, "Já existe uma conta com este e-mail.");
@@ -93,12 +95,12 @@ public class AccountService {
     b.setRobotId("BOT-" + UUID.randomUUID().toString().substring(0, 12));
     b.setFamilyId(family);
     b.setKeyHash(Secrets.digest(key));
-    b.setPersonName(personName.trim());
+    b.setPersonName(person);
     bindings.save(b);
     devices.save(
         Device.builder()
             .deviceId(id)
-            .name("Dispositivo Amparo (" + personName.trim() + ")")
+            .name("Dispositivo Amparo (" + person + ")")
             .guardian(guardian)
             .isOnline(false)
             .build());
@@ -128,6 +130,16 @@ public class AccountService {
     i.setExpiresAt(java.time.Instant.now().plusSeconds(86400));
     invites.save(i);
     return raw;
+  }
+
+  /** Gera outro código de recuperação para a conta logada; o anterior deixa de valer. */
+  @Transactional
+  public String rotateRecovery(String email) {
+    var a = accounts.findById(email).orElseThrow(FamilyAccess::denied);
+    String next = Secrets.token();
+    a.setRecoveryHash(Secrets.digest(next));
+    accounts.save(a);
+    return next;
   }
 
   @Transactional

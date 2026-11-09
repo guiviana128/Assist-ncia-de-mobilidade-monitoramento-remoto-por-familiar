@@ -10,11 +10,20 @@ public class PreferencesController {
   private final CarePreferencesRepository preferences;
   private final FamilyAccess access;
   private final ObjectMapper json;
+  private final DeviceBindings bindings;
+  private final com.assistmob.repository.DeviceRepository devices;
 
-  public PreferencesController(CarePreferencesRepository p, FamilyAccess a, ObjectMapper j) {
+  public PreferencesController(
+      CarePreferencesRepository p,
+      FamilyAccess a,
+      ObjectMapper j,
+      DeviceBindings b,
+      com.assistmob.repository.DeviceRepository d) {
     preferences = p;
     access = a;
     json = j;
+    bindings = b;
+    devices = d;
   }
 
   @GetMapping
@@ -25,14 +34,38 @@ public class PreferencesController {
 
   @PutMapping
   @Transactional
-  public JsonNode save(@RequestBody JsonNode body) {
-    String data = body.toString();
-    validate(body, data);
-    var p = preferences.findById(access.family()).orElseGet(CarePreferences::new);
-    p.setFamilyId(access.family());
+  public JsonNode save(@RequestBody JsonNode body) throws Exception {
+    validate(body, body.toString());
+    String family = access.family();
+    var p = preferences.findById(family).orElseGet(CarePreferences::new);
+    JsonNode previous =
+        p.getSettings() == null ? json.createObjectNode() : json.readTree(p.getSettings());
+    var normalized = (com.fasterxml.jackson.databind.node.ObjectNode) body;
+    OnboardingPreferences.normalize(normalized, previous, access.actor(), java.time.Instant.now());
+    String data = normalized.toString();
+    if (data.length() > 18000) throw new IllegalArgumentException("Preferências inválidas");
+    p.setFamilyId(family);
     p.setSettings(data);
     preferences.save(p);
-    return body;
+    renamePerson(family, normalized.path("personName").asText("").trim());
+    return normalized;
+  }
+
+  /** O nome de quem é acompanhado também vive no vínculo e no nome do dispositivo (o painel lê dali). */
+  private void renamePerson(String family, String name) {
+    if (name.isEmpty()) return;
+    for (var b : bindings.findByFamilyId(family)) {
+      if (name.equals(b.getPersonName())) continue;
+      b.setPersonName(name);
+      bindings.save(b);
+      devices
+          .findById(b.getDeviceId())
+          .ifPresent(
+              d -> {
+                d.setName("Dispositivo Amparo (" + name + ")");
+                devices.save(d);
+              });
+    }
   }
 
   private void validate(JsonNode b, String data) {
@@ -107,6 +140,10 @@ public class PreferencesController {
     for (var c : b.path("contatos")) {
       for (String field : java.util.List.of("id", "nome", "papel", "telefone", "discagem"))
         text(c, field, 120);
+      if (!c.path("discagem").asText().matches("\\+?[0-9]{3,15}"))
+        throw new IllegalArgumentException("Telefone de contato inválido");
+      if (c.has("avisos") && !c.get("avisos").isBoolean())
+        throw new IllegalArgumentException("Campo inválido: avisos");
     }
     var cane = b.path("bengala");
     if (!cane.path("distanciaAvisoCm").isNumber()

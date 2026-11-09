@@ -111,6 +111,159 @@ class FamilyFlowTest {
         .andExpect(jsonPath("$.home.address.city").value("São Paulo"));
   }
 
+  com.fasterxml.jackson.databind.node.ObjectNode onboarding() throws Exception {
+    var body = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(preferences("[]"));
+    body.put("personName", "José Silva")
+        .put("personPhone", "(11) 98123-4567")
+        .put("livesAlone", false)
+        .put("floorPlanSource", "TEMPLATE")
+        .put("onboardingStep", 4);
+    body.set(
+        "residents",
+        json.readTree("[{\"name\":\"Ana Silva\",\"relation\":\"Esposa\",\"cpf\":\"123\"}]"));
+    body.set(
+        "consent",
+        json.readTree(
+            "{\"acceptedBy\":\"SELF\",\"termsVersion\":\"2026-11\",\"acceptedAt\":\"1999-01-01T00:00:00Z\"}"));
+    body.set(
+        "floorPlanTemplate", json.readTree("{\"kind\":\"HOUSE\",\"bedrooms\":2,\"bathrooms\":1}"));
+    body.set(
+        "cameraRooms",
+        json.readTree(
+            "[{\"room\":\"banheiro\",\"allowed\":true},{\"room\":\"sala\",\"allowed\":true}]"));
+    return body;
+  }
+
+  JsonNode savePreferences(String token, JsonNode body) throws Exception {
+    return json.readTree(
+        mvc.perform(
+                put("/api/v1/care/preferences")
+                    .header("Authorization", token)
+                    .contentType("application/json")
+                    .content(body.toString()))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse()
+            .getContentAsString());
+  }
+
+  @Test
+  void onboardingFieldsPersistAreMinimizedAndKeepTheServerConsentTime() throws Exception {
+    var a =
+        json.readTree(
+            mvc.perform(
+                    post("/api/v1/auth/register")
+                        .with(
+                            r -> {
+                              r.setRemoteAddr("onboarding");
+                              return r;
+                            })
+                        .contentType("application/json")
+                        .content(
+                            "{\"name\":\"Maria\",\"email\":\"onboarding@example.test\",\"password\":\"SenhaForte123!\"}"))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString());
+    String token = "Bearer " + a.get("token").asText();
+    var saved = savePreferences(token, onboarding());
+    assertEquals("Ana Silva", saved.at("/residents/0/name").asText());
+    assertFalse(saved.at("/residents/0").has("cpf"));
+    assertEquals(false, saved.at("/cameraRooms/0/allowed").asBoolean());
+    assertEquals(true, saved.at("/cameraRooms/1/allowed").asBoolean());
+    String acceptedAt = saved.at("/consent/acceptedAt").asText();
+    assertNotEquals("1999-01-01T00:00:00Z", acceptedAt);
+    assertEquals("onboarding@example.test", saved.at("/consent/recordedBy").asText());
+    assertEquals(2, saved.at("/floorPlanTemplate/bedrooms").asInt());
+
+    var again = onboarding();
+    again.put("floorPlanSource", "EXAMPLE").put("onboardingStep", 9);
+    var resaved = savePreferences(token, again);
+    assertEquals(acceptedAt, resaved.at("/consent/acceptedAt").asText());
+    assertFalse(resaved.has("floorPlanTemplate"));
+    mvc.perform(get("/api/v1/care/preferences").header("Authorization", token))
+        .andExpect(jsonPath("$.onboardingStep").value(9))
+        .andExpect(jsonPath("$.personPhone").value("(11) 98123-4567"));
+    mvc.perform(
+            get("/api/v1/care/" + a.get("deviceId").asText() + "/summary")
+                .header("Authorization", token))
+        .andExpect(jsonPath("$.personName").value("José Silva"));
+  }
+
+  @Test
+  void onboardingFieldsAreValidated() throws Exception {
+    String token = "Bearer " + register("onboarding-invalid@example.test").get("token").asText();
+    var residents = json.createArrayNode();
+    for (int i = 0; i < 11; i++) residents.addObject().put("name", "Morador " + i);
+    java.util.List<java.util.function.Consumer<com.fasterxml.jackson.databind.node.ObjectNode>>
+        broken =
+            java.util.List.of(
+                b -> b.put("personPhone", "1234"),
+                b -> b.put("personPhone", "(11) 88123-4567"),
+                b -> b.set("residents", residents),
+                b -> b.put("personName", "x".repeat(101)),
+                b -> ((com.fasterxml.jackson.databind.node.ObjectNode) b.get("consent"))
+                    .put("acceptedBy", "GUARDIAN"),
+                b -> ((com.fasterxml.jackson.databind.node.ObjectNode) b.get("consent"))
+                    .put("termsVersion", "antigo"),
+                b -> b.remove("floorPlanTemplate"),
+                b -> b.put("floorPlanSource", "DESENHO"),
+                b -> b.put("onboardingStep", 10),
+                b -> b.set("cameraRooms", json.createArrayNode().add(json.createObjectNode())));
+    for (var change : broken) {
+      var body = onboarding();
+      change.accept(body);
+      mvc.perform(
+              put("/api/v1/care/preferences")
+                  .header("Authorization", token)
+                  .contentType("application/json")
+                  .content(body.toString()))
+          .andExpect(status().isBadRequest());
+    }
+    var guardian = onboarding();
+    ((com.fasterxml.jackson.databind.node.ObjectNode) guardian.get("consent"))
+        .put("acceptedBy", "GUARDIAN")
+        .put("guardianName", "Ana Silva");
+    assertEquals("Ana Silva", savePreferences(token, guardian).at("/consent/guardianName").asText());
+  }
+
+  @Test
+  void recoveryCodeCanBeRotatedByTheLoggedAccount() throws Exception {
+    var a = register("rotate@example.test");
+    var next =
+        json.readTree(
+                mvc.perform(
+                        post("/api/v1/care/recovery-code")
+                            .header("Authorization", "Bearer " + a.get("token").asText()))
+                    .andExpect(status().isOk())
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString())
+            .get("recoveryCode")
+            .asText();
+    String reset = "{\"email\":\"rotate@example.test\",\"recoveryCode\":\"%s\",\"password\":\"OutraSenhaForte!\"}";
+    mvc.perform(
+            post("/api/v1/auth/reset")
+                .with(
+                    r -> {
+                      r.setRemoteAddr("rotate-old");
+                      return r;
+                    })
+                .contentType("application/json")
+                .content(reset.formatted(a.get("recoveryCode").asText())))
+        .andExpect(status().isBadRequest());
+    mvc.perform(
+            post("/api/v1/auth/reset")
+                .with(
+                    r -> {
+                      r.setRemoteAddr("rotate-new");
+                      return r;
+                    })
+                .contentType("application/json")
+                .content(reset.formatted(next)))
+        .andExpect(status().isOk());
+  }
+
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
   @Autowired com.assistmob.family.FamilyAccounts accounts;

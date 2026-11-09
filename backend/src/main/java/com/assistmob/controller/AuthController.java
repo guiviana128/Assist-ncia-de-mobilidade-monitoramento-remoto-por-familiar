@@ -29,7 +29,8 @@ public class AuthController {
       @NotBlank @Size(max = 100) String name,
       @jakarta.validation.constraints.Email @NotBlank @Size(max = 120) String email,
       @NotBlank @Size(min = 12, max = 120) String password,
-      @NotBlank @Size(max = 100) String personName,
+      // Opcional: no cadastro em 8 passos o nome de quem é acompanhado vem no passo 2.
+      @Size(max = 100) String personName,
       @Size(max = 100) String invite) {}
 
   @PostMapping("/register")
