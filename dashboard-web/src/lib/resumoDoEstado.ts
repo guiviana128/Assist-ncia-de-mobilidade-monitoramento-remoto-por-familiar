@@ -13,6 +13,8 @@ export interface Resumo {
   apoio: string;
   /** Linha pequena abaixo da frase (conexão · robô · atualização). */
   detalhe: string;
+  /** Ação principal que a frase pede (no lugar de "Abrir Casa 3D"). */
+  acao?: 'equipamentos';
 }
 
 export const TIPOS_EMERGENCIA: Alert['alertType'][] = ['FALL_DETECTED', 'SOS_BUTTON', 'HAND_GESTURE_SOS'];
@@ -90,6 +92,8 @@ export interface EntradaResumo {
   noComodoDesde?: number | null;
   atualizado?: Date | null;
   agora?: number;
+  /** A família já cadastrou o endereço da casa (cadastro concluído ou Monitorar). */
+  enderecoCadastrado?: boolean;
 }
 
 export function resumoDoEstado(e: EntradaResumo): Resumo {
@@ -129,7 +133,13 @@ export function resumoDoEstado(e: EntradaResumo): Resumo {
   }
 
   if (!e.demo && !e.device.isOnline) {
-    if(!e.device.lastUpdate) return {tom:'neutro',forte:'Vamos configurar o acompanhamento.',apoio:' Abra Monitorar para cadastrar a casa e começar a demonstração.',detalhe:'Aguardando a primeira configuração dos equipamentos'};
+    if (!e.device.lastUpdate) {
+      const detalheEspera = 'Aguardando a primeira configuração dos equipamentos';
+      // Casa já cadastrada: falta só ligar os aparelhos.
+      if (e.enderecoCadastrado)
+        return { tom: 'neutro', forte: 'Tudo pronto.', apoio: ' Agora é só conectar a bengala, a câmera e o robô.', detalhe: detalheEspera, acao: 'equipamentos' };
+      return { tom: 'neutro', forte: 'Vamos configurar o acompanhamento.', apoio: ' Abra Monitorar para cadastrar a casa e começar a demonstração.', detalhe: detalheEspera };
+    }
     const ultima = e.device.lastUpdate ? ` Última notícia ${haQuanto(e.device.lastUpdate, agora)}.` : '';
     return { tom: 'aviso', forte: 'Sem sinal da bengala.', apoio: ultima || ' Verifique se ela está ligada.', detalhe };
   }

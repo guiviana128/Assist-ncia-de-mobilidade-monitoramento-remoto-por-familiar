@@ -298,6 +298,7 @@ export const App: React.FC = () => {
     layout: robo.layout,
     noComodoDesde: robo.noComodoDesde,
     atualizado: updated,
+    enderecoCadastrado: !!preferences.home?.confirmed,
   });
 
   const fecharCamada = useCallback(() => setCamada(null), []);
@@ -482,6 +483,7 @@ export const App: React.FC = () => {
                       resumo={resumo}
                       demo={demo}
                       onAbrirCasa={abrirCasa}
+                      onVerEquipamentos={() => irPara("monitorar")}
                       onResolver={(id) => void handleResolveAlert(id)}
                     />
                   )}

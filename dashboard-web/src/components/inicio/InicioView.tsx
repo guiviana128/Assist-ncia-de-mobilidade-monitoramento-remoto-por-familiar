@@ -56,6 +56,8 @@ interface InicioViewProps {
   resumo: Resumo;
   demo: boolean;
   onAbrirCasa: (roomId?: string) => void;
+  /** "Ver equipamentos" (frase "Tudo pronto. Agora é só conectar…"). */
+  onVerEquipamentos: () => void;
   onResolver: (alertId: number) => void;
 }
 
@@ -102,6 +104,7 @@ export const InicioView: React.FC<InicioViewProps> = ({
   demo,
   onAbrirCasa,
   onResolver,
+  onVerEquipamentos,
 }) => {
   const celular = useMediaQuery(CELULAR);
   const ateTablet = useMediaQuery(ATE_TABLET);
@@ -328,19 +331,26 @@ export const InicioView: React.FC<InicioViewProps> = ({
   ) : (
     <>
       {ligarPessoa}
-      <button className="btn btn-primario" onClick={() => onAbrirCasa()}>
-        {celular || ateTablet ? (
-          <>
-            <ArrowRight size={20} aria-hidden="true" />
-            Abrir Casa 3D
-          </>
-        ) : (
-          <>
-            Abrir Casa 3D
-            <ArrowRight size={20} aria-hidden="true" />
-          </>
-        )}
-      </button>
+      {resumo.acao === "equipamentos" ? (
+        <button className="btn btn-primario" onClick={onVerEquipamentos}>
+          Ver equipamentos
+          <ArrowRight size={20} aria-hidden="true" />
+        </button>
+      ) : (
+        <button className="btn btn-primario" onClick={() => onAbrirCasa()}>
+          {celular || ateTablet ? (
+            <>
+              <ArrowRight size={20} aria-hidden="true" />
+              Abrir Casa 3D
+            </>
+          ) : (
+            <>
+              Abrir Casa 3D
+              <ArrowRight size={20} aria-hidden="true" />
+            </>
+          )}
+        </button>
+      )}
     </>
   );
 
