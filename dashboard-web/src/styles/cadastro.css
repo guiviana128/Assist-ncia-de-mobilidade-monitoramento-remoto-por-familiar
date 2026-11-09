@@ -64,6 +64,7 @@
 .cad-sufixo { flex-shrink: 0; font-size: 16px; font-weight: 500; color: var(--texto-secundario); }
 /* Campos lado a lado: viram um embaixo do outro quando não cabem */
 .cad-linha { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: start; }
+.cad-linha.is-larga { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .cad-linha.is-larga-estreita { grid-template-columns: minmax(150px, 1fr) minmax(140px, 180px); }
 
 /* Notas (fundo rebaixado, acento ou aviso) */

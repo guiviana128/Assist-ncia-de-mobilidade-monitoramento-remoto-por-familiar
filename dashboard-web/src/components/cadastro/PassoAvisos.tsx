@@ -141,7 +141,7 @@ export const PassoAvisos: React.FC = () => {
             />
           )}
         </Campo>
-        <div className="cad-linha">
+        <div className="cad-linha is-larga">
           <Campo rotulo="Parentesco" erro={v.erros.contatoParentesco} tremor={v.tremor} opcional>
             {(a) => (
               <input

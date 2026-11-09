@@ -78,3 +78,32 @@ test("bathrooms are always blocked from the camera", async () => {
   assert.equal(r.ehBanheiro("lavabo"), true);
   assert.equal(r.ehBanheiro("sala"), false);
 });
+
+test("address step: CEP mask, São Paulo bounds and confirmation", async () => {
+  const r = await regras();
+  assert.equal(r.formatarCep("01310100"), "01310-100");
+  assert.equal(r.formatarCep("0131"), "0131");
+  assert.equal(r.pontoEmSP(-23.55, -46.63), true);
+  assert.equal(r.pontoEmSP(-22.9, -43.2), false); // Rio de Janeiro
+  const end = { cep: "01310-100", street: "Avenida Paulista", number: "1000", complement: "", district: "Bela Vista", city: "São Paulo" };
+  const ponto = { lat: -23.56, lng: -46.65 };
+  assert.deepEqual({ ...r.validarEndereco(end, ponto, true) }, {});
+  assert.deepEqual(Object.keys(r.validarEndereco(end, ponto, false)), ["confirmado"]);
+  assert.deepEqual(Object.keys(r.validarEndereco(end, null, true)), ["mapa"]);
+  assert.match(r.validarEndereco(end, { lat: -22.9, lng: -43.2 }, true).mapa, /São Paulo/);
+  assert.deepEqual(
+    Object.keys(r.validarEndereco({ ...end, cep: "123", street: " ", number: "", city: "" }, ponto, true)).sort(),
+    ["cep", "city", "number", "street"],
+  );
+});
+
+test("emergency contact needs a name and a valid phone; relation is optional", async () => {
+  const r = await regras();
+  assert.deepEqual({ ...r.validarContato({ nome: "Maria", parentesco: "", telefone: "(21) 99876-5432" }) }, {});
+  assert.deepEqual(
+    Object.keys(r.validarContato({ nome: "", parentesco: "", telefone: "(21) 1234" })).sort(),
+    ["contatoNome", "contatoTelefone"],
+  );
+  assert.equal(r.CAMERA_PADRAO.has("sala"), true);
+  assert.equal(r.CAMERA_PADRAO.has("banheiro"), false);
+});
