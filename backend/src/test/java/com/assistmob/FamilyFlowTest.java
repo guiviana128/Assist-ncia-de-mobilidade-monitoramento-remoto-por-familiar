@@ -131,6 +131,11 @@ class FamilyFlowTest {
         "cameraRooms",
         json.readTree(
             "[{\"room\":\"banheiro\",\"allowed\":true},{\"room\":\"sala\",\"allowed\":true}]"));
+    body.set(
+        "contatos",
+        json.readTree(
+            "[{\"id\":\"familia-1\",\"nome\":\"Rita Souza\",\"papel\":\"Filha\",\"telefone\":\"(21) 99876-5432\",\"discagem\":\"999\",\"avisos\":true},"
+                + "{\"id\":\"samu\",\"nome\":\"SAMU\",\"papel\":\"Emergência médica\",\"telefone\":\"190\",\"discagem\":\"190\"}]"));
     return body;
   }
 
@@ -175,6 +180,11 @@ class FamilyFlowTest {
     assertNotEquals("1999-01-01T00:00:00Z", acceptedAt);
     assertEquals("onboarding@example.test", saved.at("/consent/recordedBy").asText());
     assertEquals(2, saved.at("/floorPlanTemplate/bedrooms").asInt());
+    // Telefone e contatos: a discagem é do servidor; SAMU mantém o número oficial.
+    assertEquals("+5511981234567", saved.at("/telefonePessoa").asText());
+    assertEquals("+5521998765432", saved.at("/contatos/0/discagem").asText());
+    assertEquals("192", saved.at("/contatos/1/discagem").asText());
+    assertEquals("192", saved.at("/contatos/1/telefone").asText());
 
     var again = onboarding();
     again.put("floorPlanSource", "EXAMPLE").put("onboardingStep", 9);
@@ -209,6 +219,12 @@ class FamilyFlowTest {
                 b -> b.remove("floorPlanTemplate"),
                 b -> b.put("floorPlanSource", "DESENHO"),
                 b -> b.put("onboardingStep", 10),
+                b -> ((com.fasterxml.jackson.databind.node.ObjectNode) b.at("/contatos/0"))
+                    .put("telefone", "(21) 1234"),
+                b -> ((com.fasterxml.jackson.databind.node.ObjectNode) b.at("/contatos/0"))
+                    .put("nome", " "),
+                b -> ((com.fasterxml.jackson.databind.node.ArrayNode) b.get("contatos"))
+                    .add(b.at("/contatos/0").deepCopy()),
                 b -> b.set("cameraRooms", json.createArrayNode().add(json.createObjectNode())));
     for (var change : broken) {
       var body = onboarding();

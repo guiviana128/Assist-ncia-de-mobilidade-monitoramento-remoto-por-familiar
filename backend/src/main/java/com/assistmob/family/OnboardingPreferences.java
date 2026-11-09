@@ -30,6 +30,9 @@ final class OnboardingPreferences {
   private static final Set<String> FLOOR_PLAN_SOURCES = Set.of("ROBOT", "TEMPLATE", "EXAMPLE");
   private static final Set<String> TEMPLATE_KINDS = Set.of("HOUSE", "APARTMENT");
   private static final Set<String> ACCEPTED_BY = Set.of("SELF", "GUARDIAN");
+  /** Contatos públicos de emergência: número fixo, nunca editado pelo cliente. */
+  private static final java.util.Map<String, String> PUBLIC_CONTACTS =
+      java.util.Map.of("samu", "192", "bombeiros", "193");
 
   private OnboardingPreferences() {}
 
@@ -45,6 +48,14 @@ final class OnboardingPreferences {
     if (digits.length() != 10 && digits.length() != 11) return false;
     if (digits.charAt(0) == '0' || digits.charAt(1) == '0') return false;
     return digits.length() == 10 || digits.charAt(2) == '9';
+  }
+
+  /** Número para discagem (link tel:): +55 e só dígitos. Supõe um telefone já validado. */
+  static String dial(String raw) {
+    String digits = raw.replaceAll("\\D", "");
+    if (digits.startsWith("55") && (digits.length() == 12 || digits.length() == 13))
+      digits = digits.substring(2);
+    return "+55" + digits;
   }
 
   static boolean isBathroom(String roomId) {
@@ -64,7 +75,10 @@ final class OnboardingPreferences {
       String phone = text(body, "personPhone", 20);
       if (!phone.isBlank() && !brazilianPhone(phone))
         throw new IllegalArgumentException("Telefone inválido: use DDD e número, ex. (11) 98123-4567");
+      // O botão "Ligar para José" usa telefonePessoa: fica sempre igual ao telefone do passo 2.
+      if (!phone.isBlank()) body.put("telefonePessoa", dial(phone));
     }
+    normalizeContacts(body);
     if (body.hasNonNull("livesAlone") && !body.get("livesAlone").isBoolean())
       throw new IllegalArgumentException("Campo inválido: livesAlone");
     normalizeResidents(body);
@@ -78,6 +92,33 @@ final class OnboardingPreferences {
           || step.asInt() < 1
           || step.asInt() > ONBOARDING_DONE)
         throw new IllegalArgumentException("Campo inválido: onboardingStep");
+    }
+  }
+
+  /**
+   * Contatos de emergência: SAMU e Bombeiros mantêm o número oficial; os da família precisam de nome
+   * e telefone brasileiro válido, e a discagem é recalculada aqui (o cliente não decide para onde liga).
+   */
+  private static void normalizeContacts(ObjectNode body) {
+    if (!body.path("contatos").isArray()) return;
+    java.util.Set<String> ids = new java.util.HashSet<>();
+    for (var c : body.get("contatos")) {
+      if (!c.isObject()) throw new IllegalArgumentException("Contato inválido");
+      var contact = (ObjectNode) c;
+      String id = text(c, "id", 60).trim();
+      if (!ids.add(id)) throw new IllegalArgumentException("Contato repetido");
+      String fixed = PUBLIC_CONTACTS.get(id);
+      if (fixed != null) {
+        contact.put("telefone", fixed).put("discagem", fixed);
+        continue;
+      }
+      if (text(c, "nome", MAX_NAME).isBlank())
+        throw new IllegalArgumentException("Informe o nome do contato");
+      String phone = text(c, "telefone", 20);
+      if (!brazilianPhone(phone))
+        throw new IllegalArgumentException(
+            "Telefone de contato inválido: use DDD e número, ex. (11) 98765-4321");
+      contact.put("discagem", dial(phone));
     }
   }
 
