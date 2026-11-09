@@ -2,7 +2,7 @@
 
 .login { display: flex; gap: 16px; min-height: 100vh; padding: 16px; background: var(--superficie-fundo); }
 
-/* Lado da casa (ilustração, a mesma de antes) */
+/* Apresentação do Amparo */
 .login-casa {
   position: relative; flex: 1; min-width: 0; min-height: calc(100vh - 32px); overflow: hidden;
   border-radius: 24px; background: var(--superficie-rebaixada); padding: 40px;
@@ -10,11 +10,14 @@
 .login-marca { display: flex; align-items: center; gap: 12px; }
 .login-frase { margin-top: 34px; }
 .login-frase .frase-apoio { display: block; }
-.login-planta {
-  position: absolute; left: 40px; top: 230px; width: 1149px; height: 768px; padding-left: 72px;
-  border-radius: 20px; background: var(--superficie-fundo); overflow: hidden;
+.login-ilustracao {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  margin: 32px auto 0;
+  border-radius: 20px;
 }
-.login-planta .planta { width: 947px; max-width: none; }
 
 /* Cartão branco do formulário */
 .login-formulario {

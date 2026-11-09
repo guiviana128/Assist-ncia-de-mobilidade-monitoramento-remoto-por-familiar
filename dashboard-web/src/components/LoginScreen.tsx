@@ -12,8 +12,6 @@ import {
   WifiOff,
 } from "lucide-react";
 import { ApiError, API_BASE_URL, auth } from "../services/auth";
-import { FALLBACK_LAYOUT, planPath } from "../robot/houseLayout";
-import { PlantaCasa } from "./planta/PlantaCasa";
 import { ATE_TABLET, useMediaQuery } from "../hooks/useMediaQuery";
 import { gsap, movimentoReduzido, useGSAP } from "../motion/gsap";
 import { DESLOCA, DUR, EASE_MOTION, saida } from "../motion/tokens";
@@ -44,17 +42,6 @@ const gravarFalhas = (lista: number[]) => {
   } catch {
     /* armazenamento indisponível */
   }
-};
-
-// Ilustração do lado esquerdo: a casa com o José na Sala e o robô fazendo a ronda.
-const ROBO_ILUSTRACAO = { x: 5.5, y: -1 };
-const DESTINO_ILUSTRACAO = { x: 4.2, y: 3 };
-const ESTADOS_ILUSTRACAO = {
-  sala: { titulo: "José está aqui · há 40 min", tom: "pessoa" as const },
-  cozinha: { titulo: "Robô fazendo a ronda" },
-  quarto: { titulo: "Vazio desde 08:50" },
-  banheiro: { titulo: "Vazio" },
-  escritorio: { titulo: "Vazio" },
 };
 
 /** Treme uma vez (x 0 → −4 → 4 → 0, 240 ms) quando `chave` muda. Sem movimento reduzido. */
@@ -335,7 +322,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-  const rota = planPath(FALLBACK_LAYOUT, ROBO_ILUSTRACAO, DESTINO_ILUSTRACAO);
   const temErro = !!erro;
 
   return (
@@ -354,16 +340,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             Você vê como ele está.{" "}
             <span className="frase-apoio">O Amparo avisa quando precisar.</span>
           </p>
-          <div className="login-planta">
-            <PlantaCasa
-              layout={FALLBACK_LAYOUT}
-              comodoPessoa="sala"
-              robo={ROBO_ILUSTRACAO}
-              rota={rota}
-              estados={ESTADOS_ILUSTRACAO}
-              decorativa
-            />
-          </div>
+          <img className="login-ilustracao" src="/login-cuidado.svg" alt="" />
         </section>
       )}
 

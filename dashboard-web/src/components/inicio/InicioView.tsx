@@ -1,3 +1,5 @@
+import type { ObservacaoComodo } from "../../hooks/useRobo";
+import { LocalAnalysis } from "../monitorar/LocalAnalysis";
 import React, { useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import {
@@ -52,6 +54,7 @@ interface InicioViewProps {
   layout: HouseLayout;
   robot: RobotState | null;
   missions: RobotMission[];
+  observacoes: ObservacaoComodo[];
   noComodoDesde: number | null;
   resumo: Resumo;
   demo: boolean;
@@ -59,6 +62,35 @@ interface InicioViewProps {
   /** "Ver equipamentos" (frase "Tudo pronto. Agora é só conectar…"). */
   onVerEquipamentos: () => void;
   onResolver: (alertId: number) => void;
+}
+
+const atividades = {
+  remedio: "tomou o remédio",
+  cozinha: "cozinhou",
+  caminhada: "caminhou",
+  descanso: "descansou",
+} as const;
+type Atividade = keyof typeof atividades;
+type Registro = { atividade: Atividade; quando: number };
+
+const roteiroDemo: Partial<Record<string, Atividade>> = {
+  cozinha: "cozinha",
+  sala: "remedio",
+  quarto: "descanso",
+};
+
+function lerRegistros(chave: string): Registro[] {
+  try {
+    const dados: unknown = JSON.parse(localStorage.getItem(chave) ?? "[]");
+    if (!Array.isArray(dados)) return [];
+    return dados.filter((r): r is Registro =>
+      typeof r?.atividade === "string" && Object.prototype.hasOwnProperty.call(atividades, r.atividade) &&
+      typeof r.quando === "number" && Number.isFinite(r.quando) &&
+      Math.abs(r.quando) <= 8.64e15,
+    );
+  } catch {
+    return [];
+  }
 }
 
 const dataLonga = (d: Date) =>
@@ -99,6 +131,7 @@ export const InicioView: React.FC<InicioViewProps> = ({
   layout,
   robot,
   missions,
+  observacoes,
   noComodoDesde,
   resumo,
   demo,
@@ -109,6 +142,20 @@ export const InicioView: React.FC<InicioViewProps> = ({
   const celular = useMediaQuery(CELULAR);
   const ateTablet = useMediaQuery(ATE_TABLET);
   const { remedios, telefonePessoa, home, endereco, areas } = useCuidado();
+  const chaveAtividades = `amparo_registro_familiar_${device.deviceId}`;
+  const [atividade, setAtividade] = useState<Atividade>("remedio");
+  const [registros, setRegistros] = useState(() => lerRegistros(chaveAtividades));
+  const [falhaRegistro, setFalhaRegistro] = useState(false);
+  const registrarAtividade = () => {
+    const lista = [{ atividade, quando: Date.now() }, ...lerRegistros(chaveAtividades)].slice(0, 200);
+    try {
+      localStorage.setItem(chaveAtividades, JSON.stringify(lista));
+      setRegistros(lista);
+      setFalhaRegistro(false);
+    } catch {
+      setFalhaRegistro(true);
+    }
+  };
   const [diaTodo, setDiaTodo] = useState(false);
   const emergencia = emergenciaPendente(alerts);
   const pessoa = nomePessoa(device);
@@ -219,8 +266,34 @@ export const InicioView: React.FC<InicioViewProps> = ({
       .filter((m) => ehHoje(m.finishedAt ?? m.createdAt))
       .map((m) => itemDeMissao(m, layout))
       .filter((i): i is ItemDia => !!i);
-    return [...deAvisos, ...deMissoes].sort((a, b) => b.quando - a.quando);
-  }, [alerts, missions, layout]);
+    const deComodos: ItemDia[] = observacoes
+      .filter(({ quando }) => ehHoje(new Date(quando).toISOString()))
+      .flatMap(({ comodo, quando }) => {
+        const sala = layout.rooms.find((room) => room.id === comodo);
+        if (!sala) return [];
+        return [{
+          id: `observacao-${quando}-${comodo}`,
+          quando,
+          hora: horaCurta(new Date(quando).toISOString()),
+          titulo: demo && roteiroDemo[comodo]
+            ? `${pessoa} ${atividades[roteiroDemo[comodo]!]}`
+            : `${pessoa} · ${sala.name}`,
+          detalhe: demo ? `Simulação · ${sala.name}` : "Presença informada pelo robô",
+          tom: "neutro",
+        }];
+      });
+    const confirmados: ItemDia[] = demo ? [] : registros
+      .filter(({ quando }) => ehHoje(new Date(quando).toISOString()))
+      .map(({ atividade, quando }, i) => ({
+        id: `atividade-${quando}-${i}`,
+        quando,
+        hora: horaCurta(new Date(quando).toISOString()),
+        titulo: `${pessoa} ${atividades[atividade]}`,
+        detalhe: "Confirmado pela família",
+        tom: "neutro",
+      }));
+    return [...deAvisos, ...deMissoes, ...deComodos, ...confirmados].sort((a, b) => b.quando - a.quando);
+  }, [alerts, missions, layout, observacoes, demo, pessoa, registros]);
   const limite = diaTodo
     ? itens.length
     : emergencia
@@ -502,6 +575,27 @@ export const InicioView: React.FC<InicioViewProps> = ({
                 ))}
               </AnimatePresence>
             </ol>
+          )}
+          {!(emergencia && celular) && (
+            demo ? (
+              <p className="texto-pequeno">Demonstração: as atividades e presenças são simuladas. O resumo do Ollama usa leituras do equipamento real.</p>
+            ) : (
+              <>
+                <form className="campo" onSubmit={(e) => { e.preventDefault(); registrarAtividade(); }}>
+                  <label className="campo-rotulo" htmlFor="atividade-hoje">Registrar atividade confirmada</label>
+                  <select id="atividade-hoje" className="campo-entrada" value={atividade} onChange={(e) => setAtividade(e.target.value as Atividade)}>
+                    <option value="remedio">Tomou o remédio</option>
+                    <option value="cozinha">Cozinhou</option>
+                    <option value="caminhada">Caminhou</option>
+                    <option value="descanso">Descansou</option>
+                  </select>
+                  <button className="btn btn-secundario" type="submit">Registrar no horário atual</button>
+                  <p className="texto-pequeno">Registros confirmados ficam neste navegador.</p>
+                  {falhaRegistro && <p role="alert">Não foi possível salvar a atividade neste navegador.</p>}
+                </form>
+                <LocalAnalysis key={device.deviceId} deviceId={device.deviceId} compact />
+              </>
+            )
           )}
           {maisTarde.length > 0 && !diaTodo && (
             <>

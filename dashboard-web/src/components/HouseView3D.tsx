@@ -1,3 +1,4 @@
+import { presentation } from "../services/presentation";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { ArrowLeftRight, ArrowRight, Glasses, Home, Layers, Lock, MapPin, Maximize2, Minus, Phone, Plus, RotateCcw, Route, WifiOff, X } from 'lucide-react';
@@ -473,6 +474,11 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, comodoInicial,
               <button className="btn btn-escuro" onClick={() => void reconectar()} disabled={reconectando}>
                 {reconectando ? <span className="carregando is-claro" aria-hidden="true" /> : <RotateCcw size={18} aria-hidden="true" />}Tentar reconectar
               </button>
+              {!demo && (
+                <button className="btn btn-secundario" onClick={() => presentation.set("demo")}>
+                  Usar robô virtual
+                </button>
+              )}
             </motion.div>
           )}
           </AnimatePresence>
