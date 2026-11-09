@@ -8,7 +8,7 @@ import { FALLBACK_LAYOUT } from "../../robot/houseLayout";
 import { DUR, EASE_MOTION, saida } from "../../motion/tokens";
 import { CadastroCtx } from "./Cadastro";
 import { useProgresso } from "./progresso";
-import { primeiroNome } from "./regras";
+import { CADASTRO_CONCLUIDO, primeiroNome } from "./regras";
 import {
   ErroSalvar,
   Nota,
@@ -120,7 +120,7 @@ export const PassoComecar: React.FC = () => {
     e.preventDefault();
     // Quem entrou por convite não mexe no cadastro da família, que já terminou.
     if (p.convite) abrir();
-    else await s.salvar({}, abrir);
+    else await s.salvar({ onboardingStep: CADASTRO_CONCLUIDO }, abrir);
   };
 
   const equipamentos = [

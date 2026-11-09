@@ -448,7 +448,8 @@ export function useSalvarPasso() {
     setOcupado(true);
     setErro("");
     const proximo = progresso.get().passo + 1;
-    const passo = progresso.get().soConsentimento ? {} : { onboardingStep: proximo };
+    const { soConsentimento, legado } = progresso.get();
+    const passo = soConsentimento || legado ? {} : { onboardingStep: proximo };
     const ok = await cuidado.salvarCadastro((s) => ({
       ...(typeof patch === "function" ? patch(s) : patch),
       ...passo,

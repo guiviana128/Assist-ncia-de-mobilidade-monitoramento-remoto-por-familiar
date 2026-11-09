@@ -15,6 +15,11 @@ export interface Progresso {
   direcao: 1 | -1;
   /** Aberto pelo painel só para registrar o consentimento: ao aceitar, volta ao painel. */
   soConsentimento: boolean;
+  /**
+   * Conta criada antes do cadastro em 8 passos, retomada no primeiro passo incompleto: pula o 7
+   * e só grava onboardingStep ao concluir (até lá, cada visita recalcula o que falta).
+   */
+  legado: boolean;
 }
 
 /** Códigos que aparecem uma vez só, no registro. Ficam na aba até o passo 7 ser confirmado. */
@@ -34,6 +39,7 @@ const INATIVO: Progresso = {
   email: null,
   direcao: 1,
   soConsentimento: false,
+  legado: false,
 };
 
 const ler = <T,>(chave: string): T | null => {
@@ -94,20 +100,21 @@ export const progresso = {
   },
   avancar() {
     let passo = estado.passo + 1;
-    while (passoPulado(passo, estado.convite)) passo++;
+    while (passoPulado(passo, estado.convite, estado.legado)) passo++;
     mudar({ ...estado, passo: Math.min(TOTAL_PASSOS, passo), direcao: 1 });
   },
   voltar() {
     let passo = estado.passo - 1;
-    while (passoPulado(passo, estado.convite)) passo--;
+    while (passoPulado(passo, estado.convite, estado.legado)) passo--;
     mudar({ ...estado, passo: Math.max(1, passo), direcao: -1 });
   },
-  /** Retoma pelo passo salvo no servidor (outra aba, outro aparelho). */
-  retomar(email: string, passo: number) {
+  /** Retoma pelo passo salvo no servidor (outra aba, outro aparelho) ou, em conta antiga, pelo que falta. */
+  retomar(email: string, passo: number, legado = false) {
     mudar({
       ...INATIVO,
       ativo: true,
       email,
+      legado,
       passo: Math.min(TOTAL_PASSOS, Math.max(2, passo)),
     });
   },

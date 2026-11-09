@@ -107,3 +107,20 @@ test("emergency contact needs a name and a valid phone; relation is optional", a
   assert.equal(r.CAMERA_PADRAO.has("sala"), true);
   assert.equal(r.CAMERA_PADRAO.has("banheiro"), false);
 });
+
+test("accounts created before the wizard resume at the first incomplete step", async () => {
+  const r = await regras();
+  const consent = { termsVersion: r.TERMO_VERSAO };
+  const familia = [{ id: "familia-1" }, { id: "samu" }];
+  assert.equal(r.primeiroPassoIncompleto({ contatos: [] }), 2);
+  assert.equal(r.primeiroPassoIncompleto({ personPhone: "(11) 98123-4567", contatos: familia }), 3);
+  assert.equal(
+    r.primeiroPassoIncompleto({ personPhone: "(11) 98123-4567", consent: { termsVersion: "antigo" }, contatos: familia }),
+    3,
+  );
+  assert.equal(r.primeiroPassoIncompleto({ personPhone: "(11) 98123-4567", consent, contatos: [{ id: "samu" }, { id: "bombeiros" }] }), 6);
+  assert.equal(r.primeiroPassoIncompleto({ personPhone: "(11) 98123-4567", consent, contatos: familia }), null);
+  // Conta antiga não gera códigos novos (passo 7): a chave dos equipamentos continua valendo.
+  assert.equal(r.passoPulado(7, false, true), true);
+  assert.equal(r.passoPulado(6, false, true), false);
+});

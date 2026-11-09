@@ -26,9 +26,13 @@ export const PASSOS: MetaPasso[] = [
   { titulo: "Começar", detalhe: "Equipamentos ou demonstração" },
 ];
 
-/** Quem entra por convite pula os passos 2 a 6: a família já existe. */
-export const passoPulado = (passo: number, convite: boolean) =>
-  convite && passo >= 2 && passo <= 6;
+/**
+ * Quem entra por convite pula os passos 2 a 6: a família já existe.
+ * Conta antiga (criada antes do cadastro em 8 passos) pula o 7: gerar códigos novos trocaria a
+ * chave que os equipamentos dela já usam.
+ */
+export const passoPulado = (passo: number, convite: boolean, legado = false) =>
+  (convite && passo >= 2 && passo <= 6) || (legado && passo === 7);
 
 export type Erros = Record<string, string>;
 
@@ -227,6 +231,21 @@ export function validarEndereco(
     e.mapa = "Por enquanto o Amparo atende só o estado de São Paulo.";
   else if (!confirmado) e.confirmado = "Confira o pino e marque a confirmação.";
   return e;
+}
+
+/**
+ * Conta antiga (sem onboardingStep): o primeiro passo com dado obrigatório faltando.
+ * Telefone → 2, consentimento na versão atual → 3, contato da família → 6. null = nada falta.
+ */
+export function primeiroPassoIncompleto(p: {
+  personPhone?: string;
+  consent?: { termsVersion?: string } | null;
+  contatos: { id: string }[];
+}): number | null {
+  if (!p.personPhone || !telefoneValido(p.personPhone)) return 2;
+  if (p.consent?.termsVersion !== TERMO_VERSAO) return 3;
+  if (!p.contatos.some((c) => c.id !== "samu" && c.id !== "bombeiros")) return 6;
+  return null;
 }
 
 /** Id do contato da família criado no passo 6 (o primeiro a ser avisado). */

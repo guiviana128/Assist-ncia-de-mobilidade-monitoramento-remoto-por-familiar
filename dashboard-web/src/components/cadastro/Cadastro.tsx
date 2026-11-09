@@ -104,6 +104,7 @@ export const Cadastro: React.FC<CadastroProps> = ({ onEntrar, onSair, onConcluir
       !registrado ||
       p.convite ||
       p.soConsentimento ||
+      p.legado ||
       !prefsProntas ||
       marcou.current ||
       typeof prefs.onboardingStep === "number"
@@ -111,7 +112,7 @@ export const Cadastro: React.FC<CadastroProps> = ({ onEntrar, onSair, onConcluir
       return;
     marcou.current = true;
     void cuidado.salvarCadastro({ onboardingStep: p.passo });
-  }, [registrado, p.convite, p.soConsentimento, p.passo, prefsProntas, prefs.onboardingStep]);
+  }, [registrado, p.convite, p.soConsentimento, p.legado, p.passo, prefsProntas, prefs.onboardingStep]);
 
   // Depois da troca, o título do passo novo recebe o foco (leitores de tela anunciam o passo).
   useEffect(() => {
@@ -142,7 +143,11 @@ export const Cadastro: React.FC<CadastroProps> = ({ onEntrar, onSair, onConcluir
   const podeVoltar = !rodape.semVoltar || (p.passo === 1 && !registrado);
   const passos: Passo[] = PASSOS.map((m, i) => ({
     titulo: m.titulo,
-    detalhe: passoPulado(i + 1, p.convite) ? "Já feito pela família" : m.detalhe,
+    detalhe: passoPulado(i + 1, p.convite)
+      ? "Já feito pela família"
+      : passoPulado(i + 1, false, p.legado)
+        ? "Os códigos atuais continuam valendo"
+        : m.detalhe,
     estado: i + 1 < p.passo ? "feito" : i + 1 === p.passo ? "atual" : "pendente",
   }));
 

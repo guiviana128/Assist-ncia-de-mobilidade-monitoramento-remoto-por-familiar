@@ -19,6 +19,7 @@ import {
   progresso,
   useProgresso,
 } from "./components/cadastro/progresso";
+import { primeiroPassoIncompleto } from "./components/cadastro/regras";
 import { InicioView } from "./components/inicio/InicioView";
 import { MonitorarView } from "./components/monitorar/MonitorarView";
 import { MonitoringWorkspace } from "./components/monitorar/MonitoringWorkspace";
@@ -118,10 +119,17 @@ export const App: React.FC = () => {
   // O painel só consulta a API com a sessão válida (ou na demonstração) e o cadastro concluído.
   // Deslogado, no login ou no meio do cadastro não há polling; ao sair ele para.
   const logado = !!username;
+  // Conta antiga (sem onboardingStep) com telefone, consentimento ou contato faltando volta ao
+  // primeiro passo incompleto.
+  const passoLegado =
+    logado && cuidado.pronto() && typeof preferences.onboardingStep !== "number"
+      ? primeiroPassoIncompleto(preferences)
+      : null;
   const prefsDecididas =
     !logado ||
     (!cuidado.carregando() &&
-      (!cuidado.pronto() || !cadastroPendente(preferences.onboardingStep)));
+      (!cuidado.pronto() ||
+        (!cadastroPendente(preferences.onboardingStep) && passoLegado === null)));
   const painelAtivo = !needsLogin && !cadastro.ativo && prefsDecididas;
   const robo = useRobo(painelAtivo);
 
@@ -197,17 +205,20 @@ export const App: React.FC = () => {
     [],
   );
   // Cadastro começado em outra aba ou aparelho: retoma do passo salvo no servidor.
+  // Conta antiga sem onboardingStep: retoma do primeiro passo com dado faltando.
   useEffect(() => {
     if (
-      !cadastro.ativo &&
-      username &&
-      auth.isLoggedIn() &&
-      auth.username === username &&
-      cuidado.pronto() &&
-      cadastroPendente(preferences.onboardingStep)
+      cadastro.ativo ||
+      !username ||
+      !auth.isLoggedIn() ||
+      auth.username !== username ||
+      !cuidado.pronto()
     )
+      return;
+    if (cadastroPendente(preferences.onboardingStep))
       progresso.retomar(username, preferences.onboardingStep!);
-  }, [cadastro.ativo, username, preferences.onboardingStep]);
+    else if (passoLegado !== null) progresso.retomar(username, passoLegado, true);
+  }, [cadastro.ativo, username, preferences.onboardingStep, passoLegado]);
 
   useEffect(
     () =>
