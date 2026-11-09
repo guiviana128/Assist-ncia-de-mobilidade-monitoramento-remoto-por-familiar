@@ -201,6 +201,8 @@ export const App: React.FC = () => {
     if (
       !cadastro.ativo &&
       username &&
+      auth.isLoggedIn() &&
+      auth.username === username &&
       cuidado.pronto() &&
       cadastroPendente(preferences.onboardingStep)
     )
@@ -362,6 +364,14 @@ export const App: React.FC = () => {
         <motion.div key="cadastro" {...CROSSFADE_FIM}>
           <Cadastro
             onEntrar={() => setNeedsLogin(!auth.isLoggedIn())}
+            onSair={() => {
+              // A sessão sai primeiro (síncrono); só então o cadastro fecha, para o efeito que
+              // retoma um cadastro pendente não reabri-lo com a sessão antiga.
+              void auth.logout();
+              progresso.cancelar();
+              setUsername(null);
+              setNeedsLogin(true);
+            }}
             onConcluir={() => {
               setVindoDoCadastro(true);
               setNeedsLogin(false);

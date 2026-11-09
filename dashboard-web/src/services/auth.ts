@@ -79,6 +79,20 @@ const clearStored = () => {
 
 let session: Session | null = readSession();
 let persistenceWarning = "";
+
+// "Manter conectado" guarda a sessão no localStorage, compartilhado entre as abas. Quando outra aba
+// sai (ou entra com outra conta), esta acompanha na hora, em vez de seguir com a sessão antiga até
+// recarregar.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key !== null && e.key !== STORAGE_KEY) return;
+    const atual = readSession();
+    if (atual?.token === session?.token) return;
+    session = atual;
+    persistenceWarning = "";
+    notify();
+  });
+}
 function saveSession(next: Session, keepSignedIn: boolean) {
   session = next;
   persistenceWarning = "";

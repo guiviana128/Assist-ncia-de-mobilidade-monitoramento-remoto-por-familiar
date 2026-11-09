@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, type Variants } from "motion/react";
 import { ArrowLeft, HeartPulse, ShieldCheck } from "lucide-react";
-import { auth } from "../../services/auth";
 import { cuidado, useCuidado } from "../../lib/cuidado";
 import { ATE_TABLET, useMediaQuery } from "../../hooks/useMediaQuery";
 import { DUR, EASE_MOTION, saida } from "../../motion/tokens";
@@ -79,12 +78,14 @@ const Marca: React.FC = () => (
 interface CadastroProps {
   /** Volta para a tela de entrada. */
   onEntrar: () => void;
+  /** "Sair" no topo: encerra a sessão e volta para Entrar na hora. */
+  onSair: () => void;
   /** Terminou (passo 8, ou o consentimento pedido pelo painel). */
   onConcluir: () => void;
 }
 
 /** Cadastro da família em 8 passos (Figma 43:3393 … 44:5130). */
-export const Cadastro: React.FC<CadastroProps> = ({ onEntrar, onConcluir }) => {
+export const Cadastro: React.FC<CadastroProps> = ({ onEntrar, onSair, onConcluir }) => {
   const p = useProgresso();
   const prefs = useCuidado();
   const compacto = useMediaQuery(ATE_TABLET);
@@ -136,11 +137,7 @@ export const Cadastro: React.FC<CadastroProps> = ({ onEntrar, onConcluir }) => {
       onEntrar();
     } else progresso.voltar();
   };
-  const sair = () => {
-    progresso.cancelar();
-    void auth.logout();
-    onEntrar();
-  };
+  const sair = () => onSair();
 
   const podeVoltar = !rodape.semVoltar || (p.passo === 1 && !registrado);
   const passos: Passo[] = PASSOS.map((m, i) => ({
