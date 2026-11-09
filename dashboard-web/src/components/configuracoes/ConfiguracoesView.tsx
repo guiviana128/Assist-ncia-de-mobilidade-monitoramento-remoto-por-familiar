@@ -8,7 +8,8 @@ import {
   Tooltip,
 } from "react-leaflet";
 import L from "leaflet";
-import { Activity, Home, Info, Lock, MapPin, Phone, Pill, Plus, X } from "lucide-react";
+import { Activity, HeartHandshake, Home, Info, Lock, MapPin, Phone, Pill, Plus, Smartphone, UserPlus, X } from "lucide-react";
+import { ContatoPessoa, ConvidarFamiliar, FamilyCare } from "../FamilyCare";
 
 import {
   CONTATOS_PUBLICOS,
@@ -60,6 +61,8 @@ interface ConfiguracoesViewProps {
   pessoa: string;
   /** Planta da família (a montada pelo modelo no cadastro ou a de exemplo). */
   layout: HouseLayout;
+  /** Mostra a central de cuidado (conta real; fica fora da demonstração sem conta). */
+  central?: boolean;
 }
 
 const SECOES = [
@@ -68,6 +71,13 @@ const SECOES = [
   { id: "areas", rotulo: "Áreas seguras", Icone: MapPin },
   { id: "casa", rotulo: "Casa e câmera", Icone: Home },
   { id: "bengala", rotulo: "Bengala", Icone: Activity },
+] as const;
+
+/** Seções da central de cuidado (só com conta real). */
+const SECOES_CENTRAL = [
+  { id: "contato-pessoa", rotulo: "Contato da pessoa", Icone: Smartphone },
+  { id: "convite", rotulo: "Convidar familiar", Icone: UserPlus },
+  { id: "central", rotulo: "Central de cuidado", Icone: HeartHandshake },
 ] as const;
 
 const COR_AREA = ["#0F172A", "#10B981", "#2563EB", "#F59E0B"];
@@ -106,7 +116,9 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
   deviceId,
   pessoa,
   layout,
+  central = false,
 }) => {
+  const secoes = central ? [...SECOES, ...SECOES_CENTRAL] : [...SECOES];
   const celular = useMediaQuery(CELULAR);
   const { remedios, contatos, areas, bengala, cameraRooms, floorPlanSource } = useCuidado();
   const cameraPode = (id: string) =>
@@ -136,12 +148,13 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
       },
       { rootMargin: "-120px 0px -55% 0px" },
     );
-    SECOES.forEach((s) => {
+    secoes.forEach((s) => {
       const el = document.getElementById(`cfg-${s.id}`);
       if (el) obs.observe(el);
     });
     return () => obs.disconnect();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [central]);
 
   const irPara = (id: string) => {
     setSecao(id);
@@ -202,7 +215,7 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
       <div className="config-grade">
         <nav className="config-indice" aria-label="Seções das configurações">
           <ul className={celular ? "fila-rolavel" : ""}>
-            {SECOES.map(({ id, rotulo, Icone }) => (
+            {secoes.map(({ id, rotulo, Icone }) => (
               <li key={id}>
                 <button
                   className={`${celular ? "chip" : "config-indice-item"}${secao === id ? " is-ativo" : ""}`}
@@ -664,6 +677,14 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
               nem guardadas no servidor.
             </p>
           </section>
+
+          {central && (
+            <>
+              <ContatoPessoa pessoa={pessoa} />
+              <ConvidarFamiliar />
+              <FamilyCare deviceId={deviceId} />
+            </>
+          )}
         </div>
       </div>
     </div>

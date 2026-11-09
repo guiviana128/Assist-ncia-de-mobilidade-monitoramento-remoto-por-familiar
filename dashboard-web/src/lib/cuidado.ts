@@ -6,6 +6,7 @@ import { auth, apiJson } from "../services/auth";
 import type { HomeConfiguration } from "./monitoring";
 import type { HouseLayout } from "../types/robot";
 import { FALLBACK_LAYOUT, layoutDoModelo } from "../robot/houseLayout";
+import { discagem } from "../components/cadastro/regras";
 
 export interface Remedio {
   id: number;
@@ -345,10 +346,15 @@ export const cuidado = {
     })),
   definirBengala: (p: Partial<PreferenciasBengala>) =>
     salvar((s) => ({ ...s, bengala: { ...s.bengala, ...p } })),
-  definirContato: (telefonePessoa: string, endereco: string) =>
+  /**
+   * Telefone de quem é acompanhado e endereço do socorro (Configurações). O telefone vai para
+   * personPhone (o servidor deriva telefonePessoa dele) e já sai em formato de discagem.
+   */
+  definirContato: (telefone: string, endereco: string) =>
     salvar((s) => ({
       ...s,
-      telefonePessoa,
+      personPhone: telefone.trim(),
+      telefonePessoa: discagem(telefone),
       endereco,
       ...(s.home && endereco !== s.endereco
         ? {

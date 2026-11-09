@@ -11,4 +11,6 @@ public interface VisionDetectionEventRepository extends JpaRepository<VisionDete
 
   java.util.List<VisionDetectionEvent> findByDeviceIdOrderByReceivedAtDesc(
       String deviceId, org.springframework.data.domain.Pageable pageable);
+
+  long countByDeviceId(String deviceId);
 }

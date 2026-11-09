@@ -486,6 +486,34 @@ class FamilyFlowTest {
   }
 
   @Test
+  void historyCountFeedsThePaginationAndIsScopedToTheFamily() throws Exception {
+    var a = register("contagem@example.test");
+    var b = register("contagem-outra@example.test");
+    String device = a.get("deviceId").asText();
+    for (int i = 0; i < 3; i++)
+      mvc.perform(
+              post("/api/v1/alerts")
+                  .header("X-API-Key", a.get("deviceKey").asText())
+                  .contentType("application/json")
+                  .content(
+                      json.writeValueAsString(
+                          java.util.Map.of(
+                              "deviceId", device, "alertType", "SOS_BUTTON", "message", "Ajuda " + i))))
+          .andExpect(status().isOk());
+    mvc.perform(
+            get("/api/v1/care/" + device + "/history/count")
+                .header("Authorization", "Bearer " + a.get("token").asText()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.alerts").value(3))
+        .andExpect(jsonPath("$.vision").value(0))
+        .andExpect(jsonPath("$.pageSize").value(50));
+    mvc.perform(
+            get("/api/v1/care/" + device + "/history/count")
+                .header("Authorization", "Bearer " + b.get("token").asText()))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
   void deviceKeysAndCareIdentityAreScoped() throws Exception {
     var a = register("care@example.com");
     var b = register("other@example.com");

@@ -46,6 +46,13 @@ test("failed preference loading cannot overwrite existing care data", async () =
       },
       { context },
     ),
+    "../components/cadastro/regras": new vm.SyntheticModule(
+      ["discagem"],
+      function () {
+        this.setExport("discagem", (v) => `+55${String(v).replace(/\D/g, "")}`);
+      },
+      { context },
+    ),
     "../services/auth": new vm.SyntheticModule(
       ["auth", "apiJson"],
       function () {

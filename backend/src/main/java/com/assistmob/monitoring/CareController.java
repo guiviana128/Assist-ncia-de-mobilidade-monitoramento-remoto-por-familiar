@@ -95,6 +95,17 @@ public class CareController {
         .toList();
   }
 
+  /** Totais do histórico, para a paginação "Página 1 de N" da central de cuidado (50 por página). */
+  @GetMapping("/{deviceId}/history/count")
+  public Object historyCount(@PathVariable String deviceId) {
+    access.family();
+    access.device(deviceId);
+    return Map.of(
+        "alerts", alerts.countByDeviceId(deviceId),
+        "vision", vision.countByDeviceId(deviceId),
+        "pageSize", 50);
+  }
+
   @GetMapping("/{deviceId}/vision")
   public Object vision(@PathVariable String deviceId, @RequestParam(defaultValue = "0") int page) {
     return vision.findByDeviceIdOrderByReceivedAtDesc(

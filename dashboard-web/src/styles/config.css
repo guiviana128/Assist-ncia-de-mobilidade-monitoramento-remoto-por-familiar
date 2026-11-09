@@ -50,6 +50,37 @@
 .pref .segmento { flex-shrink: 0; }
 .config-salvo { display: flex; align-items: center; gap: 6px; padding-top: 6px; }
 
+/* ---------- Central de cuidado da família (FamilyCare) ---------- */
+.config-descricao { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--texto-secundario); }
+.central-titulo { display: flex; flex-direction: column; gap: 4px; padding: 12px 8px 0; scroll-margin-top: 120px; }
+.central-titulo .titulo-painel { font-size: 24px; line-height: 30px; }
+.central-bloco { gap: 12px; }
+.central-bloco .config-cabecalho > .btn { flex-shrink: 0; }
+.central-item { align-items: flex-start !important; flex-wrap: wrap; row-gap: 12px; }
+.central-item > .config-textos { gap: 4px; flex-basis: 260px; }
+.central-acoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+.central-item > .central-acoes { margin-left: auto; }
+.central-bloco > .central-acoes { justify-content: flex-start; }
+.central-resumo { white-space: pre-wrap; color: var(--texto-principal) !important; font-size: 13px !important; line-height: 19px !important; }
+.central-vazio { padding: 12px 0; font-size: 14px; line-height: 20px; color: var(--texto-secundario); }
+.central-paginacao {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+  padding-top: 12px; border-top: 1px solid var(--borda-padrao);
+}
+.central-pagina { text-align: center; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--texto-secundario); font-variant-numeric: tabular-nums; }
+.central-paginacao .btn, .central-acoes .btn, .central-rodape .btn, .central-bloco .config-cabecalho .btn { gap: 6px; min-height: 44px; }
+.central-campos { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 16px; }
+.central-campos .campo { gap: 8px; }
+.central-rodape { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding-top: 4px; }
+.central-rodape .texto-pequeno { flex: 1; }
+.central-rodape .is-sucesso { color: var(--sucesso-texto); }
+.central-rodape .is-perigo { color: var(--perigo-texto); }
+.central-codigo {
+  padding: 12px 14px; border-radius: 12px; background: var(--superficie-rebaixada);
+  font-size: 14px; line-height: 20px; overflow-wrap: anywhere;
+}
+.central-codigo code, .central-bloco code { font-family: var(--fonte-titulo); font-weight: 600; color: var(--texto-principal); }
+
 @media (max-width: 1023px) {
   .config > .frase-estado { padding-left: 0; }
   .config-grade { grid-template-columns: minmax(0, 1fr); gap: 16px; }
@@ -69,6 +100,14 @@
   .config-secao { padding: 16px; scroll-margin-top: 130px; }
   .config-cabecalho { flex-direction: column; gap: 10px; }
   .config-cabecalho .texto-pequeno { display: none; }
+  .central-campos { grid-template-columns: minmax(0, 1fr); }
+  .central-acoes { justify-content: flex-start; width: 100%; }
+  .central-item > .central-acoes { margin-left: 0; }
+  .central-acoes .btn { flex: 1 1 auto; }
+  .central-paginacao { grid-template-columns: 1fr 1fr; }
+  .central-pagina { grid-column: 1 / -1; grid-row: 1; }
+  .central-rodape { flex-direction: column; align-items: stretch; }
+  .central-bloco .config-cabecalho > .btn { align-self: stretch; }
   .config-lista > li { gap: 12px; flex-wrap: wrap; }
   .remedio-status { display: none; }
   .remedio-hora { width: 52px; font-size: 18px; }

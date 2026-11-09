@@ -548,10 +548,8 @@ export const App: React.FC = () => {
                         deviceId={device.deviceId}
                         pessoa={pessoa}
                         layout={robo.layout}
+                        central={!offlineDemo}
                       />
-                      {!offlineDemo && (
-                        <FamilyCare deviceId={device.deviceId} />
-                      )}
                     </>
                   )}
                 </motion.div>

@@ -19,4 +19,6 @@ public interface AlertRepository extends JpaRepository<Alert, Long> {
   List<Alert> findByStatusOrderByCreatedAtDesc(AlertStatus status);
 
   long countByStatus(AlertStatus status);
+
+  long countByDeviceId(String deviceId);
 }
