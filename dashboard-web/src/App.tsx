@@ -302,7 +302,6 @@ export const App: React.FC = () => {
   const alternar = (c: Exclude<CamadaAberta, null>) =>
     setCamada((atual) => (atual === c ? null : c));
   const irPara = (v: AppView) => {
-    if (v === "camera") presentation.set("real");
     setView(v);
     setCamada(null);
   };
@@ -463,11 +462,13 @@ export const App: React.FC = () => {
                   )}
                   {view === "inicio" && (
                     <InicioView
+                      key={device.deviceId}
                       device={device}
                       alerts={alerts}
                       layout={robo.layout}
                       robot={robo.robot}
                       missions={robo.missions}
+                      observacoes={robo.observacoes}
                       noComodoDesde={robo.noComodoDesde}
                       resumo={resumo}
                       demo={demo}

@@ -59,7 +59,7 @@ export const PassoComecar: React.FC = () => {
   const p = useProgresso();
   const prefs = useCuidado();
   const { concluir } = useContext(CadastroCtx);
-  const [escolha, setEscolha] = useState<"EQUIPAMENTOS" | "DEMO" | null>("EQUIPAMENTOS");
+  const [escolha, setEscolha] = useState<"EQUIPAMENTOS" | "DEMO" | null>("DEMO");
   const [aparelho, setAparelho] = useState<{ deviceId: string; robotId: string } | null>(null);
   const [estado, setEstado] = useState<Record<"cane" | "camera" | "robot", Estado>>({
     cane: "aguardando",

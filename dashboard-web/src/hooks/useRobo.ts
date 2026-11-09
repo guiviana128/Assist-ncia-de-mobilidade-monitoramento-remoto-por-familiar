@@ -5,6 +5,20 @@ import { auth } from "../services/auth";
 import { robotApi } from "../services/robotApi";
 import { presentation } from "../services/presentation";
 
+export type ObservacaoComodo = { comodo: string; quando: number };
+
+function historicoComodos(chave: string): ObservacaoComodo[] {
+  try {
+    const dados: unknown = JSON.parse(localStorage.getItem(chave) ?? "[]");
+    return Array.isArray(dados)
+      ? dados.filter((item) => typeof item?.comodo === "string" &&
+          typeof item.quando === "number" && Number.isFinite(item.quando)).slice(0, 100)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Estado do robô e da planta para as telas fora da Casa 3D (Início, frase de estado).
  * A Casa 3D mantém a própria consulta de 1 s; aqui o ritmo é o do painel (3,5 s).
@@ -15,6 +29,8 @@ export function useRobo(ativo = true, intervaloMs = 3500) {
   const [robot, setRobot] = useState<RobotState | null>(null);
   const [missions, setMissions] = useState<RobotMission[]>([]);
   const [noComodoDesde, setNoComodoDesde] = useState<number | null>(null);
+  const [observacoes, setObservacoes] = useState<ObservacaoComodo[]>([]);
+  const observacoesRef = useRef<ObservacaoComodo[]>([]);
   const ultimoComodo = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
@@ -36,6 +52,8 @@ export function useRobo(ativo = true, intervaloMs = 3500) {
       auth.onChange(() => {
         setRobot(null);
         setMissions([]);
+        observacoesRef.current = [];
+        setObservacoes([]);
         setNoComodoDesde(null);
         ultimoComodo.current = undefined;
       }),
@@ -56,7 +74,30 @@ export function useRobo(ativo = true, intervaloMs = 3500) {
         return;
       setRobot(state);
       setMissions(lista);
-      const comodo = state.personRoom ?? null;
+      const comodo = state.online && state.mode !== "OFFLINE" ? state.personRoom ?? null : null;
+      if (comodo && comodo !== ultimoComodo.current) {
+        const agora = Date.now();
+        const usuario = auth.username;
+        const chave = usuario
+          ? `amparo_atividades_${encodeURIComponent(usuario)}_${presentation.get()}`
+          : null;
+        const anteriores = observacoesRef.current.length || !chave
+          ? observacoesRef.current : historicoComodos(chave);
+        const ultima = anteriores[0];
+        const mesmoDia = ultima && new Date(ultima.quando).toDateString() === new Date(agora).toDateString();
+        const lista = mesmoDia && ultima.comodo === comodo
+          ? anteriores
+          : [{ comodo, quando: agora }, ...anteriores].slice(0, 100);
+        observacoesRef.current = lista;
+        setObservacoes(lista);
+        if (chave) {
+          try {
+            localStorage.setItem(chave, JSON.stringify(lista));
+          } catch {
+            // O histórico continua disponível nesta sessão.
+          }
+        }
+      }
       if (ultimoComodo.current === undefined) {
         // primeira leitura: não sabemos desde quando ele está ali
         ultimoComodo.current = comodo;
@@ -73,6 +114,8 @@ export function useRobo(ativo = true, intervaloMs = 3500) {
       presentation.subscribe(() => {
         setRobot(null);
         setMissions([]);
+        observacoesRef.current = [];
+        setObservacoes([]);
         setNoComodoDesde(null);
         ultimoComodo.current = undefined;
         if (ativo) void atualizar();
@@ -92,6 +135,7 @@ export function useRobo(ativo = true, intervaloMs = 3500) {
     layout,
     robot,
     missions,
+    observacoes,
     noComodoDesde,
     atualizar,
     demo: robotApi.isDemo(),

@@ -109,14 +109,16 @@ export const robotApi = {
       () => demo().listMissions(limit),
     ),
 
+  requestPhysicalMission: async (request: MissionRequest) =>
+    apiJson<RobotMission>(`/robot/${await familyRobot()}/missions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    }),
+
   requestMission: (request: MissionRequest) =>
     withDemo(
-      async () =>
-        apiJson<RobotMission>(`/robot/${await familyRobot()}/missions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(request),
-        }),
+      () => robotApi.requestPhysicalMission(request),
       () => demo().request(request),
     ),
 

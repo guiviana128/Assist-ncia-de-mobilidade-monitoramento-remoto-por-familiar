@@ -549,7 +549,8 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
   const destinoRobo = alertaGesto?.indoorRoom ?? robotRoomFallback(layout);
   const mandarRobo = async () => {
     try {
-      const m = await robotApi.requestMission({
+      const enviar = demo ? robotApi.requestMission : robotApi.requestPhysicalMission;
+      const m = await enviar({
         type: "GO_TO_ROOM",
         targetRoom: destinoRobo,
         reason: "Gesto de socorro na câmera",

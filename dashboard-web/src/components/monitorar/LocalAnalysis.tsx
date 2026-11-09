@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { apiJson } from "../../services/auth";
 type Report = { id: number; state: string; summary: string; createdAt: string };
-export function LocalAnalysis({ deviceId }: { deviceId: string }) {
+export function LocalAnalysis({ deviceId, compact = false }: { deviceId: string; compact?: boolean }) {
   const [report, setReport] = useState<Report | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -20,13 +20,13 @@ export function LocalAnalysis({ deviceId }: { deviceId: string }) {
     };
   }, [deviceId]);
   return (
-    <section className="painel workspace-card">
+    <section className={compact ? "workspace-card" : "painel workspace-card"}>
       <div className="workspace-card-heading">
         <div>
           <span className="workspace-eyebrow">
             <Sparkles size={15} /> ANÁLISE LOCAL · OLLAMA
           </span>
-          <h2>Resumo para a família</h2>
+          {compact ? <h3>Resumo das leituras</h3> : <h2>Resumo para a família</h2>}
         </div>
         <button
           className="btn btn-secundario"
