@@ -18,7 +18,6 @@ import { DESLOCA, DUR, EASE_GSAP, EASE_MOTION, saida } from '../motion/tokens';
 
 interface HouseView3DProps {
   alerts: Alert[];
-  isDarkMode: boolean;
   /** Cômodo tocado na planta do Início: fica destacado ao abrir. */
   comodoInicial?: string | null;
   pessoa?: string;
@@ -87,7 +86,7 @@ const chegada = (m: number) => `chega em ~${Math.max(5, Math.round(m / VELOCIDAD
 
 type Pendente = { ponto: Point2D; room?: Room };
 
-export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, comodoInicial, pessoa = 'José', demo }) => {
+export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, comodoInicial, pessoa = 'José', demo }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const eyesRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -187,7 +186,6 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
           container: containerRef.current,
           eyesContainer: eyesRef.current,
           layout,
-          dark: isDarkMode,
           onFloorClick: point => handleFloorClick(point),
           onARChange: setInAR
         });
@@ -204,11 +202,10 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
     const espera = Math.max(0, zoomAte.current - performance.now());
     const timer = espera ? window.setTimeout(criar, espera) : (criar(), 0);
     return () => { window.clearTimeout(timer); scene?.dispose(); if (sceneRef.current === scene) sceneRef.current = null; };
-    // isDarkMode é aplicado no efeito abaixo; recriar a cena só quando a planta mudar
+    // recriar a cena só quando a planta mudar
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout, handleFloorClick]);
 
-  useEffect(() => { sceneRef.current?.setDark(isDarkMode); }, [isDarkMode, cenaPronta]);
   useEffect(() => { sceneRef.current?.setPendingPoint(pendente?.ponto ?? null); }, [pendente, cenaPronta]);
   useEffect(() => { sceneRef.current?.setHighlightRoom(pendente?.room?.id ?? hoverRoom); }, [hoverRoom, pendente, cenaPronta]);
   useEffect(() => { sceneRef.current?.setLidarVisible(camadas.lidar); }, [camadas.lidar, cenaPronta]);

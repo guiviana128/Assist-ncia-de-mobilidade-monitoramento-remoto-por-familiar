@@ -1,9 +1,10 @@
 /*
  * Tokens do redesign Amparo (fonte: Figma, coleção de variáveis do arquivo fnRPTL9tR3kQH6LECeApAJ).
  * Use sempre estes nomes no CSS; não escreva cores soltas nos componentes.
- * Tema escuro está fora deste redesign: só o toggle existe no menu da conta.
+ * O app tem só o tema claro, mesmo com o sistema em modo escuro.
  */
 :root {
+  color-scheme: light;
   /* Superfícies */
   --superficie-base: #FFFFFF;
   --superficie-fundo: #F4F6F9;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { DoorOpen, FlaskConical, Moon, Settings } from 'lucide-react';
+import { DoorOpen, FlaskConical, Settings } from 'lucide-react';
 
 interface MenuContaProps {
   usuario: string | null;
@@ -33,12 +33,6 @@ export const MenuConta: React.FC<MenuContaProps> = ({ usuario, pessoa, emConfigu
     <button className="menu-conta-opcao" onClick={onSimulador}>
       <FlaskConical size={18} aria-hidden="true" />Simulador da apresentação
     </button>
-    {/* Tema escuro fica fora deste redesign: o controle existe, mas está desativado. */}
-    <div className="menu-conta-opcao is-desativado" title="Tema escuro chega em uma próxima versão">
-      <Moon size={18} aria-hidden="true" />
-      <span id="rotulo-tema">Tema escuro</span>
-      <button className="interruptor" role="switch" aria-checked="false" aria-labelledby="rotulo-tema" aria-disabled="true" disabled />
-    </div>
     <hr className="menu-conta-divisor" />
     <button className="menu-conta-opcao is-perigo" onClick={onSair}>
       <DoorOpen size={18} aria-hidden="true" />Sair

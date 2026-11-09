@@ -478,7 +478,6 @@ export const App: React.FC = () => {
                   {view === "casa" && (
                     <HouseView3D
                       alerts={alerts}
-                      isDarkMode={false}
                       comodoInicial={comodoCasa}
                       pessoa={pessoa}
                       demo={demo}

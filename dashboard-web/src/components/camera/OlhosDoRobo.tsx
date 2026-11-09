@@ -17,7 +17,7 @@ export const OlhosDoRobo: React.FC<{ layout: HouseLayout; pessoa: string; emerge
   useEffect(() => {
     if (!casa.current || !olhos.current) return;
     try {
-      const scene = new HouseScene({ container: casa.current, eyesContainer: olhos.current, layout, dark: false, onFloorClick: () => undefined, onARChange: () => undefined });
+      const scene = new HouseScene({ container: casa.current, eyesContainer: olhos.current, layout, onFloorClick: () => undefined, onARChange: () => undefined });
       cena.current = scene;
       return () => { scene.dispose(); cena.current = null; };
     } catch {

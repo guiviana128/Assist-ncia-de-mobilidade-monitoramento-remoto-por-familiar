@@ -11,12 +11,14 @@ const LIDAR_RADIUS = 3.5; // alcance do LDS do TurtleBot3
 const HELPERS_LAYER = 1; // objetos só da visão de cima (não aparecem na câmera do robô)
 const AR_SCALE = 0.07; // casa de 10 m vira uma maquete de 70 cm na mesa
 
-const ROOM_COLORS: Record<string, { light: string; dark: string }> = {
-  sala: { light: '#e8eef6', dark: '#1d2a3d' },
-  cozinha: { light: '#eef3e9', dark: '#1f2e26' },
-  quarto: { light: '#f3ece6', dark: '#2e2621' },
-  banheiro: { light: '#e6f1f3', dark: '#1c2d31' },
-  escritorio: { light: '#efeaf4', dark: '#27223a' }
+/** Cor do piso por tipo de cômodo ("quarto-2" usa a cor de "quarto"). */
+const ROOM_COLORS: Record<string, string> = {
+  sala: '#e8eef6',
+  cozinha: '#eef3e9',
+  quarto: '#f3ece6',
+  banheiro: '#e6f1f3',
+  escritorio: '#efeaf4',
+  servico: '#eef1f3'
 };
 
 const MODE_COLORS: Record<RobotState['mode'], string> = {
@@ -33,7 +35,6 @@ export interface HouseSceneOptions {
   container: HTMLElement;
   eyesContainer: HTMLElement;
   layout: HouseLayout;
-  dark: boolean;
   onFloorClick: (point: Point2D) => void;
   onARChange?: (active: boolean) => void;
 }
@@ -83,7 +84,6 @@ export class HouseScene {
 
   private pose = { x: 0, y: 0, yaw: 0 };
   private targetPose = { x: 0, y: 0, yaw: 0 };
-  private dark: boolean;
   private lidarEnabled = true;
   private robotOnline = false;
   private inAR = false;
@@ -91,7 +91,6 @@ export class HouseScene {
 
   constructor(private readonly options: HouseSceneOptions) {
     const { container, eyesContainer, layout } = options;
-    this.dark = options.dark;
     const xs = layout.rooms.flatMap(r => [r.minX, r.maxX]);
     const ys = layout.rooms.flatMap(r => [r.minY, r.maxY]);
     this.center = { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
@@ -172,7 +171,7 @@ export class HouseScene {
     this.pendingShadow.visible = false;
     [this.target, this.pending, this.pendingShadow, this.path].forEach(o => { o.layers.set(HELPERS_LAYER); this.root.add(o); });
 
-    this.applyTheme();
+    this.applyColors();
 
     // --- eventos
     const canvas = this.renderer.domElement;
@@ -323,10 +322,6 @@ export class HouseScene {
     this.controls.update();
   }
 
-  setDark(dark: boolean) {
-    this.dark = dark;
-    this.applyTheme();
-  }
 
   static async isARSupported(): Promise<boolean> {
     try {
@@ -559,22 +554,21 @@ export class HouseScene {
     this.root.scale.setScalar(on ? AR_SCALE : 1);
     this.root.position.set(0, on ? -0.35 : 0, on ? -0.9 : 0);
     this.labelRenderer.domElement.style.display = on ? 'none' : '';
-    this.applyTheme();
+    this.applyColors();
     if (!on) this.resize();
     this.options.onARChange?.(on);
   }
 
-  private applyTheme() {
-    const dark = this.dark;
-    this.scene.background = this.inAR ? null : new THREE.Color(dark ? '#0b1220' : '#f4f6f9');
-    this.eyesRenderer.setClearColor(dark ? '#0b1220' : '#dfe7f1');
-    this.wallMaterial.color.set(dark ? '#cbd5e1' : '#f8fafc');
-    this.hemi.intensity = dark ? 0.9 : 1.3;
+  private applyColors() {
+    this.scene.background = this.inAR ? null : new THREE.Color('#f4f6f9');
+    this.eyesRenderer.setClearColor('#dfe7f1');
+    this.wallMaterial.color.set('#f8fafc');
+    this.hemi.intensity = 1.3;
     this.floors.forEach(floor => {
       const material = floor.material as FloorMaterial;
-      const palette = ROOM_COLORS[material.userData.roomId] ?? { light: '#eeeeee', dark: '#222222' };
-      material.uniforms.uColor.value.set(dark ? palette.dark : palette.light);
-      material.uniforms.uLineColor.value.set(dark ? '#3b4a63' : '#c3ccd8');
+      const tipo = String(material.userData.roomId).replace(/-\d+$/, '');
+      material.uniforms.uColor.value.set(ROOM_COLORS[tipo] ?? '#eeeeee');
+      material.uniforms.uLineColor.value.set('#c3ccd8');
     });
   }
 }

@@ -189,8 +189,6 @@
 .menu-conta-opcao > span { flex: 1; }
 button.menu-conta-opcao:hover, .menu-conta-opcao.is-ativo { background: var(--superficie-rebaixada); }
 .menu-conta-opcao.is-perigo { color: var(--perigo-texto); }
-.menu-conta-opcao.is-desativado { cursor: default; }
-.menu-conta-opcao .interruptor:disabled { opacity: .6; cursor: not-allowed; }
 
 @media (max-width: 767px) {
   .menu-conta { padding: 0 12px 12px; }
