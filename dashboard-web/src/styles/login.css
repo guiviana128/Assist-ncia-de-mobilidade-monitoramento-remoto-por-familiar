@@ -1,8 +1,8 @@
-/* Login (Figma 31:2210 / 31:2298 computador, 34:2229 / 38:3513 celular). */
+/* Entrar v2 (Figma 45:4063 computador, 45:4203 celular). Os campos (.campo-caixa) valem também no cadastro. */
 
-.login { display: flex; min-height: 100vh; padding: 16px; gap: 0; background: var(--superficie-fundo); }
+.login { display: flex; gap: 16px; min-height: 100vh; padding: 16px; background: var(--superficie-fundo); }
 
-/* Lado da casa (ilustração) */
+/* Lado da casa (ilustração, a mesma de antes) */
 .login-casa {
   position: relative; flex: 1; min-width: 0; min-height: calc(100vh - 32px); overflow: hidden;
   border-radius: 24px; background: var(--superficie-rebaixada); padding: 40px;
@@ -16,85 +16,85 @@
 }
 .login-planta .planta { width: 947px; max-width: none; }
 
-/* Formulário */
-.login-formulario { display: flex; align-items: center; justify-content: center; width: 620px; flex-shrink: 0; padding: 32px 24px; }
-.login-caixa { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 400px; }
+/* Cartão branco do formulário */
+.login-formulario {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+  width: 604px; flex-shrink: 0; min-height: calc(100vh - 32px); padding: 40px 24px;
+  background: var(--superficie-base); border: 1px solid var(--borda-padrao); border-radius: 24px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .06), 0 16px 40px -8px rgba(15, 23, 42, .08);
+}
+.login-caixa, .login-largura { width: 100%; max-width: 420px; }
+.login-caixa { display: flex; flex-direction: column; gap: 20px; }
 .login-titulos { display: flex; flex-direction: column; gap: 6px; }
-.login-titulo { font-size: 32px; line-height: 40px; }
+.login-titulo { font-size: 34px; line-height: 40px; }
 .login-titulos .texto-secundario { font-size: 15px; line-height: 22px; font-weight: 500; }
 .login .campo { gap: 8px; }
 
+/* Campo com ícone e ação (Figma "Entrada": 14 px de respiro, 16 px de texto, raio 12) */
 .campo-caixa {
   transition: border-color var(--dur-rapida) var(--ease), box-shadow var(--dur-rapida) var(--ease), background-color var(--dur-rapida) var(--ease);
-  display: flex; align-items: center; gap: 10px; padding: 0 14px; min-height: 48px;
+  display: flex; align-items: center; gap: 10px; padding: 0 14px; min-height: 50px;
   border: 1px solid var(--borda-forte); border-radius: 12px; background: var(--superficie-base); color: var(--texto-secundario);
 }
 .campo-caixa svg { flex-shrink: 0; }
 .campo-caixa .campo-entrada {
-  flex: 1; min-width: 0; min-height: 46px; padding: 0; border: none; background: transparent;
-  font-weight: 500; color: var(--texto-principal);
+  flex: 1; min-width: 0; min-height: 48px; padding: 0; border: none; background: transparent;
+  font-size: 16px; line-height: 22px; font-weight: 500; color: var(--texto-principal);
 }
 .campo-caixa .campo-entrada:focus-visible { outline: none; }
-.campo-caixa:focus-within { border-color: var(--acento); box-shadow: 0 0 0 4px rgba(37, 99, 235, .14); }
-.campo-caixa.is-erro { border: 2px solid var(--perigo); padding: 0 13px; box-shadow: 0 0 0 4px rgba(219, 38, 38, .14); }
+/* Foco: borda de 2 px no acento (o padding compensa para o texto não pular) */
+.campo-caixa:focus-within { border: 2px solid var(--acento); padding: 0 13px; box-shadow: 0 0 0 4px rgba(37, 99, 235, .12); }
+.campo-caixa.is-erro { border: 2px solid var(--perigo); padding: 0 13px; box-shadow: 0 0 0 4px rgba(219, 38, 38, .12); }
 .campo-acao {
-  min-height: 44px; padding: 0 2px 0 8px; font-size: 13px; line-height: 18px; font-weight: 700; color: var(--acento-forte);
+  min-height: 44px; padding: 0 2px 0 8px; font-size: 14px; line-height: 20px; font-weight: 700; color: var(--acento-forte);
 }
 .campo-acao:hover { text-decoration: underline; }
 
-/* Caixa de seleção */
+/* Caixa de seleção (22 px, raio 6) */
 .caixa-selecao { position: relative; display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; line-height: 20px; font-weight: 500; cursor: pointer; align-self: flex-start; }
-.caixa-selecao input { position: absolute; opacity: 0; width: 20px; height: 20px; margin: 0; }
+.caixa-selecao input, .cad-confirmacao input { position: absolute; opacity: 0; width: 22px; height: 22px; margin: 0; }
 .caixa-selecao-marca {
-  display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0;
+  display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
   border: 1.5px solid var(--borda-forte); background: var(--superficie-base); color: transparent;
+  transition: background-color var(--dur-curta) var(--ease), border-color var(--dur-curta) var(--ease), color var(--dur-curta) var(--ease);
 }
-.caixa-selecao input:checked + .caixa-selecao-marca { background: var(--acento); border-color: var(--acento); color: var(--texto-invertido); }
-.caixa-selecao input:focus-visible + .caixa-selecao-marca { outline: 2px solid var(--acento); outline-offset: 2px; }
+.caixa-selecao input:checked + .caixa-selecao-marca,
+.cad-confirmacao input:checked + .caixa-selecao-marca { background: var(--acento); border-color: var(--acento); color: var(--texto-invertido); }
+.caixa-selecao input:focus-visible + .caixa-selecao-marca,
+.cad-confirmacao input:focus-visible + .caixa-selecao-marca { outline: 2px solid var(--acento); outline-offset: 2px; }
 
-.login .btn-grande { min-height: 48px; font-size: 15px; }
+.login-opcoes { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.login-opcoes .btn-link { padding: 0; }
+.login .btn-grande { min-height: 48px; border-radius: 12px; font-size: 15px; }
+.login-criar { border-color: var(--borda-forte); font-weight: 700; }
+.login-link-centro { justify-content: center; align-self: stretch; font-size: 15px; }
+.login-divisor { display: flex; align-items: center; gap: 12px; font-size: 13px; line-height: 18px; font-weight: 500; color: var(--texto-secundario); }
+.login-divisor::before, .login-divisor::after { content: ''; flex: 1; height: 1px; background: var(--borda-padrao); }
 .carregando.is-claro { border-color: rgba(255, 255, 255, .35); border-top-color: var(--texto-invertido); width: 18px; height: 18px; }
-.login-seguranca { font-size: 12px; line-height: 16px; }
-.login-seguranca-curta { display: none; }
+.login-seguranca { padding: 12px 14px 12px 12px; font-size: 13px; line-height: 18px; }
 .login .nota .btn-link { min-height: 36px; padding: 0; margin-top: 2px; }
+.login-marca-celular { align-self: stretch; max-width: 420px; width: 100%; margin: 0 auto; gap: 10px; }
+.login-marca-celular .marca-simbolo { width: 40px; height: 40px; }
 
 @media (max-width: 1100px) {
-  .login-formulario { width: 480px; }
+  .login-formulario { width: 500px; }
 }
 
-/* Tablet: formulário por cima, ilustração some */
+/* Tablet: só o cartão, centrado */
 @media (max-width: 1023px) and (min-width: 768px) {
-  .login-casa { display: none; }
-  .login-formulario { width: 100%; }
+  .login { justify-content: center; align-items: flex-start; }
+  .login-formulario { width: min(604px, 100%); justify-content: flex-start; min-height: 0; margin-top: 40px; padding: 48px 32px; }
 }
 
-/* Celular */
+/* Celular: sem cartão, uma coluna (Figma 45:4203) */
 @media (max-width: 767px) {
-  .login { flex-direction: column; padding: 0; }
-  .login-casa {
-    min-height: 0; overflow: visible; border-radius: 0; background: transparent;
-    padding: calc(24px + env(safe-area-inset-top)) 16px 0;
+  .login { padding: 0; }
+  .login-formulario {
+    width: 100%; min-height: 100vh; justify-content: flex-start; align-items: stretch;
+    padding: calc(24px + env(safe-area-inset-top)) 16px calc(40px + env(safe-area-inset-bottom));
+    border: none; border-radius: 0; box-shadow: none; background: var(--superficie-fundo);
   }
-  .login-marca .marca-simbolo { width: 44px; height: 44px; }
-  .login-marca .marca-nome { font-size: 22px; }
-  .login-marca .marca-nome small { display: none; }
-  .login-frase { margin-top: 28px; }
-  .login-frase .frase-apoio { display: inline; }
-  .login-planta {
-    position: relative; left: auto; top: auto; width: auto; height: 172px; padding: 0; margin-top: 24px;
-    border-radius: 12px 12px 0 0; background: transparent;
-  }
-  .login-planta .planta-simples { padding-bottom: 60px; }
-  .login-formulario { width: 100%; padding: 32px 16px calc(24px + env(safe-area-inset-bottom)); align-items: flex-start; }
-  .login-caixa { max-width: none; }
-  .login-titulos, .login-esqueceu { display: none; }
-  .campo-caixa { min-height: 56px; border-radius: 14px; padding: 0 16px; }
-  .campo-caixa.is-erro { padding: 0 15px; }
-  .campo-caixa .campo-entrada { font-size: 17px; min-height: 52px; }
-  .campo-acao { font-size: 15px; }
-  .campo-rotulo { font-size: 15px; font-weight: 600; }
-  .login .btn-grande { min-height: 52px; border-radius: 14px; font-size: 17px; }
-  .login-seguranca { background: none; padding: 0; font-size: 13px; line-height: 18px; }
-  .login-seguranca svg, .login-seguranca-longa { display: none; }
-  .login-seguranca-curta { display: inline; }
+  .login-caixa, .login-largura, .login-marca-celular { max-width: none; }
+  .login-titulo { font-size: 28px; line-height: 34px; }
+  .login .caixa-selecao, .login-opcoes .btn-link { min-height: 44px; }
 }

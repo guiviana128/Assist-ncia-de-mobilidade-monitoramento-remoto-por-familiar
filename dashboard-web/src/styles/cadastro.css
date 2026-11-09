@@ -1,0 +1,215 @@
+/* Cadastro da família em 8 passos (Figma 43:3393 … 44:5130). */
+
+.cadastro { display: flex; gap: 16px; min-height: 100vh; padding: 16px; background: var(--superficie-fundo); }
+
+/* ---------- Trilha (computador) ---------- */
+.cad-trilha {
+  position: sticky; top: 16px; align-self: flex-start;
+  display: flex; flex-direction: column; gap: 28px; width: 420px; flex-shrink: 0;
+  height: calc(100vh - 32px); overflow-y: auto; padding: 36px 36px 32px;
+  border-radius: 24px; background: var(--superficie-rebaixada);
+}
+.cad-marca { display: flex; align-items: center; gap: 12px; }
+.cad-marca-simbolo { width: 40px; height: 40px; }
+.cad-marca-nome { font-size: 20px; line-height: 24px; }
+.cad-trilha-espaco { flex: 1; }
+.cad-trilha .passo-missao { grid-template-columns: 24px minmax(0, 1fr); gap: 12px; }
+.cad-trilha .passo-missao-marcador { width: 24px; height: 24px; border-width: 2px; }
+.cad-trilha .passo-missao-linha { margin: 4px 0 0; min-height: 16px; }
+.cad-trilha .passo-missao-textos { padding: 2px 0 14px; }
+.cad-trilha .passo-missao-titulo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Cartão principal ---------- */
+.cad-cartao {
+  position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center;
+  min-height: calc(100vh - 32px); padding: 28px 40px 40px;
+  background: var(--superficie-base); border: 1px solid var(--borda-padrao); border-radius: 24px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .06), 0 16px 40px -8px rgba(15, 23, 42, .08);
+}
+.cad-topo {
+  align-self: stretch; display: flex; justify-content: flex-end; align-items: center; gap: 6px;
+  font-size: 14px; line-height: 20px; font-weight: 500; color: var(--texto-secundario);
+}
+.cad-topo .btn-link { min-height: 32px; padding: 0 2px; }
+.cad-coluna { display: flex; flex-direction: column; gap: 24px; width: 100%; max-width: 560px; padding-top: 48px; }
+/* A troca de passo desliza 24 px: a coluna corta, a página nunca rola na horizontal */
+.cad-palco { position: relative; overflow-x: clip; overflow-y: visible; margin: -8px; padding: 8px; }
+.cad-passo { width: 100%; }
+.cad-carregando { display: flex; align-items: center; gap: 10px; color: var(--texto-secundario); }
+
+.cad-acoes { display: flex; align-items: center; gap: 12px; padding-top: 8px; }
+.cad-acoes-espaco { flex: 1; }
+.cad-acoes .btn, .cad-rodape-celular .btn { min-height: 46px; padding: 13px 18px; font-size: 15px; font-weight: 700; }
+.cad-voltar { border-color: var(--borda-padrao); }
+/* Desabilitado ⇄ ativo: só a cor muda (200 ms), vale também com movimento reduzido */
+.cad-continuar { transition: background-color var(--dur-curta) var(--ease), color var(--dur-curta) var(--ease); }
+.cad-continuar:disabled { opacity: 1; background: var(--borda-padrao); color: var(--texto-secundario); }
+.cad-continuar .carregando { margin-right: 2px; }
+
+/* ---------- Formulário de cada passo ---------- */
+.cad-form { display: flex; flex-direction: column; gap: 24px; }
+.cad-fieldset { display: flex; flex-direction: column; gap: 24px; border: none; min-width: 0; }
+.cad-titulos { display: flex; flex-direction: column; gap: 8px; }
+.cad-titulo { font-size: 34px; line-height: 40px; font-weight: 600; }
+.cad-titulo:focus { outline: none; }
+.cad-apoio { font-size: 16px; line-height: 24px; font-weight: 500; color: var(--texto-secundario); }
+.cad-secao { display: flex; flex-direction: column; gap: 2px; }
+.cad-secao h2 { font-size: 20px; line-height: 26px; }
+.cad-secao p { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--texto-secundario); }
+.cad-divisor { height: 1px; background: var(--borda-padrao); border: none; }
+
+.cad-campo { gap: 8px; min-width: 0; }
+.cad-campo .campo-rotulo { display: flex; align-items: baseline; gap: 6px; }
+.cad-opcional { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--texto-secundario); }
+.cad-sufixo { flex-shrink: 0; font-size: 16px; font-weight: 500; color: var(--texto-secundario); }
+/* Campos lado a lado: viram um embaixo do outro quando não cabem */
+.cad-linha { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: start; }
+.cad-linha.is-larga-estreita { grid-template-columns: minmax(150px, 1fr) minmax(140px, 180px); }
+
+/* Notas (fundo rebaixado, acento ou aviso) */
+.cad-nota {
+  display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px 12px 12px; border-radius: 12px;
+  font-size: 13px; line-height: 18px; font-weight: 600;
+}
+.cad-nota svg { flex-shrink: 0; margin-top: 0; }
+.cad-nota.is-neutra { background: var(--superficie-rebaixada); color: var(--texto-secundario); }
+.cad-nota.is-acento { background: var(--acento-suave); color: var(--acento-forte); }
+.cad-nota.is-aviso { background: var(--aviso-fundo); color: var(--aviso-texto); }
+.cad-nota.is-perigo { background: var(--perigo-fundo); color: var(--perigo-texto); }
+.cad-trilha .cad-nota.is-neutra { padding-left: 12px; }
+
+/* Confirmação (caixa + texto em duas linhas) */
+.cad-confirmacao-bloco { display: flex; flex-direction: column; gap: 6px; }
+.cad-confirmacao { position: relative; display: flex; gap: 12px; align-items: flex-start; cursor: pointer; min-height: 44px; padding-top: 0; }
+.cad-confirmacao .caixa-selecao-marca { margin-top: 0; }
+.cad-confirmacao.is-erro .caixa-selecao-marca { border-color: var(--perigo); border-width: 2px; }
+.cad-confirmacao-textos { display: flex; flex-direction: column; gap: 2px; }
+.cad-confirmacao-textos strong { font-size: 15px; line-height: 22px; font-weight: 600; }
+.cad-confirmacao-textos span { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--texto-secundario); }
+
+/* Opção em cartão (rádio) */
+.cad-opcoes { display: flex; flex-direction: column; gap: 10px; border: none; min-width: 0; }
+.cad-opcoes legend { margin-bottom: 10px; padding: 0; }
+.cad-opcao {
+  display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 14px;
+  background: var(--superficie-base); border: 1px solid var(--borda-padrao);
+  transition: background-color var(--dur-curta) var(--ease), border-color var(--dur-curta) var(--ease), box-shadow var(--dur-curta) var(--ease);
+}
+.cad-opcao:hover { border-color: var(--borda-forte); }
+.cad-opcao.is-escolhida { background: var(--acento-suave); border-color: var(--acento); box-shadow: inset 0 0 0 1px var(--acento); }
+.cad-opcao-topo { position: relative; display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+.cad-opcao-topo input { position: absolute; opacity: 0; width: 20px; height: 20px; margin: 0; }
+.cad-radio {
+  flex-shrink: 0; width: 20px; height: 20px; margin-top: 1px; border-radius: 999px;
+  border: 1.5px solid var(--borda-forte); background: var(--superficie-base);
+  transition: border-color var(--dur-curta) var(--ease), border-width var(--dur-curta) var(--ease);
+}
+.cad-opcao-topo input:checked + .cad-radio { border: 6px solid var(--acento); }
+.cad-opcao-topo input:focus-visible + .cad-radio { outline: 2px solid var(--acento); outline-offset: 2px; }
+.cad-opcao-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cad-opcao-titulo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 16px; line-height: 22px; font-weight: 700; color: var(--texto-principal); }
+.cad-opcao-descricao { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--texto-secundario); }
+.cad-opcao-icone { flex-shrink: 0; color: var(--texto-secundario); }
+.cad-opcao.is-escolhida .cad-opcao-icone { color: var(--acento); }
+.cad-opcao-detalhe { display: flex; flex-direction: column; gap: 10px; }
+.cad-selo { padding: 2px 8px; border-radius: 999px; background: var(--sucesso-fundo); color: var(--sucesso-texto); font-size: 12px; line-height: 16px; font-weight: 700; }
+
+/* Segmento ocupando a largura (Sim / Não, mora com alguém) */
+.cad-segmento { display: flex; width: 100%; }
+.cad-segmento button { flex: 1; min-height: 40px; }
+[aria-invalid='true'].cad-segmento { box-shadow: inset 0 0 0 2px var(--perigo); }
+
+/* Força da senha: 4 segmentos */
+.cad-forca { display: flex; gap: 4px; }
+.cad-forca-segmento { position: relative; flex: 1; height: 4px; border-radius: 2px; background: var(--borda-padrao); overflow: hidden; }
+.cad-forca-cheio { position: absolute; inset: 0; transform-origin: left; background: var(--sucesso-ponto); transition: background-color var(--dur-rapida) var(--ease); }
+.cad-forca.is-fraca .cad-forca-cheio { background: var(--perigo); }
+.cad-forca.is-media .cad-forca-cheio { background: var(--aviso-ponto); }
+
+/* Lista em cartão (o que é acompanhado, cômodos, equipamentos) */
+.cad-lista { display: flex; flex-direction: column; padding: 4px 16px; border-radius: 14px; background: var(--superficie-base); border: 1px solid var(--borda-padrao); }
+.cad-lista.is-sem-borda { padding: 4px 0 0; border: none; background: transparent; }
+.cad-item { display: flex; align-items: center; gap: 14px; padding: 12px 0; min-width: 0; }
+.cad-item + .cad-item { border-top: 1px solid var(--borda-padrao); }
+.cad-item-icone {
+  position: relative; display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0;
+  border-radius: 12px; background: var(--superficie-rebaixada); color: var(--texto-principal);
+  transition: background-color var(--dur-curta) var(--ease), color var(--dur-curta) var(--ease);
+}
+.cad-item-icone.is-acento { background: var(--acento-suave); color: var(--acento-forte); }
+.cad-item-icone > * { grid-area: 1 / 1; }
+.cad-item-textos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cad-item-textos strong { font-size: 15px; line-height: 20px; font-weight: 700; }
+.cad-item-textos span { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--texto-secundario); }
+.cad-bloqueado { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--texto-secundario); }
+
+/* Códigos do passo 7 */
+.cad-codigo { display: flex; flex-direction: column; gap: 8px; }
+.cad-codigo-caixa { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; min-height: 64px; border-radius: 12px; background: var(--superficie-rebaixada); }
+.cad-codigo-valor { flex: 1; min-width: 0; overflow-wrap: anywhere; font-family: var(--fonte-titulo); font-size: 20px; line-height: 26px; font-weight: 600; color: var(--texto-principal); }
+.cad-copiar { flex-shrink: 0; min-width: 116px; border-color: var(--borda-padrao); font-size: 15px; font-weight: 700; }
+.cad-copiar-conteudo { display: inline-flex; align-items: center; gap: 8px; }
+.cad-copiar .check-desenhado { color: var(--sucesso-texto); }
+.cad-identificadores { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.cad-identificadores div { display: flex; flex-direction: column; }
+.cad-identificadores span { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--texto-secundario); }
+.cad-identificadores strong { font-size: 15px; line-height: 20px; overflow-wrap: anywhere; }
+.cad-baixar { align-self: flex-start; border-color: var(--borda-padrao); font-size: 15px; font-weight: 700; }
+.cad-gerar { display: flex; gap: 12px; padding: 16px; border-radius: 14px; border: 1px dashed var(--borda-forte); }
+.cad-gerar > div { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+
+/* Folha de impressão (passo 7): só existe no papel */
+.folha-impressao { display: none; }
+@media print {
+  body > *:not(.folha-impressao) { display: none !important; }
+  body { background: #fff; }
+  .folha-impressao { display: block; padding: 24px; color: #000; font-family: var(--fonte-corpo); }
+  .folha-impressao h1 { font-size: 22px; margin-bottom: 8px; }
+  .folha-impressao p { margin: 8px 0; font-size: 13px; }
+  .folha-impressao dl { display: grid; grid-template-columns: max-content 1fr; gap: 10px 16px; margin: 20px 0; }
+  .folha-impressao dt { font-weight: 700; font-size: 13px; }
+  .folha-impressao dd { font-size: 15px; overflow-wrap: anywhere; }
+  .folha-impressao code { font-size: 16px; }
+}
+
+/* ---------- Celular e tablet: topo com barra, uma coluna, rodapé fixo ---------- */
+@media (max-width: 1023px) {
+  .cadastro { display: block; padding: 0; }
+  .cad-cartao {
+    min-height: 100vh; padding: 0 0 calc(96px + env(safe-area-inset-bottom));
+    background: transparent; border: none; border-radius: 0; box-shadow: none;
+  }
+  .cad-topo-celular {
+    position: sticky; top: 0; z-index: 5; width: 100%; display: flex; flex-direction: column; gap: 12px;
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px; background: var(--superficie-fundo);
+  }
+  .cad-topo-barra { display: flex; align-items: center; gap: 8px; }
+  .cad-voltar-celular { background: var(--superficie-base); }
+  .cad-voltar-celular:hover { background: var(--superficie-base); box-shadow: inset 0 0 0 1px var(--borda-padrao); }
+  .cad-voltar-vazio { width: 44px; height: 44px; flex-shrink: 0; }
+  .cad-topo-nome { flex: 1; min-width: 0; text-align: center; font-size: 15px; line-height: 20px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cad-topo-contagem { width: 44px; flex-shrink: 0; text-align: right; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--texto-secundario); white-space: nowrap; }
+  .cad-barra { display: flex; gap: 4px; }
+  .cad-barra-segmento { position: relative; flex: 1; height: 4px; border-radius: 2px; background: var(--borda-padrao); overflow: hidden; }
+  .cad-barra-cheio { position: absolute; inset: 0; background: var(--acento); transform-origin: left; }
+  .cad-coluna { padding: 8px 16px 24px; margin: 0 auto; gap: 20px; }
+  .cad-form, .cad-fieldset { gap: 20px; }
+  .cad-titulo { font-size: 26px; line-height: 32px; }
+  .cad-apoio { font-size: 15px; line-height: 22px; }
+  .cad-rodape-celular {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    display: flex; flex-direction: column; gap: 8px; align-items: stretch;
+    padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+    background: var(--superficie-base); border-top: 1px solid var(--borda-padrao);
+  }
+  .cad-rodape-celular .texto-pequeno { text-align: center; }
+  .cad-rodape-celular .cad-continuar { width: 100%; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .cad-rodape-celular { flex-direction: row; justify-content: flex-end; align-items: center; }
+  .cad-rodape-celular .cad-continuar { width: auto; min-width: 200px; }
+}
+@media (max-width: 400px) {
+  .cad-codigo-caixa { flex-wrap: wrap; }
+  .cad-codigo-valor { flex-basis: 100%; }
+}

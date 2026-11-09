@@ -11,6 +11,8 @@ interface PassosMissaoProps {
   rotulo: string;
   /** Ao aparecer, as etapas já feitas viram ✓ com animação (ex.: logo depois de enviar o robô). */
   animarEntrada?: boolean;
+  /** A etapa atual pulsa uma vez só (cadastro), em vez do pulso lento em loop (missão do robô). */
+  pulsoUnico?: boolean;
 }
 
 /**
@@ -18,7 +20,7 @@ interface PassosMissaoProps {
  * A etapa atual pulsa devagar (1,6 s). Ao avançar, o marcador vira check (200 ms)
  * e a linha enche de verde de cima para baixo (scaleY 0 → 1, 300 ms).
  */
-export const PassosMissao: React.FC<PassosMissaoProps> = ({ passos, rotulo, animarEntrada }) => {
+export const PassosMissao: React.FC<PassosMissaoProps> = ({ passos, rotulo, animarEntrada, pulsoUnico }) => {
   const lista = useRef<HTMLOListElement>(null);
   const antes = useRef<EstadoPasso[] | null>(animarEntrada ? passos.map(() => 'pendente') : null);
   const chave = passos.map(p => p.estado).join(',');
@@ -30,7 +32,7 @@ export const PassosMissao: React.FC<PassosMissaoProps> = ({ passos, rotulo, anim
     // Etapa atual: pulso lento em loop (some com movimento reduzido)
     const mm = gsap.matchMedia();
     mm.add(SEM_REDUCAO, () => {
-      gsap.fromTo('.passo-missao-pulso', { scale: 1, opacity: 0.45 }, { scale: 1.9, opacity: 0, duration: 1.6, ease: 'sine.out', repeat: -1 });
+      gsap.fromTo('.passo-missao-pulso', { scale: 1, opacity: 0.45 }, { scale: 1.9, opacity: 0, duration: 1.6, ease: 'sine.out', repeat: pulsoUnico ? 0 : -1 });
     });
 
     if (anterior) {

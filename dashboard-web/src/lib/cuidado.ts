@@ -1,6 +1,6 @@
-// Preferências de cuidado desta sessão: remédios e contatos de emergência.
-// Não há cadastro persistente no backend para estes dados; são exemplos editáveis que
-// valem até fechar a aba. Início (próximo remédio, Ligar para José) e Configurações leem daqui.
+// Preferências de cuidado da família (GET/PUT /care/preferences): remédios, contatos, casa e o
+// que o cadastro em 8 passos registra. Início (próximo remédio, Ligar para José), Configurações e
+// o cadastro leem daqui. Os dados de exemplo (Maria Silva…) só aparecem no modo demonstração.
 import { useSyncExternalStore } from "react";
 import { auth, apiJson } from "../services/auth";
 import type { HomeConfiguration } from "./monitoring";
@@ -35,9 +35,50 @@ export interface Contato {
   papel: string;
   telefone: string;
   discagem: string;
+  /** Contato da família: recebe os avisos no celular. */
+  avisos?: boolean;
 }
 
-interface Estado {
+/** Contatos fixos de emergência; os outros são da família. */
+export const CONTATOS_PUBLICOS = new Set(["samu", "bombeiros"]);
+export const contatosDaFamilia = (contatos: Contato[]) =>
+  contatos.filter((c) => !CONTATOS_PUBLICOS.has(c.id));
+
+export const SAMU: Contato = {
+  id: "samu",
+  nome: "SAMU",
+  papel: "Emergência médica",
+  telefone: "192",
+  discagem: "192",
+};
+export const BOMBEIROS: Contato = {
+  id: "bombeiros",
+  nome: "Bombeiros",
+  papel: "Resgate e incêndio",
+  telefone: "193",
+  discagem: "193",
+};
+
+export interface Consentimento {
+  acceptedBy: "SELF" | "GUARDIAN";
+  guardianName?: string;
+  /** Gravado pelo servidor. */
+  acceptedAt?: string;
+  termsVersion: string;
+  recordedBy?: string;
+}
+export type OrigemPlanta = "ROBOT" | "TEMPLATE" | "EXAMPLE";
+export interface ModeloPlanta {
+  kind: "HOUSE" | "APARTMENT";
+  bedrooms: number;
+  bathrooms: number;
+}
+export interface CameraComodo {
+  room: string;
+  allowed: boolean;
+}
+
+export interface Estado {
   home?: HomeConfiguration;
   remedios: Remedio[];
   contatos: Contato[];
@@ -48,6 +89,17 @@ interface Estado {
   /** A primeira área é a casa: centro do perímetro do mapa. */
   areas: AreaSegura[];
   bengala: PreferenciasBengala;
+  /* Cadastro em 8 passos (todos opcionais: contas antigas não têm) */
+  personName?: string;
+  personPhone?: string;
+  livesAlone?: boolean;
+  residents?: { name: string; relation: string }[];
+  consent?: Consentimento | null;
+  floorPlanSource?: OrigemPlanta;
+  floorPlanTemplate?: ModeloPlanta;
+  cameraRooms?: CameraComodo[];
+  /** 1 a 8: passo do cadastro em andamento; 9: concluído. */
+  onboardingStep?: number;
 }
 
 const exemplo: Estado = {
@@ -211,14 +263,20 @@ function salvar(mudar: (s: Estado) => Estado): Promise<boolean> {
   const operacao = async () => {
     if (g !== auth.generation || carregando || (auth.isLoggedIn() && !pronto))
       return false;
-    const next = mudar(estado);
+    let next = mudar(estado);
     try {
-      if (auth.isLoggedIn())
-        await apiJson("/care/preferences", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(next),
-        });
+      if (auth.isLoggedIn()) {
+        // O servidor devolve a versão normalizada (ex.: data do consentimento, banheiro bloqueado).
+        const salvo = await apiJson<Partial<Estado> | undefined>(
+          "/care/preferences",
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(next),
+          },
+        );
+        if (salvo && typeof salvo === "object") next = { ...vazio(), ...salvo };
+      }
       if (g !== auth.generation) return false;
       estado = next;
       erro = "";
@@ -297,6 +355,8 @@ export const cuidado = {
           }
         : {}),
     })),
+  /** Grava o que um passo do cadastro mudou (e o passo seguinte, em onboardingStep). */
+  salvarCadastro: (patch: Partial<Estado>) => salvar((s) => ({ ...s, ...patch })),
   definirCasa: (home: HomeConfiguration) =>
     salvar((s) => ({
       ...s,

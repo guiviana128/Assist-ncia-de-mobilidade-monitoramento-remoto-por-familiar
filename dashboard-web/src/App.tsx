@@ -13,6 +13,12 @@ import { FamilyCare } from "./components/FamilyCare";
 import { LiveMonitoringView } from "./components/LiveMonitoringView";
 import { HouseView3D } from "./components/HouseView3D";
 import { LoginScreen } from "./components/LoginScreen";
+import { Cadastro } from "./components/cadastro/Cadastro";
+import {
+  cadastroPendente,
+  progresso,
+  useProgresso,
+} from "./components/cadastro/progresso";
 import { InicioView } from "./components/inicio/InicioView";
 import { MonitorarView } from "./components/monitorar/MonitorarView";
 import { MonitoringWorkspace } from "./components/monitorar/MonitoringWorkspace";
@@ -62,6 +68,13 @@ const CROSSFADE = {
   },
 };
 
+/** Fim do cadastro ("Abrir o painel"): crossfade de 400 ms até o Início. */
+const CROSSFADE_FIM = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.4, ease: EASE_MOTION } },
+  exit: { opacity: 0, transition: { duration: saida(0.4), ease: EASE_MOTION } },
+};
+
 /** Troca de aba: o conteúdo novo entra com fade + 8 px para cima (200 ms); o antigo sai só com fade (140 ms). */
 const VISTA = {
   initial: { opacity: 0, y: DESLOCA },
@@ -92,6 +105,8 @@ export const App: React.FC = () => {
   const presentationDemo = presentationMode === "demo";
   const demo = offlineDemo || presentationDemo;
   const preferences = useCuidado();
+  const cadastro = useProgresso();
+  const [vindoDoCadastro, setVindoDoCadastro] = useState(false);
   const [routeDemo, setRouteDemo] = useState(false);
   const [updated, setUpdated] = useState<Date | null>(null);
   const [error, setError] = useState("");
@@ -156,6 +171,29 @@ export const App: React.FC = () => {
     const timer = window.setTimeout(() => setEsqueleto(true), 300);
     return () => window.clearTimeout(timer);
   }, [esperando]);
+
+  // Cadastro salvo nesta aba, mas a sessão não existe mais (ou é de outra conta): começa do login.
+  useEffect(() => {
+    const c = progresso.get();
+    if (c.ativo && c.email && auth.username !== c.email) progresso.cancelar();
+  }, []);
+  useEffect(
+    () =>
+      auth.onChange(() => {
+        if (!auth.isLoggedIn() && progresso.get().email) progresso.cancelar();
+      }),
+    [],
+  );
+  // Cadastro começado em outra aba ou aparelho: retoma do passo salvo no servidor.
+  useEffect(() => {
+    if (
+      !cadastro.ativo &&
+      username &&
+      cuidado.pronto() &&
+      cadastroPendente(preferences.onboardingStep)
+    )
+      progresso.retomar(username, preferences.onboardingStep!);
+  }, [cadastro.ativo, username, preferences.onboardingStep]);
 
   useEffect(
     () =>
@@ -308,13 +346,27 @@ export const App: React.FC = () => {
   // Login ⇄ painel: crossfade (só opacidade, para não criar contêiner de position: fixed)
   return (
     <AnimatePresence mode="wait" initial={false}>
-      {needsLogin ? (
-        <motion.div key="login" {...CROSSFADE}>
-          <LoginScreen
-            onLoggedIn={(firstAccess = false) => {
+      {cadastro.ativo ? (
+        <motion.div key="cadastro" {...CROSSFADE_FIM}>
+          <Cadastro
+            onEntrar={() => setNeedsLogin(!auth.isLoggedIn())}
+            onConcluir={() => {
+              setVindoDoCadastro(true);
               setNeedsLogin(false);
               setLoading(true);
-              setView(firstAccess ? "monitorar" : ABA_PADRAO);
+              setView("inicio");
+              void fetchData();
+            }}
+          />
+        </motion.div>
+      ) : needsLogin ? (
+        <motion.div key="login" {...CROSSFADE}>
+          <LoginScreen
+            onCadastro={(convite) => progresso.iniciar(convite)}
+            onLoggedIn={() => {
+              setNeedsLogin(false);
+              setLoading(true);
+              setView(ABA_PADRAO);
               void fetchData();
             }}
             onContinueDemo={() => {
@@ -327,7 +379,7 @@ export const App: React.FC = () => {
       ) : (
         <motion.div
           key="app"
-          {...CROSSFADE}
+          {...(vindoDoCadastro ? CROSSFADE_FIM : CROSSFADE)}
           className={`app${emergency ? " is-emergencia" : ""}${demo ? " is-demonstracao" : ""}`}
         >
           <a className="skip-link" href="#conteudo">

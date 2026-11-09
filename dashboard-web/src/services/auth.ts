@@ -145,15 +145,23 @@ export const auth = {
     invite: string,
     keepSignedIn = false,
   ): Promise<{
+    username: string;
     deviceId: string;
     robotId: string;
+    /** Vazio para quem entra por convite: a chave fica com quem cadastrou os equipamentos. */
     deviceKey: string;
     recoveryCode: string;
   }> {
     const res = await fetch(`${API_BASE_URL}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, personName, invite }),
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        ...(personName ? { personName } : {}),
+        ...(invite ? { invite } : {}),
+      }),
     });
     if (!res.ok) throw await readError(res, "Não foi possível criar a conta.");
     const body = await res.json();
