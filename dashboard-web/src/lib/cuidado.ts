@@ -356,26 +356,30 @@ export const cuidado = {
         : {}),
     })),
   /** Grava o que um passo do cadastro mudou (e o passo seguinte, em onboardingStep). */
-  salvarCadastro: (patch: Partial<Estado>) => salvar((s) => ({ ...s, ...patch })),
-  definirCasa: (home: HomeConfiguration) =>
-    salvar((s) => ({
-      ...s,
-      home,
-      endereco: `${home.address.street}, ${home.address.number}${home.address.complement ? " · " + home.address.complement : ""} · ${home.address.city} / SP`,
-      areas: [
-        {
-          id: "casa",
-          nome: "Casa",
-          detalhe: "Localização confirmada pela família",
-          lat: home.lat,
-          lng: home.lng,
-          raio: home.radius,
-          ativa: true,
-        },
-        ...s.areas.filter((a) => a.id !== "casa"),
-      ],
-    })),
+  salvarCadastro: (patch: Partial<Estado> | ((s: Estado) => Partial<Estado>)) =>
+    salvar((s) => ({ ...s, ...(typeof patch === "function" ? patch(s) : patch) })),
+  definirCasa: (home: HomeConfiguration) => salvar((s) => comCasa(s, home)),
 };
+/** A casa confirmada vira o endereço do socorro e o centro da primeira área segura. */
+export function comCasa(s: Estado, home: HomeConfiguration): Estado {
+  return {
+    ...s,
+    home,
+    endereco: `${home.address.street}, ${home.address.number}${home.address.complement ? " · " + home.address.complement : ""} · ${home.address.city} / SP`,
+    areas: [
+      {
+        id: "casa",
+        nome: "Casa",
+        detalhe: "Localização confirmada pela família",
+        lat: home.lat,
+        lng: home.lng,
+        raio: home.radius,
+        ativa: true,
+      },
+      ...s.areas.filter((a) => a.id !== "casa"),
+    ],
+  };
+}
 export const useCuidado = () =>
   useSyncExternalStore(cuidado.assinar, cuidado.get);
 /** Próximo remédio de hoje a partir de agora (ou o primeiro de amanhã). */

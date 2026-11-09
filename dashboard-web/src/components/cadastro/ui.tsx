@@ -10,7 +10,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useIsPresent } from "motion/react";
 import { Check } from "lucide-react";
 import { gsap, movimentoReduzido, useGSAP } from "../../motion/gsap";
 import { DUR, EASE_MOTION, saida } from "../../motion/tokens";
@@ -36,10 +36,13 @@ export const RodapeCtx = createContext<(r: Rodape) => void>(() => undefined);
 /** Cada passo diz como o botão principal do rodapé (que fica fora da animação) deve aparecer. */
 export function useRodape(r: Rodape) {
   const definir = useContext(RodapeCtx);
+  // O passo que está saindo (animação de troca) não mexe mais no rodapé do passo novo.
+  const presente = useIsPresent();
   const { rotulo, ocupado, desabilitado, dica, semVoltar } = r;
   useLayoutEffect(() => {
+    if (!presente) return;
     definir({ rotulo, ocupado, desabilitado, dica, semVoltar });
-  }, [definir, rotulo, ocupado, desabilitado, dica, semVoltar]);
+  }, [definir, presente, rotulo, ocupado, desabilitado, dica, semVoltar]);
 }
 
 /* ------------------------------------------------------------------ validação */
@@ -429,15 +432,19 @@ export const Nota: React.FC<{
 export function useSalvarPasso() {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState("");
-  const salvar = async (patch: Partial<Estado>, depois?: () => void) => {
+  const salvar = async (
+    patch: Partial<Estado> | ((s: Estado) => Partial<Estado>),
+    depois?: () => void,
+  ) => {
     if (ocupado) return false;
     setOcupado(true);
     setErro("");
     const proximo = progresso.get().passo + 1;
-    const ok = await cuidado.salvarCadastro({
-      ...patch,
-      ...(progresso.get().soConsentimento ? {} : { onboardingStep: proximo }),
-    });
+    const passo = progresso.get().soConsentimento ? {} : { onboardingStep: proximo };
+    const ok = await cuidado.salvarCadastro((s) => ({
+      ...(typeof patch === "function" ? patch(s) : patch),
+      ...passo,
+    }));
     setOcupado(false);
     if (!ok) {
       setErro(cuidado.erro() || "Não foi possível salvar. Tente de novo.");

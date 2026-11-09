@@ -171,6 +171,39 @@ ul.cad-lista { list-style: none; margin: 0; }
 }
 .cad-termo h2 { font-size: 16px; line-height: 22px; color: var(--texto-principal); }
 
+/* Passo 4: CEP, mapa e pino */
+.cad-cep { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.cad-buscar { margin-top: 28px; min-height: 48px; border-color: var(--borda-padrao); font-size: 15px; font-weight: 700; gap: 8px; }
+.cad-mapa {
+  position: relative; height: 220px; border-radius: 14px; overflow: hidden; isolation: isolate;
+  background: var(--superficie-rebaixada); border: 1px solid var(--borda-padrao);
+  transition: border-color var(--dur-curta) var(--ease);
+}
+.cad-mapa.is-erro { border-color: var(--perigo); border-width: 2px; }
+.cad-mapa-leaflet { width: 100%; height: 100%; font-family: var(--fonte-corpo); background: var(--superficie-rebaixada); }
+.cad-mapa-leaflet .leaflet-control-attribution { font-size: 10px; }
+.cad-mapa-dica {
+  position: absolute; z-index: 500; top: 11px; left: 11px; pointer-events: none;
+  padding: 6px 10px; border-radius: 8px; background: var(--superficie-base);
+  font-size: 12px; line-height: 16px; font-weight: 600; color: var(--texto-principal);
+  box-shadow: 0 1px 2px rgba(15, 23, 41, .08);
+}
+.cad-pino { position: relative; display: grid; place-items: center; width: 64px; height: 64px; cursor: grab; }
+.cad-pino-halo { position: absolute; inset: 0; border-radius: 999px; background: var(--acento); opacity: .18; }
+.cad-pino-casa {
+  position: relative; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px;
+  background: var(--texto-principal); color: var(--texto-invertido); border: 3px solid var(--superficie-base);
+  box-shadow: 0 4px 10px rgba(15, 23, 41, .25);
+}
+/* O pino cai no lugar (450 ms) e o halo se abre uma vez em seguida */
+.cad-pino.is-caindo .cad-pino-casa { animation: cad-pino-cai var(--dur-longa, .45s) var(--ease) both; }
+.cad-pino.is-caindo .cad-pino-halo { animation: cad-pino-halo .6s var(--ease) .3s both; }
+@keyframes cad-pino-cai { from { transform: translateY(-28px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes cad-pino-halo { from { transform: scale(.4); opacity: .4; } to { transform: scale(1); opacity: .18; } }
+@media (prefers-reduced-motion: reduce) {
+  .cad-pino.is-caindo .cad-pino-casa, .cad-pino.is-caindo .cad-pino-halo { animation: none; }
+}
+
 /* Códigos do passo 7 */
 .cad-codigo { display: flex; flex-direction: column; gap: 8px; }
 .cad-codigo-caixa { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; min-height: 64px; border-radius: 12px; background: var(--superficie-rebaixada); }
