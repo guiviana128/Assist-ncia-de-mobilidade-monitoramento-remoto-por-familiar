@@ -6,7 +6,7 @@ import { EASE_MOTION } from "../../motion/tokens";
 import { primeiroNome } from "./regras";
 import {
   ErroSalvar,
-  FORM_PASSO,
+  useIdForm,
   Opcao,
   Segmento,
   TituloPasso,
@@ -54,6 +54,7 @@ const PreviaMapeamento: React.FC = () => {
 
 /** Passo 5 · Planta da casa (Figma 44:3655 / 44:3888). */
 export const PassoPlanta: React.FC = () => {
+  const idForm = useIdForm();
   const prefs = useCuidado();
   const [origem, setOrigem] = useState<OrigemPlanta | null>(prefs.floorPlanSource ?? "ROBOT");
   const [modelo, setModelo] = useState<ModeloPlanta>(
@@ -81,7 +82,7 @@ export const PassoPlanta: React.FC = () => {
   const escolher = (x: OrigemPlanta) => setOrigem(x);
 
   return (
-    <form id={FORM_PASSO} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
+    <form id={idForm} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
       <TituloPasso
         titulo="Como é a casa por dentro?"
         apoio={`A planta mostra em que cômodo ${nome} e o robô estão. Escolha como montá-la.`}

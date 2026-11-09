@@ -8,7 +8,7 @@ import { forcaSenha, validarConta } from "./regras";
 import {
   CaixaSelecao,
   Campo,
-  FORM_PASSO,
+  useIdForm,
   Nota,
   TituloPasso,
   useRodape,
@@ -52,6 +52,7 @@ const BarraForca: React.FC<{ senha: string }> = ({ senha }) => {
 
 /** Passo 1 · Sua conta (Figma 43:3393 / 43:3526). A conta é criada aqui. */
 export const PassoConta: React.FC = () => {
+  const idForm = useIdForm();
   const p = useProgresso();
   const [convite, setConvite] = useState("");
   const [nome, setNome] = useState("");
@@ -75,7 +76,7 @@ export const PassoConta: React.FC = () => {
   if (p.email) {
     return (
       <form
-        id={FORM_PASSO}
+        id={idForm}
         className="cad-form"
         onSubmit={(e) => {
           e.preventDefault();
@@ -128,7 +129,7 @@ export const PassoConta: React.FC = () => {
   };
 
   return (
-    <form id={FORM_PASSO} ref={v.form} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
+    <form id={idForm} ref={v.form} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
       <TituloPasso
         titulo={p.convite ? "Entre na família" : "Crie a conta da família"}
         apoio={

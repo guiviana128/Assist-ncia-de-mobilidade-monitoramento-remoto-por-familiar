@@ -9,7 +9,7 @@ import {
   CaixaSelecao,
   Campo,
   ErroSalvar,
-  FORM_PASSO,
+  useIdForm,
   TituloPasso,
   useRodape,
   useSalvarPasso,
@@ -50,6 +50,7 @@ const Toque: React.FC<{ onPonto: (p: Ponto) => void }> = ({ onPonto }) => {
 
 /** Passo 4 · Endereço (Figma 43:4066 / 43:4220). Reaproveita a busca de CEP e o mapa da configuração da casa. */
 export const PassoEndereco: React.FC = () => {
+  const idForm = useIdForm();
   const prefs = useCuidado();
   const casa = prefs.home;
   const [end, setEnd] = useState<Endereco>({
@@ -162,7 +163,7 @@ export const PassoEndereco: React.FC = () => {
   );
 
   return (
-    <form id={FORM_PASSO} ref={v.form} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
+    <form id={idForm} ref={v.form} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
       <TituloPasso
         titulo="Onde fica a casa?"
         apoio="O endereço aparece para o SAMU e marca a área segura principal."

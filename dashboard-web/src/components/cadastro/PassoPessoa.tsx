@@ -16,7 +16,7 @@ import {
 import {
   Campo,
   ErroSalvar,
-  FORM_PASSO,
+  useIdForm,
   Nota,
   Segmento,
   TituloPasso,
@@ -45,6 +45,7 @@ const LINHA = {
 
 /** Passo 2 · Quem você acompanha (Figma 43:3592 / 43:3739). */
 export const PassoPessoa: React.FC = () => {
+  const idForm = useIdForm();
   const prefs = useCuidado();
   const [nome, setNome] = useState(prefs.personName ?? "");
   const [telefone, setTelefone] = useState(
@@ -108,7 +109,7 @@ export const PassoPessoa: React.FC = () => {
   const erroMorador = errosNovo.moradorNome ?? v.erros.moradorNome;
 
   return (
-    <form id={FORM_PASSO} ref={v.form} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
+    <form id={idForm} ref={v.form} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
       <TituloPasso
         titulo="Quem você vai acompanhar?"
         apoio="Esses dados aparecem nos botões de ligação e ajudam a decidir quem avisar primeiro."

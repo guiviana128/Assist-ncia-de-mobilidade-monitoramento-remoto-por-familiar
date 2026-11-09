@@ -10,7 +10,7 @@ import {
   CaixaSelecao,
   Campo,
   ErroSalvar,
-  FORM_PASSO,
+  useIdForm,
   Opcao,
   TituloPasso,
   useRodape,
@@ -36,6 +36,7 @@ const ITEM = {
 
 /** Passo 3 · Consentimento (Figma 43:3817 / 43:3977). Também é aberto pelo painel quando falta o aceite. */
 export const PassoConsentimento: React.FC = () => {
+  const idForm = useIdForm();
   const p = useProgresso();
   const prefs = useCuidado();
   const { concluir } = useContext(CadastroCtx);
@@ -79,7 +80,7 @@ export const PassoConsentimento: React.FC = () => {
   };
 
   return (
-    <form id={FORM_PASSO} ref={v.form} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
+    <form id={idForm} ref={v.form} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
       <TituloPasso
         titulo={`${nome} precisa concordar`}
         apoio="Leia com ele, ou para ele, o que o Amparo acompanha. Sem esse aceite o monitoramento não começa."

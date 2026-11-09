@@ -7,7 +7,7 @@ import { cuidado, useCuidado } from "../../lib/cuidado";
 import { DUR, EASE_MOTION, saida } from "../../motion/tokens";
 import { progresso, useProgresso, type Acesso } from "./progresso";
 import { encurtar } from "./regras";
-import { CaixaSelecao, FORM_PASSO, TituloPasso, useRodape } from "./ui";
+import { CaixaSelecao, useIdForm, TituloPasso, useRodape } from "./ui";
 
 /** "Copiar" vira "Copiado" com um check desenhado por 2 s. */
 const BotaoCopiar: React.FC<{ valor: string; rotulo: string }> = ({ valor, rotulo }) => {
@@ -132,6 +132,7 @@ const FolhaImpressao: React.FC<{ acesso: Acesso; email: string | null; pessoa?: 
 
 /** Passo 7 · Guardar o acesso (Figma 44:4493 / 44:4729). */
 export const PassoAcesso: React.FC = () => {
+  const idForm = useIdForm();
   const p = useProgresso();
   const prefs = useCuidado();
   const [acesso, setAcesso] = useState<Acesso | null>(() => progresso.acesso());
@@ -194,7 +195,7 @@ export const PassoAcesso: React.FC = () => {
   };
 
   return (
-    <form id={FORM_PASSO} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
+    <form id={idForm} className="cad-form" noValidate onSubmit={(e) => void enviar(e)}>
       <TituloPasso
         titulo="Guarde o acesso da família"
         apoio="Estes códigos aparecem só agora. Sem o código de recuperação não dá para voltar à conta se a senha for esquecida."

@@ -226,6 +226,10 @@ ul.cad-lista { list-style: none; margin: 0; }
 .cad-modelo { display: flex; flex-direction: column; gap: 16px; }
 @media (prefers-reduced-motion: reduce) { .cad-previa-onda { animation: none; } }
 
+/* Passo 6: preferência com interruptor */
+.cad-preferencia { display: flex; align-items: center; gap: 12px; }
+.cad-item .interruptor { margin-left: 4px; }
+
 /* Códigos do passo 7 */
 .cad-codigo { display: flex; flex-direction: column; gap: 8px; }
 .cad-codigo-caixa { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; min-height: 64px; border-radius: 12px; background: var(--superficie-rebaixada); }

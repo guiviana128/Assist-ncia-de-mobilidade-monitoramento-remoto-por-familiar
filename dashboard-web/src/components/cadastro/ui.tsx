@@ -20,6 +20,14 @@ import type { Erros } from "./regras";
 
 export const FORM_PASSO = "cadastro-passo";
 
+/**
+ * id do formulário do passo. Na troca de passo o antigo fica na tela por 300 ms saindo: ele perde
+ * o id, para o "Continuar" (fora da animação, form="cadastro-passo") nunca enviar o passo errado.
+ */
+export function useIdForm() {
+  return useIsPresent() ? FORM_PASSO : undefined;
+}
+
 /* ------------------------------------------------------------------ rodapé */
 
 export interface Rodape {
