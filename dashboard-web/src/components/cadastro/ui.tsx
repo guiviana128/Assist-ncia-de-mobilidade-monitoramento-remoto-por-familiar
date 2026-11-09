@@ -14,6 +14,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { Check } from "lucide-react";
 import { gsap, movimentoReduzido, useGSAP } from "../../motion/gsap";
 import { DUR, EASE_MOTION, saida } from "../../motion/tokens";
+import { cuidado, type Estado } from "../../lib/cuidado";
+import { progresso } from "./progresso";
 import type { Erros } from "./regras";
 
 export const FORM_PASSO = "cadastro-passo";
@@ -416,4 +418,69 @@ export const Nota: React.FC<{
     <span aria-hidden="true">{icone}</span>
     <p>{children}</p>
   </div>
+);
+
+/* ------------------------------------------------------------------ salvar o passo */
+
+/**
+ * Grava o que o passo mudou junto com o passo seguinte (onboardingStep) e avança.
+ * Outra aba ou aparelho retoma do passo salvo.
+ */
+export function useSalvarPasso() {
+  const [ocupado, setOcupado] = useState(false);
+  const [erro, setErro] = useState("");
+  const salvar = async (patch: Partial<Estado>, depois?: () => void) => {
+    if (ocupado) return false;
+    setOcupado(true);
+    setErro("");
+    const proximo = progresso.get().passo + 1;
+    const ok = await cuidado.salvarCadastro({
+      ...patch,
+      ...(progresso.get().soConsentimento ? {} : { onboardingStep: proximo }),
+    });
+    setOcupado(false);
+    if (!ok) {
+      setErro(cuidado.erro() || "Não foi possível salvar. Tente de novo.");
+      return false;
+    }
+    (depois ?? progresso.avancar)();
+    return true;
+  };
+  return { ocupado, erro, salvar };
+}
+
+export const ErroSalvar: React.FC<{ erro: string }> = ({ erro }) => (
+  <AnimatePresence initial={false}>
+    {erro && (
+      <motion.div
+        key="erro"
+        className="cad-nota is-perigo"
+        role="alert"
+        initial={{ opacity: 0, y: -4 }}
+        animate={{ opacity: 1, y: 0, transition: { duration: DUR.curta, ease: EASE_MOTION } }}
+        exit={{ opacity: 0, transition: { duration: saida(DUR.curta) } }}
+      >
+        <p>{erro}</p>
+      </motion.div>
+    )}
+  </AnimatePresence>
+);
+
+/* ------------------------------------------------------------------ interruptor */
+
+export const Interruptor: React.FC<{
+  ligado: boolean;
+  onMudar: (v: boolean) => void;
+  rotulo: string;
+  id?: string;
+}> = ({ ligado, onMudar, rotulo, id }) => (
+  <button
+    id={id}
+    type="button"
+    className="interruptor"
+    role="switch"
+    aria-checked={ligado}
+    aria-label={rotulo}
+    onClick={() => onMudar(!ligado)}
+  />
 );

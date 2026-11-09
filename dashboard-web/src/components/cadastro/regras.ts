@@ -133,7 +133,7 @@ export function validarPessoa(p: {
   const e: Erros = {};
   if (vazio(p.nome)) e.nome = "Informe o nome de quem você vai acompanhar.";
   else if (p.nome.length > MAX_NOME) e.nome = "Use até 100 caracteres.";
-  if (vazio(p.telefone)) e.telefone = "Informe o telefone dele.";
+  if (vazio(p.telefone)) e.telefone = "Informe o telefone.";
   else if (!telefoneValido(p.telefone))
     e.telefone = "Use DDD e número, ex.: (11) 98123-4567.";
   if (p.moraSozinho === null) e.moraSozinho = "Escolha uma opção.";
@@ -181,6 +181,59 @@ export function validarContato(c: {
     e.contatoTelefone = "Use DDD e número, ex.: (11) 98765-4321.";
   return e;
 }
+
+export interface Endereco {
+  cep: string;
+  street: string;
+  number: string;
+  complement: string;
+  district: string;
+  city: string;
+}
+
+/** CEP com máscara 00000-000. */
+export function formatarCep(valor: string): string {
+  const d = soDigitos(valor).slice(0, 8);
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+}
+
+/** Mesmo limite do backend: a casa precisa estar no estado de São Paulo. */
+export const pontoEmSP = (lat: number, lng: number) =>
+  Number.isFinite(lat) &&
+  Number.isFinite(lng) &&
+  lat >= -25.5 &&
+  lat <= -19.5 &&
+  lng >= -53.5 &&
+  lng <= -44;
+
+export function validarEndereco(
+  a: Endereco,
+  ponto: { lat: number; lng: number } | null,
+  confirmado: boolean,
+): Erros {
+  const e: Erros = {};
+  if (vazio(a.cep)) e.cep = "Informe o CEP.";
+  else if (soDigitos(a.cep).length !== 8) e.cep = "O CEP tem 8 números, ex.: 01310-100.";
+  if (vazio(a.street)) e.street = "Informe a rua.";
+  else if (a.street.length > 100) e.street = "Use até 100 caracteres.";
+  if (vazio(a.number)) e.number = "Informe o número (ou s/n).";
+  else if (a.number.length > 15) e.number = "Use até 15 caracteres.";
+  if (a.complement.length > 60) e.complement = "Use até 60 caracteres.";
+  if (a.district.length > 60) e.district = "Use até 60 caracteres.";
+  if (vazio(a.city)) e.city = "Informe a cidade.";
+  else if (a.city.length > 60) e.city = "Use até 60 caracteres.";
+  if (!ponto) e.mapa = "Busque o CEP ou toque no mapa para marcar a casa.";
+  else if (!pontoEmSP(ponto.lat, ponto.lng))
+    e.mapa = "Por enquanto o Amparo atende só o estado de São Paulo.";
+  else if (!confirmado) e.confirmado = "Confira o pino e marque a confirmação.";
+  return e;
+}
+
+/** Id do contato da família criado no passo 6 (o primeiro a ser avisado). */
+export const ID_PRIMEIRO_CONTATO = "familia-1";
+
+/** Cômodos que a câmera pode filmar quando a família ainda não escolheu. */
+export const CAMERA_PADRAO = new Set(["sala", "cozinha"]);
 
 /** O banheiro (e o lavabo) nunca é filmado. O servidor também força isso. */
 export const ehBanheiro = (id: string) =>

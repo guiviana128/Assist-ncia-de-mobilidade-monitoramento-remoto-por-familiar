@@ -143,6 +143,24 @@
 .cad-item-textos span { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--texto-secundario); }
 .cad-bloqueado { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; line-height: 18px; font-weight: 600; color: var(--texto-secundario); }
 
+/* Bloco que abre e fecha animando a altura (moradores, responsável, termo) */
+.cad-colapso { overflow: clip; overflow-clip-margin: 4px; }
+
+/* Passo 2: moradores */
+.cad-moradores {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px;
+  background: var(--superficie-base); border: 1px solid var(--borda-padrao);
+}
+.cad-moradores-titulo { font-size: 15px; line-height: 20px; font-weight: 700; }
+.cad-moradores-lista { display: flex; flex-direction: column; list-style: none; padding: 0; margin: 0; }
+.cad-morador { display: flex; align-items: center; gap: 12px; padding: 2px 0 6px; }
+.cad-morador-avatar {
+  display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; border-radius: 999px;
+  background: var(--pessoa-suave); color: var(--pessoa); font-size: 13px; line-height: 18px; font-weight: 700;
+}
+.cad-remover { width: 36px; height: 36px; border-radius: 10px; color: var(--texto-secundario); }
+.cad-adicionar { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 4px; font-size: 15px; font-weight: 700; }
+
 /* Códigos do passo 7 */
 .cad-codigo { display: flex; flex-direction: column; gap: 8px; }
 .cad-codigo-caixa { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; min-height: 64px; border-radius: 12px; background: var(--superficie-rebaixada); }
