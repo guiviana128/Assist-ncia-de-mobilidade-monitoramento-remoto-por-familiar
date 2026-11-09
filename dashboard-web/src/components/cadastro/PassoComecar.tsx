@@ -3,8 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Activity, Bot, Home, RotateCcw, ShieldCheck, Video } from "lucide-react";
 import { apiJson } from "../../services/auth";
 import { presentation } from "../../services/presentation";
-import { useCuidado } from "../../lib/cuidado";
-import { FALLBACK_LAYOUT } from "../../robot/houseLayout";
+import { plantaDaFamilia, useCuidado } from "../../lib/cuidado";
 import { DUR, EASE_MOTION, saida } from "../../motion/tokens";
 import { CadastroCtx } from "./Cadastro";
 import { useProgresso } from "./progresso";
@@ -89,7 +88,7 @@ export const PassoComecar: React.FC = () => {
     };
   }, []);
 
-  const nomes = new Map(FALLBACK_LAYOUT.rooms.map((r) => [r.id, r.name]));
+  const nomes = new Map(plantaDaFamilia(prefs).rooms.map((r) => [r.id, r.name]));
   const comodosCamera = (prefs.cameraRooms ?? []).filter((c) => c.allowed).map((c) => nomes.get(c.room) ?? c.room);
   const pessoa = prefs.personName?.trim() || "da família";
 

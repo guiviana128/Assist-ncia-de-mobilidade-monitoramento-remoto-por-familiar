@@ -34,6 +34,13 @@ final class OnboardingPreferences {
   private static final java.util.Map<String, String> PUBLIC_CONTACTS =
       java.util.Map.of("samu", "192", "bombeiros", "193");
 
+  /** Só para converter a planta (records) e conferir o formato. */
+  private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
+      new com.fasterxml.jackson.databind.ObjectMapper()
+          .configure(
+              com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+              false);
+
   private OnboardingPreferences() {}
 
   /**
@@ -176,6 +183,7 @@ final class OnboardingPreferences {
   private static void normalizeFloorPlan(ObjectNode body) {
     if (!body.hasNonNull("floorPlanSource")) {
       body.remove("floorPlanTemplate");
+      body.remove("floorPlanLayout");
       return;
     }
     String source = body.get("floorPlanSource").asText();
@@ -183,7 +191,21 @@ final class OnboardingPreferences {
       throw new IllegalArgumentException("Campo inválido: floorPlanSource");
     if (!source.equals("TEMPLATE")) {
       body.remove("floorPlanTemplate");
+      body.remove("floorPlanLayout");
       return;
+    }
+    // Planta gerada pelo painel a partir do modelo: conferida e reescrita só com os campos conhecidos.
+    if (body.hasNonNull("floorPlanLayout")) {
+      com.assistmob.dto.HouseLayoutDTO layout;
+      try {
+        layout =
+            MAPPER.treeToValue(body.get("floorPlanLayout"), com.assistmob.dto.HouseLayoutDTO.class);
+      } catch (Exception e) {
+        throw new IllegalArgumentException("Planta inválida");
+      }
+      body.set(
+          "floorPlanLayout",
+          MAPPER.valueToTree(com.assistmob.service.HouseLayoutService.validate(layout)));
     }
     var t = body.path("floorPlanTemplate");
     if (!t.isObject()

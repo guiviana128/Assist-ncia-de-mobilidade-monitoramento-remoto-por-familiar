@@ -4,6 +4,8 @@
 import { useSyncExternalStore } from "react";
 import { auth, apiJson } from "../services/auth";
 import type { HomeConfiguration } from "./monitoring";
+import type { HouseLayout } from "../types/robot";
+import { FALLBACK_LAYOUT, layoutDoModelo } from "../robot/houseLayout";
 
 export interface Remedio {
   id: number;
@@ -97,6 +99,8 @@ export interface Estado {
   consent?: Consentimento | null;
   floorPlanSource?: OrigemPlanta;
   floorPlanTemplate?: ModeloPlanta;
+  /** Planta gerada a partir do modelo (passo 5). O backend devolve esta em /house/layout. */
+  floorPlanLayout?: HouseLayout;
   cameraRooms?: CameraComodo[];
   /** 1 a 8: passo do cadastro em andamento; 9: concluído. */
   onboardingStep?: number;
@@ -379,6 +383,14 @@ export function comCasa(s: Estado, home: HomeConfiguration): Estado {
       ...s.areas.filter((a) => a.id !== "casa"),
     ],
   };
+}
+/**
+ * Planta que a família escolheu no passo 5: a gerada pelo modelo ou, sem modelo, a de exemplo.
+ * (Mapear com o robô usa a de exemplo até o robô mapear a casa.)
+ */
+export function plantaDaFamilia(s: Pick<Estado, "floorPlanSource" | "floorPlanTemplate" | "floorPlanLayout">): HouseLayout {
+  if (s.floorPlanSource !== "TEMPLATE") return FALLBACK_LAYOUT;
+  return s.floorPlanLayout ?? (s.floorPlanTemplate ? layoutDoModelo(s.floorPlanTemplate) : FALLBACK_LAYOUT);
 }
 export const useCuidado = () =>
   useSyncExternalStore(cuidado.assinar, cuidado.get);

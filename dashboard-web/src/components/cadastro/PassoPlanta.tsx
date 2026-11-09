@@ -4,6 +4,7 @@ import { Bot, Home, LayoutPanelLeft } from "lucide-react";
 import { useCuidado, type ModeloPlanta, type OrigemPlanta } from "../../lib/cuidado";
 import { EASE_MOTION } from "../../motion/tokens";
 import { primeiroNome } from "./regras";
+import { layoutDoModelo } from "../../robot/houseLayout";
 import {
   ErroSalvar,
   useIdForm,
@@ -76,6 +77,8 @@ export const PassoPlanta: React.FC = () => {
     await s.salvar({
       floorPlanSource: origem,
       floorPlanTemplate: origem === "TEMPLATE" ? modelo : undefined,
+      // A planta gerada vai junto: câmera (passo 6), Início, Casa 3D e robô usam esta.
+      floorPlanLayout: origem === "TEMPLATE" ? layoutDoModelo(modelo) : undefined,
     });
   };
 
@@ -147,6 +150,9 @@ export const PassoPlanta: React.FC = () => {
                 />
               </div>
             </div>
+            <p className="texto-pequeno" aria-live="polite">
+              Cômodos: {layoutDoModelo(modelo).rooms.map((r) => r.name).join(", ")}.
+            </p>
           </div>
         </Opcao>
         <Opcao

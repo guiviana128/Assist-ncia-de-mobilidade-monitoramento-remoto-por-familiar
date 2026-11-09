@@ -24,9 +24,17 @@ public class RobotController {
   private final HouseLayoutService houseLayoutService;
   private final com.assistmob.family.FamilyAccess access;
 
+  /** Planta da família logada (a montada pelo modelo no cadastro) ou a de exemplo. */
   @GetMapping("/api/v1/house/layout")
   public HouseLayoutDTO getLayout() {
-    return houseLayoutService.getLayout();
+    String family;
+    try {
+      family = access.family();
+    } catch (RuntimeException notAFamily) {
+      // Equipamentos e demonstração sem conta usam a planta de exemplo.
+      return houseLayoutService.getLayout();
+    }
+    return houseLayoutService.forFamily(family);
   }
 
   @GetMapping("/api/v1/robot")

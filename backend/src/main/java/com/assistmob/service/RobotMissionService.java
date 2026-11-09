@@ -89,8 +89,9 @@ public class RobotMissionService {
             .orElse(null);
     Snapshot snapshot = states.get(robotId);
 
+    var layout = houseLayoutService.forRobot(robotId);
     if (snapshot == null) {
-      Point dock = houseLayoutService.getLayout().dock();
+      Point dock = layout.dock();
       return new RobotStateDTO(
           robotId,
           false,
@@ -98,7 +99,7 @@ public class RobotMissionService {
           dock.y(),
           0.0,
           RobotMode.OFFLINE,
-          roomIdAt(dock.x(), dock.y()),
+          roomIdAt(layout, dock.x(), dock.y()),
           null,
           null,
           "Aguardando conexão do robô",
@@ -117,7 +118,7 @@ public class RobotMissionService {
         s.y(),
         s.yaw(),
         online ? s.mode() : RobotMode.OFFLINE,
-        roomIdAt(s.x(), s.y()),
+        roomIdAt(layout, s.x(), s.y()),
         s.batteryPercent(),
         s.nearestObstacleM(),
         s.navStatus(),
@@ -145,11 +146,11 @@ public class RobotMissionService {
             .requestedBy(requestedBy)
             .reason(cleanText(request.reason(), defaultReason(request.type())));
 
+    var layout = houseLayoutService.forRobot(robotId);
     switch (request.type()) {
       case GO_TO_ROOM -> {
         Room room =
-            houseLayoutService
-                .findRoom(request.targetRoom())
+            HouseLayoutService.findRoom(layout, request.targetRoom())
                 .orElseThrow(
                     () ->
                         new IllegalArgumentException(
@@ -160,17 +161,17 @@ public class RobotMissionService {
         if (request.targetX() == null || request.targetY() == null) {
           throw new IllegalArgumentException("Informe targetX e targetY para ir até um ponto.");
         }
-        if (!houseLayoutService.isInsideHouse(request.targetX(), request.targetY())) {
+        if (HouseLayoutService.roomAt(layout, request.targetX(), request.targetY()).isEmpty()) {
           throw new IllegalArgumentException("O ponto escolhido está fora da planta da casa.");
         }
         builder
             .targetX(request.targetX())
             .targetY(request.targetY())
-            .targetRoom(roomIdAt(request.targetX(), request.targetY()));
+            .targetRoom(roomIdAt(layout, request.targetX(), request.targetY()));
       }
       case RETURN_TO_DOCK -> {
-        Point dock = houseLayoutService.getLayout().dock();
-        builder.targetX(dock.x()).targetY(dock.y()).targetRoom(roomIdAt(dock.x(), dock.y()));
+        Point dock = layout.dock();
+        builder.targetX(dock.x()).targetY(dock.y()).targetRoom(roomIdAt(layout, dock.x(), dock.y()));
       }
       case PATROL -> {
         // A rota de patrulha fica no próprio robô (house_layout.PATROL_ROUTE)
@@ -274,16 +275,18 @@ public class RobotMissionService {
       return;
     }
 
+    var layout = houseLayoutService.forDevice(alert.getDeviceId());
     Room room =
         Optional.ofNullable(alert.getIndoorRoom())
-            .flatMap(houseLayoutService::findRoom)
+            .flatMap(id -> HouseLayoutService.findRoom(layout, id))
             .or(
                 () ->
                     personLocationTracker
                         .lastSighting(alert.getDeviceId())
-                        .flatMap(sighting -> houseLayoutService.findRoom(sighting.roomId())))
-            .or(() -> houseLayoutService.findRoom(defaultPersonRoom))
-            .orElseThrow(() -> new IllegalStateException("Planta sem cômodo padrão"));
+                        .flatMap(sighting -> HouseLayoutService.findRoom(layout, sighting.roomId())))
+            .or(() -> HouseLayoutService.findRoom(layout, defaultPersonRoom))
+            .or(() -> layout.rooms().stream().findFirst())
+            .orElseThrow(() -> new IllegalStateException("Planta sem cômodos"));
 
     RobotMission mission =
         missionRepository.save(
@@ -313,7 +316,10 @@ public class RobotMissionService {
 
   private void notifyFamily(RobotMission mission, boolean success) {
     String roomName =
-        houseLayoutService.findRoom(mission.getTargetRoom()).map(Room::name).orElse("cômodo");
+        HouseLayoutService.findRoom(
+                houseLayoutService.forRobot(mission.getRobotId()), mission.getTargetRoom())
+            .map(Room::name)
+            .orElse("cômodo");
     String deviceId = mission.getDeviceId() != null ? mission.getDeviceId() : mission.getRobotId();
     alertService.createAlert(
         AlertRequestDTO.builder()
@@ -365,8 +371,8 @@ public class RobotMissionService {
     mission.setResultMessage(message);
   }
 
-  private String roomIdAt(double x, double y) {
-    return houseLayoutService.roomAt(x, y).map(Room::id).orElse(null);
+  private static String roomIdAt(com.assistmob.dto.HouseLayoutDTO layout, double x, double y) {
+    return HouseLayoutService.roomAt(layout, x, y).map(Room::id).orElse(null);
   }
 
   private static String describe(AlertType type) {

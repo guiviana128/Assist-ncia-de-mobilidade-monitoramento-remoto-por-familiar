@@ -68,8 +68,8 @@ public class AlertService {
             .longitude(dto.getLongitude())
             .batteryLevel(dto.getBatteryLevel())
             .indoorRoom(
-                houseLayoutService
-                    .findRoom(dto.getIndoorRoom())
+                HouseLayoutService.findRoom(
+                        houseLayoutService.forDevice(dto.getDeviceId()), dto.getIndoorRoom())
                     .map(room -> room.id())
                     .orElse(null))
             .createdAt(LocalDateTime.now())

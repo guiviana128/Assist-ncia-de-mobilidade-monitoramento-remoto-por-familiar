@@ -42,6 +42,7 @@ import type { EstadoConexao } from "./components/ui/StatusConexao";
 import { auth, AuthRequiredError } from "./services/auth";
 import { api } from "./services/api";
 import { useRobo } from "./hooks/useRobo";
+import { layoutDoModelo } from "./robot/houseLayout";
 import { ATE_TABLET, CELULAR, useMediaQuery } from "./hooks/useMediaQuery";
 import {
   comodoCurto,
@@ -131,7 +132,26 @@ export const App: React.FC = () => {
       (!cuidado.pronto() ||
         (!cadastroPendente(preferences.onboardingStep) && passoLegado === null)));
   const painelAtivo = !needsLogin && !cadastro.ativo && prefsDecididas;
-  const robo = useRobo(painelAtivo);
+  // Muda quando a família troca a planta (passo 5 ou migração abaixo): o Início busca de novo.
+  const chavePlanta = `${preferences.floorPlanSource ?? ""}:${preferences.floorPlanLayout?.name ?? ""}`;
+  const robo = useRobo(painelAtivo, chavePlanta);
+
+  // Famílias que escolheram "Montar por um modelo" antes da planta gerada: gera e salva uma vez.
+  const migrouPlanta = useRef<string | null>(null);
+  useEffect(() => {
+    const t = preferences.floorPlanTemplate;
+    if (
+      !username ||
+      !cuidado.pronto() ||
+      preferences.floorPlanSource !== "TEMPLATE" ||
+      !t ||
+      preferences.floorPlanLayout ||
+      migrouPlanta.current === username
+    )
+      return;
+    migrouPlanta.current = username;
+    void cuidado.salvarCadastro({ floorPlanLayout: layoutDoModelo(t) });
+  }, [username, preferences.floorPlanSource, preferences.floorPlanTemplate, preferences.floorPlanLayout]);
 
   const fetchData = useCallback(async () => {
     if (busy.current) return;
@@ -526,6 +546,7 @@ export const App: React.FC = () => {
                       <ConfiguracoesView
                         deviceId={device.deviceId}
                         pessoa={pessoa}
+                        layout={robo.layout}
                       />
                       {!offlineDemo && (
                         <FamilyCare deviceId={device.deviceId} />

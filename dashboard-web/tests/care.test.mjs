@@ -38,6 +38,14 @@ test("failed preference loading cannot overwrite existing care data", async () =
       },
       { context },
     ),
+    "../robot/houseLayout": new vm.SyntheticModule(
+      ["FALLBACK_LAYOUT", "layoutDoModelo"],
+      function () {
+        this.setExport("FALLBACK_LAYOUT", { name: "exemplo", rooms: [] });
+        this.setExport("layoutDoModelo", (m) => ({ name: `modelo ${m.bedrooms}q`, rooms: [] }));
+      },
+      { context },
+    ),
     "../services/auth": new vm.SyntheticModule(
       ["auth", "apiJson"],
       function () {
@@ -59,6 +67,11 @@ test("failed preference loading cannot overwrite existing care data", async () =
   await mod.link((name) => dependencies[name]);
   await mod.evaluate();
   const care = mod.namespace.cuidado;
+  // Planta da família: a gerada pelo modelo (ou gerada na hora), senão a de exemplo.
+  const planta = mod.namespace.plantaDaFamilia;
+  assert.equal(planta({ floorPlanSource: "EXAMPLE" }).name, "exemplo");
+  assert.equal(planta({ floorPlanSource: "TEMPLATE", floorPlanTemplate: { kind: "HOUSE", bedrooms: 2, bathrooms: 1 } }).name, "modelo 2q");
+  assert.equal(planta({ floorPlanSource: "TEMPLATE", floorPlanLayout: { name: "salva" } }).name, "salva");
   await care.recarregar();
   assert.equal(care.pronto(), false);
   const home = {

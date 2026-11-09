@@ -68,7 +68,9 @@ public class TelemetryService {
     Telemetry saved = telemetryRepository.save(telemetry);
 
     String indoorRoom =
-        houseLayoutService.findRoom(dto.getIndoorRoom()).map(room -> room.id()).orElse(null);
+        HouseLayoutService.findRoom(houseLayoutService.forDevice(dto.getDeviceId()), dto.getIndoorRoom())
+            .map(room -> room.id())
+            .orElse(null);
     personLocationTracker.update(dto.getDeviceId(), indoorRoom);
 
     // 2. Atualizar status instantâneo do dispositivo

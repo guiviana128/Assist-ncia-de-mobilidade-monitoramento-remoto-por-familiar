@@ -1,15 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Lock, Phone, Video, VideoOff } from "lucide-react";
 import {
   BOMBEIROS,
   CONTATOS_PUBLICOS,
+  plantaDaFamilia,
   SAMU,
   useCuidado,
   type Contato,
 } from "../../lib/cuidado";
-import { FALLBACK_LAYOUT } from "../../robot/houseLayout";
-import { robotApi } from "../../services/robotApi";
 import { DUR, EASE_MOTION, saida } from "../../motion/tokens";
 import {
   CAMERA_PADRAO,
@@ -64,8 +63,10 @@ export const PassoAvisos: React.FC = () => {
   const [parentesco, setParentesco] = useState(primeiro?.papel.split(" · ")[0] ?? "");
   const [telefone, setTelefone] = useState(primeiro ? formatarTelefone(primeiro.telefone) : "");
   const [avisos, setAvisos] = useState(primeiro?.avisos ?? true);
-  const [comodos, setComodos] = useState<Comodo[]>(() =>
-    ordenar(FALLBACK_LAYOUT.rooms.map((r) => ({ id: r.id, nome: r.name }))),
+  // Cômodos da planta escolhida no passo 5 (modelo ou exemplo).
+  const comodos = useMemo(
+    () => ordenar(plantaDaFamilia(prefs).rooms.map((r) => ({ id: r.id, nome: r.name }))),
+    [prefs],
   );
   const [camera, setCamera] = useState<Record<string, boolean>>(() =>
     Object.fromEntries((prefs.cameraRooms ?? []).map((c) => [c.room, c.allowed])),
@@ -75,20 +76,6 @@ export const PassoAvisos: React.FC = () => {
   const pessoa = primeiroNome(prefs.personName ?? "", "ele");
 
   useRodape({ rotulo: s.ocupado ? "Salvando…" : "Continuar", ocupado: s.ocupado });
-
-  // Cômodos da planta da família (uma consulta; sem polling).
-  useEffect(() => {
-    let vivo = true;
-    robotApi
-      .getLayout()
-      .then((l) => {
-        if (vivo && l.rooms.length) setComodos(ordenar(l.rooms.map((r) => ({ id: r.id, nome: r.name }))));
-      })
-      .catch(() => undefined);
-    return () => {
-      vivo = false;
-    };
-  }, []);
 
   const pode = (id: string) => !ehBanheiro(id) && (camera[id] ?? CAMERA_PADRAO.has(id));
 

@@ -8,7 +8,7 @@ import {
   Tooltip,
 } from "react-leaflet";
 import L from "leaflet";
-import { Activity, Info, MapPin, Phone, Pill, Plus, X } from "lucide-react";
+import { Activity, Home, Info, Lock, MapPin, Phone, Pill, Plus, X } from "lucide-react";
 
 import {
   CONTATOS_PUBLICOS,
@@ -16,7 +16,8 @@ import {
   useCuidado,
   type PreferenciasBengala,
 } from "../../lib/cuidado";
-import { iniciais } from "../cadastro/regras";
+import { CAMERA_PADRAO, ehBanheiro, iniciais } from "../cadastro/regras";
+import type { HouseLayout } from "../../types/robot";
 import { CELULAR, useMediaQuery } from "../../hooks/useMediaQuery";
 import { gsap, movimentoReduzido, useGSAP } from "../../motion/gsap";
 import { DUR, EASE_MOTION, saida } from "../../motion/tokens";
@@ -57,12 +58,15 @@ const CheckDesenhado: React.FC = () => {
 interface ConfiguracoesViewProps {
   deviceId: string;
   pessoa: string;
+  /** Planta da família (a montada pelo modelo no cadastro ou a de exemplo). */
+  layout: HouseLayout;
 }
 
 const SECOES = [
   { id: "remedios", rotulo: "Remédios", Icone: Pill },
   { id: "contatos", rotulo: "Contatos de emergência", Icone: Phone },
   { id: "areas", rotulo: "Áreas seguras", Icone: MapPin },
+  { id: "casa", rotulo: "Casa e câmera", Icone: Home },
   { id: "bengala", rotulo: "Bengala", Icone: Activity },
 ] as const;
 
@@ -101,9 +105,20 @@ const Interruptor: React.FC<{
 export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
   deviceId,
   pessoa,
+  layout,
 }) => {
   const celular = useMediaQuery(CELULAR);
-  const { remedios, contatos, areas, bengala } = useCuidado();
+  const { remedios, contatos, areas, bengala, cameraRooms, floorPlanSource } = useCuidado();
+  const cameraPode = (id: string) =>
+    !ehBanheiro(id) &&
+    (cameraRooms?.find((c) => c.room === id)?.allowed ?? CAMERA_PADRAO.has(id));
+  const alternarCamera = (id: string) =>
+    void cuidado.salvarCadastro({
+      cameraRooms: layout.rooms.map((r) => ({
+        room: r.id,
+        allowed: r.id === id ? !cameraPode(id) : cameraPode(r.id),
+      })),
+    });
   const [secao, setSecao] = useState<string>("remedios");
   const [novo, setNovo] = useState<{ nome: string; hora: string } | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -482,6 +497,57 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
           </section>
 
           {/* Bengala */}
+          {/* Casa e câmera: cômodos da planta da família */}
+          <section
+            id="cfg-casa"
+            className="painel config-secao"
+            aria-labelledby="t-casa"
+          >
+            <div className="config-cabecalho">
+              <div>
+                <h2 id="t-casa" className="titulo-painel">
+                  Casa e câmera
+                </h2>
+                <p className="texto-pequeno">
+                  {floorPlanSource === "TEMPLATE"
+                    ? `Planta montada pelo modelo: ${layout.name}.`
+                    : floorPlanSource === "ROBOT"
+                      ? "A planta real chega quando o robô mapear a casa. Até lá, a de exemplo."
+                      : "Planta de exemplo, com 5 cômodos."}{" "}
+                  Escolha onde a câmera pode reconhecer o gesto de socorro.
+                </p>
+              </div>
+            </div>
+            <ul className="config-lista">
+              {layout.rooms.map((r) => (
+                <li key={r.id} className="pref">
+                  <span className="config-textos">
+                    <strong>{r.name}</strong>
+                    <span>
+                      {ehBanheiro(r.id)
+                        ? "Nunca é filmado"
+                        : cameraPode(r.id)
+                          ? "A câmera pode filmar"
+                          : "A câmera não filma"}
+                    </span>
+                  </span>
+                  {ehBanheiro(r.id) ? (
+                    <span className="cad-bloqueado">
+                      <Lock size={16} aria-hidden="true" />
+                      Bloqueado
+                    </span>
+                  ) : (
+                    <Interruptor
+                      ligado={cameraPode(r.id)}
+                      onAlternar={() => alternarCamera(r.id)}
+                      rotulo={`Câmera pode filmar: ${r.name}`}
+                    />
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+
           <section
             id="cfg-bengala"
             className="painel config-secao"

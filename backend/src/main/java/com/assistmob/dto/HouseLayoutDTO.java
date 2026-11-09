@@ -15,7 +15,9 @@ public record HouseLayoutDTO(
         List<Room> rooms,
         List<Wall> walls,
         List<Furniture> furniture,
-        List<String> patrolRoute
+        List<String> patrolRoute,
+        /** Portas entre cômodos (meio do vão): a rota prevista no painel passa por elas. */
+        List<Door> doors
 ) {
     public record Point(double x, double y) {
     }
@@ -32,5 +34,8 @@ public record HouseLayoutDTO(
 
     public record Furniture(String name, String roomId, double x, double y, double sizeX, double sizeY,
                             double height) {
+    }
+
+    public record Door(String a, String b, double x, double y) {
     }
 }

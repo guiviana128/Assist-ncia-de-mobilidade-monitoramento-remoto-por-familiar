@@ -10,13 +10,20 @@ import { presentation } from "../services/presentation";
  * A Casa 3D mantém a própria consulta de 1 s; aqui o ritmo é o do painel (3,5 s).
  * Também mede há quanto tempo o José está no cômodo atual.
  */
-export function useRobo(ativo = true, intervaloMs = 3500) {
+/**
+ * @param ativo só consulta com o painel aberto
+ * @param chavePlanta muda quando a família troca a planta: a planta é buscada de novo
+ */
+export function useRobo(ativo = true, chavePlanta = "", intervaloMs = 3500) {
   const [layout, setLayout] = useState<HouseLayout>(FALLBACK_LAYOUT);
   const [robot, setRobot] = useState<RobotState | null>(null);
   const [missions, setMissions] = useState<RobotMission[]>([]);
   const [noComodoDesde, setNoComodoDesde] = useState<number | null>(null);
   const ultimoComodo = useRef<string | null | undefined>(undefined);
 
+  // Real ⇄ demonstração também troca a planta (a demonstração usa a casa de exemplo).
+  const [fonte, setFonte] = useState(0);
+  useEffect(() => presentation.subscribe(() => setFonte((n) => n + 1)), []);
   useEffect(() => {
     if (!ativo) return;
     let vivo = true;
@@ -29,7 +36,7 @@ export function useRobo(ativo = true, intervaloMs = 3500) {
     return () => {
       vivo = false;
     };
-  }, [ativo]);
+  }, [ativo, chavePlanta, fonte]);
 
   useEffect(
     () =>

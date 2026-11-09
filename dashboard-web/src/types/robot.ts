@@ -45,6 +45,14 @@ export interface Furniture {
   height: number;
 }
 
+/** Porta entre dois cômodos (meio do vão). */
+export interface Door {
+  a: string;
+  b: string;
+  x: number;
+  y: number;
+}
+
 export interface HouseLayout {
   name: string;
   width: number;
@@ -55,6 +63,8 @@ export interface HouseLayout {
   walls: Wall[];
   furniture: Furniture[];
   patrolRoute: string[];
+  /** Portas entre cômodos; a planta de exemplo usa DOORS. */
+  doors?: Door[];
 }
 
 export interface RobotMission {

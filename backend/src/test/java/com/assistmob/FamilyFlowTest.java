@@ -243,6 +243,85 @@ class FamilyFlowTest {
     assertEquals("Ana Silva", savePreferences(token, guardian).at("/consent/guardianName").asText());
   }
 
+  /** Planta pequena gerada "pelo modelo": sala + quarto-2 (o painel gera a real em houseLayout.ts). */
+  com.fasterxml.jackson.databind.node.ObjectNode plantaModelo() throws Exception {
+    return (com.fasterxml.jackson.databind.node.ObjectNode)
+        json.readTree(
+            """
+            {"name":"Casa térrea · 2 quartos e 1 banheiro","width":8,"depth":8,"wallHeight":1,
+             "dock":{"x":-2,"y":-2},
+             "rooms":[{"id":"sala","name":"Sala de estar","minX":-4,"minY":-4,"maxX":0,"maxY":0,"targetX":-2,"targetY":-2},
+                      {"id":"quarto-2","name":"Quarto 2","minX":0,"minY":-4,"maxX":4,"maxY":0,"targetX":2,"targetY":-2}],
+             "walls":[{"x1":-4,"y1":-4,"x2":4,"y2":-4}],
+             "furniture":[{"name":"Cama","roomId":"quarto-2","x":2,"y":-1,"sizeX":1.6,"sizeY":2,"height":0.5}],
+             "patrolRoute":["sala","quarto-2"],
+             "doors":[{"a":"sala","b":"quarto-2","x":0,"y":-2}],
+             "extra":"descartado"}
+            """);
+  }
+
+  @Test
+  void templateFloorPlanIsSavedAndUsedByTheHouseAndTheRobot() throws Exception {
+    var a = register("planta@example.test");
+    String token = "Bearer " + a.get("token").asText();
+    String robot = a.get("robotId").asText();
+    var body = onboarding();
+    body.set("floorPlanLayout", plantaModelo());
+    var saved = savePreferences(token, body);
+    assertFalse(saved.at("/floorPlanLayout").has("extra"));
+    mvc.perform(get("/api/v1/house/layout").header("Authorization", token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.rooms.length()").value(2))
+        .andExpect(jsonPath("$.rooms[1].id").value("quarto-2"))
+        .andExpect(jsonPath("$.doors[0].b").value("quarto-2"));
+    // O robô da família vai até um cômodo que só existe na planta dela.
+    mvc.perform(
+            post("/api/v1/robot/" + robot + "/missions")
+                .header("Authorization", token)
+                .contentType("application/json")
+                .content("{\"type\":\"GO_TO_ROOM\",\"targetRoom\":\"quarto-2\"}"))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(jsonPath("$.targetRoom").value("quarto-2"));
+    mvc.perform(
+            post("/api/v1/robot/" + robot + "/missions")
+                .header("Authorization", token)
+                .contentType("application/json")
+                .content("{\"type\":\"GO_TO_ROOM\",\"targetRoom\":\"escritorio\"}"))
+        .andExpect(status().isBadRequest());
+
+    // Trocar para o exemplo apaga a planta do modelo e volta à casa de 5 cômodos.
+    body.put("floorPlanSource", "EXAMPLE");
+    assertFalse(savePreferences(token, body).has("floorPlanLayout"));
+    mvc.perform(get("/api/v1/house/layout").header("Authorization", token))
+        .andExpect(jsonPath("$.rooms.length()").value(5));
+  }
+
+  @Test
+  void invalidFloorPlansAreRefused() throws Exception {
+    String token = "Bearer " + register("planta-invalida@example.test").get("token").asText();
+    java.util.List<java.util.function.Consumer<com.fasterxml.jackson.databind.node.ObjectNode>>
+        broken =
+            java.util.List.of(
+                l -> ((com.fasterxml.jackson.databind.node.ObjectNode) l.at("/rooms/0")).put("id", "Sala!"),
+                l -> ((com.fasterxml.jackson.databind.node.ObjectNode) l.at("/rooms/0")).put("maxX", -5),
+                l -> ((com.fasterxml.jackson.databind.node.ObjectNode) l.get("dock")).put("x", 40),
+                l -> ((com.fasterxml.jackson.databind.node.ObjectNode) l.at("/doors/0")).put("b", "garagem"),
+                l -> ((com.fasterxml.jackson.databind.node.ObjectNode) l.at("/walls/0")).put("x1", 1e9),
+                l -> l.set("rooms", json.createArrayNode()));
+    for (var change : broken) {
+      var layout = plantaModelo();
+      change.accept(layout);
+      var body = onboarding();
+      body.set("floorPlanLayout", layout);
+      mvc.perform(
+              put("/api/v1/care/preferences")
+                  .header("Authorization", token)
+                  .contentType("application/json")
+                  .content(body.toString()))
+          .andExpect(status().isBadRequest());
+    }
+  }
+
   @Test
   void recoveryCodeCanBeRotatedByTheLoggedAccount() throws Exception {
     var a = register("rotate@example.test");
