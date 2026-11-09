@@ -343,7 +343,7 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, isDarkMode, co
       const ultima = ultimoContato ? `${haQuanto(ultimoContato.quando)}` : '';
       const onde = comodoCurto(layout, ultimoContato?.room ?? robot.currentRoom);
       return {
-        titulo: 'Robô sem conexão', forte: 'Robô fora do ar.', apoio: ` A bengala continua protegendo o ${pessoa}.`, tom: 'offline',
+        titulo: robot.lastUpdate ? 'Robô sem atualização' : 'Aguardando configuração do robô', forte: robot.lastUpdate ? 'Robô sem atualização.' : 'Vamos conectar seu robô.', apoio: ' Confira o vínculo e o serviço do equipamento nas configurações.', tom: 'offline',
         detalhe: celular
           ? `${ultimoContato ? `Último contato às ${horaCurta(ultimoContato.quando)}` : 'Sem contato desde que o painel abriu'} · comandos ficam na fila`
           : `${onde ? `Última posição conhecida: ${onde}` : 'Sem posição conhecida'}${ultima ? ` · ${ultima}` : ''}`

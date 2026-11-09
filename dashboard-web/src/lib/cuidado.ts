@@ -3,6 +3,7 @@
 // valem até fechar a aba. Início (próximo remédio, Ligar para José) e Configurações leem daqui.
 import { useSyncExternalStore } from "react";
 import { auth, apiJson } from "../services/auth";
+import type { HomeConfiguration } from "./monitoring";
 
 export interface Remedio {
   id: number;
@@ -37,6 +38,7 @@ export interface Contato {
 }
 
 interface Estado {
+  home?: HomeConfiguration;
   remedios: Remedio[];
   contatos: Contato[];
   /** Telefone de quem é acompanhado (botão "Ligar para José"). */
@@ -173,24 +175,30 @@ const vazio = (): Estado => ({
 let estado: Estado = vazio();
 let erro = "";
 let carregando = false;
+let pronto = false;
 const ouvintes = new Set<() => void>();
 const avisar = () => ouvintes.forEach((o) => o());
 async function carregar() {
   const g = auth.generation;
   estado = vazio();
   erro = "";
+  pronto = false;
   avisar();
   if (!auth.isLoggedIn()) return;
   carregando = true;
   try {
     const data = await apiJson<Partial<Estado>>("/care/preferences");
-    if (g === auth.generation) estado = { ...vazio(), ...data };
+    if (g === auth.generation) {
+      estado = { ...vazio(), ...data };
+      pronto = true;
+    }
   } catch {
     if (g === auth.generation)
       erro = "Não foi possível carregar as preferências.";
   } finally {
     if (g === auth.generation) {
       carregando = false;
+      estado = { ...estado };
       avisar();
     }
   }
@@ -201,7 +209,8 @@ let fila: Promise<unknown> = Promise.resolve();
 function salvar(mudar: (s: Estado) => Estado): Promise<boolean> {
   const g = auth.generation;
   const operacao = async () => {
-    if (g !== auth.generation || carregando) return false;
+    if (g !== auth.generation || carregando || (auth.isLoggedIn() && !pronto))
+      return false;
     const next = mudar(estado);
     try {
       if (auth.isLoggedIn())
@@ -228,6 +237,9 @@ function salvar(mudar: (s: Estado) => Estado): Promise<boolean> {
   return result;
 }
 export const cuidado = {
+  pronto: () => pronto,
+  recarregar: () => carregar(),
+  carregando: () => carregando,
   get: () => estado,
   assinar(o: () => void) {
     ouvintes.add(o);
@@ -266,12 +278,43 @@ export const cuidado = {
   definirRaioCasa: (raio: number) =>
     salvar((s) => ({
       ...s,
+      ...(s.home ? { home: { ...s.home, radius: raio } } : {}),
       areas: s.areas.map((a, i) => (i === 0 ? { ...a, raio } : a)),
     })),
   definirBengala: (p: Partial<PreferenciasBengala>) =>
     salvar((s) => ({ ...s, bengala: { ...s.bengala, ...p } })),
   definirContato: (telefonePessoa: string, endereco: string) =>
-    salvar((s) => ({ ...s, telefonePessoa, endereco })),
+    salvar((s) => ({
+      ...s,
+      telefonePessoa,
+      endereco,
+      ...(s.home && endereco !== s.endereco
+        ? {
+            home: undefined,
+            areas: s.areas.map((a) =>
+              a.id === "casa" ? { ...a, ativa: false } : a,
+            ),
+          }
+        : {}),
+    })),
+  definirCasa: (home: HomeConfiguration) =>
+    salvar((s) => ({
+      ...s,
+      home,
+      endereco: `${home.address.street}, ${home.address.number}${home.address.complement ? " · " + home.address.complement : ""} · ${home.address.city} / SP`,
+      areas: [
+        {
+          id: "casa",
+          nome: "Casa",
+          detalhe: "Localização confirmada pela família",
+          lat: home.lat,
+          lng: home.lng,
+          raio: home.radius,
+          ativa: true,
+        },
+        ...s.areas.filter((a) => a.id !== "casa"),
+      ],
+    })),
 };
 export const useCuidado = () =>
   useSyncExternalStore(cuidado.assinar, cuidado.get);

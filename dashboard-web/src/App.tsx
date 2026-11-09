@@ -4,15 +4,19 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { cuidado } from "./lib/cuidado";
+import { cuidado, useCuidado } from "./lib/cuidado";
+import { presentation } from "./services/presentation";
 import { FamilyCare } from "./components/FamilyCare";
 import { LiveMonitoringView } from "./components/LiveMonitoringView";
 import { HouseView3D } from "./components/HouseView3D";
 import { LoginScreen } from "./components/LoginScreen";
 import { InicioView } from "./components/inicio/InicioView";
 import { MonitorarView } from "./components/monitorar/MonitorarView";
+import { MonitoringWorkspace } from "./components/monitorar/MonitoringWorkspace";
+import { DemoMonitoring } from "./components/monitorar/DemoMonitoring";
 import { CentralAvisos } from "./components/avisos/CentralAvisos";
 import { ConfiguracoesView } from "./components/configuracoes/ConfiguracoesView";
 import { Simulador } from "./components/simulador/Simulador";
@@ -80,7 +84,14 @@ export const App: React.FC = () => {
   const [needsLogin, setNeedsLogin] = useState(!auth.isLoggedIn());
   const [username, setUsername] = useState<string | null>(auth.username);
   const [loading, setLoading] = useState(true);
-  const [demo, setDemo] = useState(false);
+  const [offlineDemo, setDemo] = useState(false);
+  const presentationMode = useSyncExternalStore(
+    presentation.subscribe,
+    presentation.get,
+  );
+  const presentationDemo = presentationMode === "demo";
+  const demo = offlineDemo || presentationDemo;
+  const preferences = useCuidado();
   const [routeDemo, setRouteDemo] = useState(false);
   const [updated, setUpdated] = useState<Date | null>(null);
   const [error, setError] = useState("");
@@ -171,16 +182,40 @@ export const App: React.FC = () => {
     }
   };
 
-  const device = summary?.devices[0];
-  const alerts = useMemo(() => summary?.recentAlerts ?? [], [summary]);
+  const realDevice = summary?.devices[0];
+  const device = useMemo(
+    () =>
+      realDevice && presentationDemo
+        ? {
+            ...realDevice,
+            isOnline: true,
+            batteryPercent: 88,
+            stepsToday: 1840,
+            activeMinutes: 42,
+            mobilityScore: 86,
+            lastDistanceCm: 145,
+            obstacleAlert: false,
+            isGripHolding: true,
+            lastUpdate: new Date().toISOString(),
+            currentLatitude: preferences.home?.lat ?? -23.55052,
+            currentLongitude: preferences.home?.lng ?? -46.633308,
+          }
+        : realDevice,
+    [realDevice, presentationDemo, preferences.home],
+  );
+  const realAlerts = useMemo(() => summary?.recentAlerts ?? [], [summary]);
+  const alerts = useMemo(
+    () => (presentationDemo ? [] : realAlerts),
+    [presentationDemo, realAlerts],
+  );
   useEffect(() => {
     if (
-      demo ||
+      offlineDemo ||
       typeof Notification === "undefined" ||
       Notification.permission !== "granted"
     )
       return;
-    for (const a of alerts) {
+    for (const a of realAlerts) {
       const key = `amparo_notified_${a.deviceId}_${a.id}`;
       if (a.status === "PENDING" && !sessionStorage.getItem(key)) {
         new Notification("Amparo · pedido de atenção", {
@@ -190,8 +225,8 @@ export const App: React.FC = () => {
         sessionStorage.setItem(key, "1");
       }
     }
-  }, [alerts, demo]);
-  const emergency = emergenciaPendente(alerts);
+  }, [realAlerts, offlineDemo]);
+  const emergency = emergenciaPendente(realAlerts);
   const pessoa = nomePessoa(device);
   const conexao: EstadoConexao = demo
     ? "demonstracao"
@@ -199,7 +234,9 @@ export const App: React.FC = () => {
       ? "conectado"
       : loading
         ? "demonstracao"
-        : "sem-conexao";
+        : !device?.lastUpdate
+          ? "aguardando"
+          : "sem-conexao";
   const resumo = resumoDoEstado({
     carregando: loading,
     demo,
@@ -215,6 +252,7 @@ export const App: React.FC = () => {
   const alternar = (c: Exclude<CamadaAberta, null>) =>
     setCamada((atual) => (atual === c ? null : c));
   const irPara = (v: AppView) => {
+    if (v === "camera") presentation.set("real");
     setView(v);
     setCamada(null);
   };
@@ -231,8 +269,9 @@ export const App: React.FC = () => {
           emergency.alertType === "HAND_GESTURE_SOS"
             ? `Pedido de ajuda pela câmera${onde ? `, ${naNo(onde)}` : ""}`
             : `${TITULO_EMERGENCIA[emergency.alertType] ?? "Pedido de socorro"}${onde ? ` ${naNo(onde)}` : ""}`;
-        const robot =
-          robo.robot?.mode === "RESPONDING"
+        const robot = presentationDemo
+          ? "abra o equipamento real para verificar o atendimento"
+          : robo.robot?.mode === "RESPONDING"
             ? `o robô assistente está indo até ${pessoa}`
             : robo.robot?.mode === "CHECKING_PERSON"
               ? `o robô assistente está ao lado de ${pessoa}`
@@ -244,9 +283,12 @@ export const App: React.FC = () => {
           <FaixaEmergencia
             titulo={titulo}
             detalhe={detalhe}
-            demo={demo}
+            demo={offlineDemo}
             compacta={ateTablet}
-            onVerCasa={() => abrirCasa(emergency.indoorRoom ?? undefined)}
+            onVerCasa={() => {
+              presentation.set("real");
+              abrirCasa(emergency.indoorRoom ?? undefined);
+            }}
           />
         );
       })()
@@ -269,10 +311,10 @@ export const App: React.FC = () => {
       {needsLogin ? (
         <motion.div key="login" {...CROSSFADE}>
           <LoginScreen
-            onLoggedIn={() => {
+            onLoggedIn={(firstAccess = false) => {
               setNeedsLogin(false);
               setLoading(true);
-              setView(ABA_PADRAO);
+              setView(firstAccess ? "monitorar" : ABA_PADRAO);
               void fetchData();
             }}
             onContinueDemo={() => {
@@ -341,7 +383,23 @@ export const App: React.FC = () => {
                 initial={false}
                 onExitComplete={() => window.scrollTo(0, 0)}
               >
-                <motion.div key={view} className="pagina-vista" {...VISTA}>
+                <motion.div
+                  key={`${view}:${presentationMode}`}
+                  className="pagina-vista"
+                  {...VISTA}
+                >
+                  {username && view === "monitorar" && (
+                    <MonitoringWorkspace
+                      key={username}
+                      username={username}
+                      device={realDevice!}
+                      alerts={realAlerts}
+                      route={routeHistory}
+                      onSettings={() => irPara("configuracoes")}
+                      onResolve={(id) => void handleResolveAlert(id)}
+                      onReady={() => irPara("inicio")}
+                    />
+                  )}
                   {view === "inicio" && (
                     <InicioView
                       device={device}
@@ -365,7 +423,7 @@ export const App: React.FC = () => {
                       demo={demo}
                     />
                   )}
-                  {view === "monitorar" && (
+                  {view === "monitorar" && !username && (
                     <>
                       <MonitorarView
                         device={device}
@@ -374,7 +432,9 @@ export const App: React.FC = () => {
                         routeDemo={routeDemo}
                         demo={demo}
                       />
-                      {!demo && <FamilyCare deviceId={device.deviceId} />}
+                      {!offlineDemo && (
+                        <FamilyCare deviceId={device.deviceId} />
+                      )}
                     </>
                   )}
 
@@ -384,7 +444,9 @@ export const App: React.FC = () => {
                         deviceId={device.deviceId}
                         pessoa={pessoa}
                       />
-                      {!demo && <FamilyCare deviceId={device.deviceId} />}
+                      {!offlineDemo && (
+                        <FamilyCare deviceId={device.deviceId} />
+                      )}
                     </>
                   )}
                 </motion.div>
@@ -394,10 +456,10 @@ export const App: React.FC = () => {
               <div hidden={view !== "camera"}>
                 <LiveMonitoringView
                   key={username}
-                  device={device}
-                  alerts={alerts}
+                  device={realDevice!}
+                  alerts={realAlerts}
                   layout={robo.layout}
-                  demo={demo}
+                  demo={offlineDemo}
                   onTriggerAlert={() => {
                     void fetchData();
                   }}
@@ -425,7 +487,7 @@ export const App: React.FC = () => {
             }
           >
             <CentralAvisos
-              alerts={alerts}
+              alerts={realAlerts}
               layout={robo.layout}
               onResolver={(id) => void handleResolveAlert(id)}
               onVerNoMapa={() => irPara("monitorar")}
@@ -458,19 +520,29 @@ export const App: React.FC = () => {
             titulo="Simulador da apresentação"
             className="camada-simulador"
           >
-            <Simulador
-              layout={robo.layout}
-              demo={demo}
-              onAtualizar={() => {
-                void fetchData();
-                void robo.atualizar();
-              }}
-              onSairDemo={() => {
-                setCamada(null);
-                robotApi.stopDemo();
-                setNeedsLogin(true);
-              }}
-            />
+            {username ? (
+              <>
+                <p className="nota is-aviso">
+                  Demonstração local · nenhum evento será salvo no histórico
+                  real.
+                </p>
+                <DemoMonitoring person={pessoa} />
+              </>
+            ) : (
+              <Simulador
+                layout={robo.layout}
+                demo={demo}
+                onAtualizar={() => {
+                  void fetchData();
+                  void robo.atualizar();
+                }}
+                onSairDemo={() => {
+                  setCamada(null);
+                  robotApi.stopDemo();
+                  setNeedsLogin(true);
+                }}
+              />
+            )}
           </Camada>
         </motion.div>
       )}

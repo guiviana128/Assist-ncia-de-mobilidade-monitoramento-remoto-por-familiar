@@ -40,6 +40,7 @@ import {
   type ItemDia,
 } from "../../lib/avisos";
 import { proximoRemedio, useCuidado } from "../../lib/cuidado";
+import { MapaSaidas } from "../monitorar/MapaSaidas";
 import { ATE_TABLET, CELULAR, useMediaQuery } from "../../hooks/useMediaQuery";
 import { gsap, movimentoReduzido, useGSAP } from "../../motion/gsap";
 import { Contador } from "../../motion/Contador";
@@ -104,7 +105,7 @@ export const InicioView: React.FC<InicioViewProps> = ({
 }) => {
   const celular = useMediaQuery(CELULAR);
   const ateTablet = useMediaQuery(ATE_TABLET);
-  const { remedios, telefonePessoa } = useCuidado();
+  const { remedios, telefonePessoa, home, endereco, areas } = useCuidado();
   const [diaTodo, setDiaTodo] = useState(false);
   const emergencia = emergenciaPendente(alerts);
   const pessoa = nomePessoa(device);
@@ -431,6 +432,33 @@ export const InicioView: React.FC<InicioViewProps> = ({
               O robô está fora do ar. A posição do {pessoa} vem da bengala.
             </p>
           )}
+          <div aria-label="Localização GPS">
+            <h3 className="titulo-painel">Localização GPS</h3>
+            <p className="texto-pequeno">
+              {home?.confirmed
+                ? endereco
+                : "Confirme o endereço da casa em Monitorar."}
+            </p>
+            <MapaSaidas
+              casa={
+                home?.confirmed
+                  ? { lat: home.lat, lng: home.lng, raio: home.radius }
+                  : areas[0]!
+              }
+              pessoa={{
+                lat: device.currentLatitude ?? NaN,
+                lng: device.currentLongitude ?? NaN,
+              }}
+              rota={[]}
+              satelite={false}
+              compacto={celular}
+            />
+            {demo && (
+              <p className="texto-pequeno">
+                Demonstração: posição simulada no endereço da casa.
+              </p>
+            )}
+          </div>
         </section>
 
         <section className="painel inicio-hoje" aria-labelledby="titulo-hoje">

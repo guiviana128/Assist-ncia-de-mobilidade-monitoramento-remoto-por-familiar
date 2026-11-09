@@ -26,6 +26,91 @@ import org.springframework.test.web.servlet.MockMvc;
     },
     inheritListeners = false)
 class FamilyFlowTest {
+  @Autowired com.assistmob.repository.AlertRepository alertRepository;
+  @Autowired com.assistmob.repository.TelemetryRepository telemetryRepository;
+
+  @Test
+  void summaryKeepsOldPendingEmergencyAndExpiresActivity() throws Exception {
+    var a = register("summary-history@example.test");
+    var device = a.get("deviceId").asText();
+    var token = "Bearer " + a.get("token").asText();
+    var path = "/api/v1/care/" + device + "/summary";
+    var reading =
+        com.assistmob.model.Telemetry.builder()
+            .deviceId(device)
+            .speedKmh(2f)
+            .recordedAt(java.time.LocalDateTime.now().minusMinutes(3))
+            .build();
+    telemetryRepository.saveAndFlush(reading);
+    mvc.perform(get(path).header("Authorization", token))
+        .andExpect(jsonPath("$.state").value("STALE"));
+    reading.setRecordedAt(java.time.LocalDateTime.now());
+    telemetryRepository.saveAndFlush(reading);
+    mvc.perform(get(path).header("Authorization", token))
+        .andExpect(jsonPath("$.state").value("MOVEMENT"));
+    var emergency =
+        alertRepository.saveAndFlush(
+            com.assistmob.model.Alert.builder()
+                .deviceId(device)
+                .alertType(com.assistmob.model.enums.AlertType.SOS_BUTTON)
+                .status(com.assistmob.model.enums.AlertStatus.PENDING)
+                .severity(com.assistmob.model.enums.AlertSeverity.CRITICAL)
+                .createdAt(java.time.LocalDateTime.now().minusDays(1))
+                .build());
+    for (int i = 0; i < 51; i++)
+      alertRepository.save(
+          com.assistmob.model.Alert.builder()
+              .deviceId(device)
+              .alertType(com.assistmob.model.enums.AlertType.CHECKIN_SAFE)
+              .status(com.assistmob.model.enums.AlertStatus.RESOLVED)
+              .severity(com.assistmob.model.enums.AlertSeverity.INFO)
+              .build());
+    mvc.perform(get(path).header("Authorization", token))
+        .andExpect(jsonPath("$.state").value("EMERGENCY"));
+  }
+
+  @Test
+  void monitoringSummaryIsWaitingForNewAccountsAndScopedToFamily() throws Exception {
+    var a = register("summary-a@example.test");
+    var b = register("summary-b@example.test");
+    String path = "/api/v1/care/" + a.get("deviceId").asText() + "/summary";
+    mvc.perform(get(path).header("Authorization", "Bearer " + a.get("token").asText()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.state").value("WAITING"))
+        .andExpect(jsonPath("$.personName").value("José"));
+    mvc.perform(get(path).header("Authorization", "Bearer " + b.get("token").asText()))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
+  void homeConfigurationPersistsAndRejectsUnconfirmedLocation() throws Exception {
+    var a = register("home@example.test");
+    var body = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(preferences("[]"));
+    body.set(
+        "home",
+        json.readTree(
+            "{\"version\":1,\"confirmed\":false,\"lat\":0,\"lng\":0,\"radius\":500,\"address\":{\"cep\":\"01001000\",\"street\":\"Praça"
+                + " da Sé\",\"number\":\"1\",\"complement\":\"\",\"district\":\"Sé\",\"city\":\"São"
+                + " Paulo\",\"state\":\"SP\"}}"));
+    var token = "Bearer " + a.get("token").asText();
+    mvc.perform(
+            put("/api/v1/care/preferences")
+                .header("Authorization", token)
+                .contentType("application/json")
+                .content(body.toString()))
+        .andExpect(status().isBadRequest());
+    var home = (com.fasterxml.jackson.databind.node.ObjectNode) body.get("home");
+    home.put("confirmed", true).put("lat", -23.55).put("lng", -46.63);
+    mvc.perform(
+            put("/api/v1/care/preferences")
+                .header("Authorization", token)
+                .contentType("application/json")
+                .content(body.toString()))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/v1/care/preferences").header("Authorization", token))
+        .andExpect(jsonPath("$.home.address.city").value("São Paulo"));
+  }
+
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
   @Autowired com.assistmob.family.FamilyAccounts accounts;
@@ -35,10 +120,27 @@ class FamilyFlowTest {
 
   @Test
   void successfulRegistrationsDoNotBlockTheNextFamilyOnTheSameConnection() throws Exception {
-    for(int i=0;i<6;i++) {
-      mvc.perform(post("/api/v1/auth/register").with(r->{r.setRemoteAddr("shared-network");return r;})
-        .contentType("application/json").content(json.writeValueAsString(java.util.Map.of("name","Família","email","shared"+i+"@example.test","password","SenhaForte123!","personName","Pessoa"))))
-        .andExpect(status().isCreated());
+    for (int i = 0; i < 6; i++) {
+      mvc.perform(
+              post("/api/v1/auth/register")
+                  .with(
+                      r -> {
+                        r.setRemoteAddr("shared-network");
+                        return r;
+                      })
+                  .contentType("application/json")
+                  .content(
+                      json.writeValueAsString(
+                          java.util.Map.of(
+                              "name",
+                              "Família",
+                              "email",
+                              "shared" + i + "@example.test",
+                              "password",
+                              "SenhaForte123!",
+                              "personName",
+                              "Pessoa"))))
+          .andExpect(status().isCreated());
     }
   }
 

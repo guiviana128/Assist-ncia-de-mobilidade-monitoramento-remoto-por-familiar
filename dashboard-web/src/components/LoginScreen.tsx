@@ -9,7 +9,7 @@ import { gsap, movimentoReduzido, useGSAP } from "../motion/gsap";
 import { DESLOCA, DUR, EASE_MOTION } from "../motion/tokens";
 
 interface LoginScreenProps {
-  onLoggedIn: () => void;
+  onLoggedIn: (firstAccess?: boolean) => void;
   onContinueDemo: () => void;
 }
 
@@ -299,7 +299,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <button
                   type="button"
                   className="btn btn-primario"
-                  onClick={onLoggedIn}
+                  onClick={() => onLoggedIn(true)}
                 >
                   Guardei, abrir painel
                 </button>

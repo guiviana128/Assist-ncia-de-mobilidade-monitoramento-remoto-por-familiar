@@ -9,10 +9,16 @@ import type {
 import { DemoRobot } from "../robot/demoRobot";
 import { FALLBACK_LAYOUT } from "../robot/houseLayout";
 import { ApiError, AuthRequiredError, apiJson, auth } from "./auth";
+import { presentation } from "./presentation";
 
 const ROBOT_ID = "AMPARO-BOT-01";
 let realRobotId: string | null = null;
+let robotGeneration = -1;
 async function familyRobot() {
+  if (robotGeneration !== auth.generation) {
+    realRobotId = null;
+    robotGeneration = auth.generation;
+  }
   if (!realRobotId) {
     const generation = auth.generation;
     const devices = await apiJson<{ robotId: string }[]>("/care/devices");
@@ -24,6 +30,7 @@ async function familyRobot() {
 }
 auth.onChange(() => {
   realRobotId = null;
+  robotApi.stopDemo();
 });
 let demoRobot: DemoRobot | null = null;
 let demoTimer: number | null = null;
@@ -39,9 +46,17 @@ function demo(): DemoRobot {
   if (!demoRobot) {
     demoRobot = new DemoRobot(FALLBACK_LAYOUT, ROBOT_ID);
     let last = performance.now();
+    let elapsed = 0;
+    let roomIndex = 0;
     demoTimer = window.setInterval(() => {
       const now = performance.now();
       demoRobot!.tick(Math.min(0.5, (now - last) / 1000));
+      elapsed += (now - last) / 1000;
+      if (elapsed >= 8) {
+        elapsed = 0;
+        const rooms = ["sala", "cozinha", "escritorio", "quarto"];
+        demoRobot!.setPersonRoom(rooms[++roomIndex % rooms.length]);
+      }
       last = now;
     }, 100);
   }
@@ -52,6 +67,11 @@ async function withDemo<T>(
   online: () => Promise<T>,
   offline: () => T,
 ): Promise<T> {
+  if (auth.isLoggedIn() && presentation.get() === "demo") {
+    usingDemo = true;
+    return offline();
+  }
+  usingDemo = false;
   try {
     const result = await online();
     usingDemo = false;
@@ -111,6 +131,7 @@ export const robotApi = {
     ),
 
   stopDemo() {
+    usingDemo = false;
     if (demoTimer !== null) window.clearInterval(demoTimer);
     demoTimer = null;
     demoRobot = null;

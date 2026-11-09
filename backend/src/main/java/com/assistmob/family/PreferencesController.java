@@ -48,7 +48,38 @@ public class PreferencesController {
         || !b.path("bengala").isObject())
       throw new IllegalArgumentException("Preferências inválidas");
     text(b, "telefonePessoa", 30);
-    text(b, "endereco", 200);
+    text(b, "endereco", 350);
+    if (b.hasNonNull("home")) {
+      var h = b.path("home");
+      var a = h.path("address");
+      if (!h.isObject()
+          || h.path("version").asInt() != 1
+          || !h.path("confirmed").asBoolean()
+          || !h.path("lat").isNumber()
+          || !h.path("lng").isNumber()
+          || !Double.isFinite(h.path("lat").asDouble())
+          || !Double.isFinite(h.path("lng").asDouble())
+          || h.path("lat").asDouble() < -25.5
+          || h.path("lat").asDouble() > -19.5
+          || h.path("lng").asDouble() < -53.5
+          || h.path("lng").asDouble() > -44
+          || !h.path("radius").isNumber()
+          || h.path("radius").asDouble() < 10
+          || h.path("radius").asDouble() > 10000
+          || !a.path("state").asText().equals("SP"))
+        throw new IllegalArgumentException("Confirme uma localização válida da casa em SP");
+      text(a, "street", 100);
+      text(a, "number", 15);
+      text(a, "complement", 60);
+      text(a, "district", 60);
+      text(a, "city", 60);
+      text(a, "state", 2);
+      text(a, "cep", 9);
+      if (a.path("street").asText().isBlank()
+          || a.path("number").asText().isBlank()
+          || a.path("city").asText().isBlank())
+        throw new IllegalArgumentException("Preencha rua, número e cidade");
+    }
     for (var m : b.path("remedios")) {
       text(m, "nome", 100);
       if (!m.path("id").isNumber() || !m.path("ativo").isBoolean())

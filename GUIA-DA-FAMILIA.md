@@ -77,3 +77,25 @@ Preferências de remédios geram lembretes no painel na hora cadastrada (fuso Am
 Backend: `mvn test` em `backend`. Front-end: `npm ci` e `npm run build` em `dashboard-web`. Visão: `PYTHONPATH=. python -m pytest -q` em `vision-service`. No Windows use `$env:PYTHONPATH='.'` antes do pytest.
 
 A implantação pública ainda exige HTTPS, configuração do banco PostgreSQL, backup e credenciais de push. Esta entrega inicia apenas em endereços locais. Não houve publicação nem merge na main.
+# Configuração da casa e modos de acompanhamento
+
+Após criar a conta e guardar as credenciais, abra o painel para configurar a casa.
+Informe um CEP de SP ou preencha rua, número e cidade manualmente. A busca no
+mapa consulta o OpenStreetMap/Nominatim apenas quando você clicar no botão.
+Confira o resultado, ajuste o ponto se necessário e marque a confirmação da casa.
+O mapa marca a casa mesmo sem uma leitura de GPS da pessoa.
+
+Escolha **Demonstração** para experimentar a pessoa mudando de cômodo, o robô em
+ronda e um pedido de ajuda simulado. Os eventos ficam apenas no navegador e não
+entram no histórico real. A escolha é salva por conta neste navegador e não muda
+a tela dos outros familiares. Emergências reais continuam sinalizadas.
+
+Escolha **Equipamento real** para ver as leituras da sua família. Uma conta nova
+fica aguardando configuração até receber dados. Configure os identificadores e
+a chave no equipamento e no serviço de câmera; depois use **Verificar conexão**.
+Câmera, detector, bengala e robô têm estados independentes.
+
+Em Monitorar, **Editar casa e mapa** permite revisar o endereço. Alterar endereço
+ou ponto exige confirmar a localização novamente. Contatos, convites e histórico
+completo ficam em Configurações. A frase de acompanhamento real usa observações
+recebidas e seus horários; o detector de gesto atual não classifica caminhada.

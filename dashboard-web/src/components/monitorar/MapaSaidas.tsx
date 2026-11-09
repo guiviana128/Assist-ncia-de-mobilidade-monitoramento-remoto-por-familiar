@@ -72,8 +72,8 @@ const Controles: React.FC<{ map: L.Map; alvo: [number, number] }> = ({
       <button
         className="mapa-botao"
         onClick={() => map.setView(alvo, 16)}
-        aria-label="Centralizar no José"
-        title="Centralizar no José"
+        aria-label="Centralizar mapa"
+        title="Centralizar mapa"
       >
         <LocateFixed size={18} />
       </button>
@@ -137,11 +137,14 @@ export const MapaSaidas: React.FC<MapaSaidasProps> = ({
   const tiles = satelite ? TILES.satelite : TILES.ruas;
   const centro: [number, number] = [casa.lat, casa.lng];
 
-  if (!Number.isFinite(pessoa.lat) || !Number.isFinite(pessoa.lng))
+  const temPessoa = Number.isFinite(pessoa.lat) && Number.isFinite(pessoa.lng);
+  if (
+    !Number.isFinite(casa.lat) ||
+    !Number.isFinite(casa.lng) ||
+    (casa.lat === 0 && casa.lng === 0)
+  )
     return (
-      <p className="nota">
-        Aguardando a primeira posição do dispositivo para mostrar o mapa.
-      </p>
+      <p className="nota">Configure o ponto da casa para mostrar o mapa.</p>
     );
 
   return (
@@ -188,14 +191,19 @@ export const MapaSaidas: React.FC<MapaSaidasProps> = ({
           />
         )}
         <Marker position={centro} icon={iconeCasa} keyboard={false} />
-        <Marker
-          position={[pessoa.lat, pessoa.lng]}
-          icon={iconePessoa}
-          keyboard={false}
-        />
+        {temPessoa && (
+          <Marker
+            position={[pessoa.lat, pessoa.lng]}
+            icon={iconePessoa}
+            keyboard={false}
+          />
+        )}
       </MapContainer>
       {!compacto && mapa && (
-        <Controles map={mapa} alvo={[pessoa.lat, pessoa.lng]} />
+        <Controles
+          map={mapa}
+          alvo={temPessoa ? [pessoa.lat, pessoa.lng] : centro}
+        />
       )}
       {!compacto && (
         <ul className="mapa-legenda" aria-label="Legenda do mapa">

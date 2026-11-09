@@ -66,7 +66,7 @@ export const TITULO_EMERGENCIA: Partial<Record<Alert['alertType'], string>> = {
 };
 
 export function descricaoRobo(robot: RobotState | null | undefined, layout: HouseLayout): string {
-  if (!robot) return 'robô sem notícias';
+  if (!robot || !robot.lastUpdate) return 'aguardando configuração do robô';
   if (!robot.online || robot.mode === 'OFFLINE') return 'robô fora do ar';
   const onde = comodoCurto(layout, robot.currentMission?.targetRoom ?? robot.personRoom);
   switch (robot.mode) {
@@ -129,6 +129,7 @@ export function resumoDoEstado(e: EntradaResumo): Resumo {
   }
 
   if (!e.demo && !e.device.isOnline) {
+    if(!e.device.lastUpdate) return {tom:'neutro',forte:'Vamos configurar o acompanhamento.',apoio:' Abra Monitorar para cadastrar a casa e começar a demonstração.',detalhe:'Aguardando a primeira configuração dos equipamentos'};
     const ultima = e.device.lastUpdate ? ` Última notícia ${haQuanto(e.device.lastUpdate, agora)}.` : '';
     return { tom: 'aviso', forte: 'Sem sinal da bengala.', apoio: ultima || ' Verifique se ela está ligada.', detalhe };
   }
@@ -152,5 +153,5 @@ export function resumoDoEstado(e: EntradaResumo): Resumo {
     return { tom: 'aviso', forte: 'Bateria fraca.', apoio: ` A bengala está com ${Math.round(e.device.batteryPercent)}%.`, detalhe };
   }
 
-  return { tom: 'sucesso', forte: 'Tudo certo.', apoio: ondeFrase, detalhe };
+  return { tom: 'sucesso', forte: e.demo ? `${pessoa} está caminhando pela casa.` : 'Tudo certo.', apoio: ondeFrase, detalhe };
 }

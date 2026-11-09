@@ -54,6 +54,10 @@ export function FamilyCare({ deviceId }: { deviceId: string }) {
   const prefs = useCuidado();
   const [telefone, setTelefone] = useState(""),
     [endereco, setEndereco] = useState("");
+  useEffect(() => {
+    setTelefone(prefs.telefonePessoa);
+    setEndereco(prefs.endereco);
+  }, [prefs.telefonePessoa, prefs.endereco]);
   const path = `/care/${encodeURIComponent(deviceId)}`;
   const refresh = async () => {
     const [a, v, r, c, ac] = await Promise.all([
