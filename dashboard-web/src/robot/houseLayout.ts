@@ -44,6 +44,16 @@ export const DOORS: Door[] = [
   { a: 'cozinha', b: 'escritorio', x: 7, y: 1 }
 ];
 
+/** Cômodos por onde a pessoa simulada anda (banheiros ficam de fora: a câmera nunca os vê). */
+export const comodosDaPessoa = (layout: HouseLayout): string[] => {
+  const ids = layout.rooms.map(r => r.id).filter(id => !/^(banheiro|lavabo)(-\d+)?$/.test(id));
+  return ids.length ? ids : layout.rooms.map(r => r.id);
+};
+
+/** Identidade da planta: muda quando a família troca o modelo (para recriar cena e robô simulado). */
+export const chavePlanta = (layout: HouseLayout): string =>
+  `${layout.name}|${layout.rooms.map(r => r.id).join(',')}`;
+
 export const findRoom = (layout: HouseLayout, id?: string | null): Room | undefined =>
   id ? layout.rooms.find(room => room.id === id.trim().toLowerCase()) : undefined;
 

@@ -84,3 +84,25 @@ test("every model is a valid house: no overlaps, all rooms reachable, inside the
       }
 });
 
+test("demo robot patrols the family's plan and the person never walks into a bathroom", async () => {
+  const { layoutDoModelo, comodosDaPessoa, chavePlanta } = await modulo("../src/robot/houseLayout.ts");
+  const { DemoRobot } = await modulo("../src/robot/demoRobot.ts");
+  const l = layoutDoModelo({ kind: "HOUSE", bedrooms: 3, bathrooms: 2 });
+  assert.deepEqual([...l.rooms.map((r) => r.name)], ["Sala de estar", "Cozinha", "Quarto", "Quarto 2", "Quarto 3", "Banheiro", "Banheiro 2"]);
+  assert.deepEqual([...comodosDaPessoa(l)], ["sala", "cozinha", "quarto", "quarto-2", "quarto-3"]);
+  assert.notEqual(chavePlanta(l), chavePlanta(layoutDoModelo({ kind: "HOUSE", bedrooms: 2, bathrooms: 1 })));
+
+  const robo = new DemoRobot(l, "DEMO");
+  const vistos = new Set();
+  for (let i = 0; i < 2400; i++) {
+    robo.tick(0.5);
+    const room = robo.getState().currentRoom;
+    if (room) vistos.add(room);
+  }
+  // A patrulha passa pelos cômodos da planta gerada (incluindo os de id "-2", "-3").
+  for (const id of ["quarto-2", "quarto-3", "banheiro-2"]) assert.ok(vistos.has(id), `patrulha passou por ${id}`);
+  assert.equal([...vistos].some((id) => id === "escritorio"), false);
+  const m = robo.request({ type: "GO_TO_ROOM", targetRoom: "quarto-3" });
+  assert.equal(m.targetRoom, "quarto-3");
+  assert.throws(() => robo.request({ type: "GO_TO_ROOM", targetRoom: "escritorio" }));
+});

@@ -17,14 +17,13 @@ import {
   readingFresh,
   type Activity,
 } from "../../lib/monitoring";
-import { useCuidado } from "../../lib/cuidado";
+import { plantaDaFamilia, useCuidado } from "../../lib/cuidado";
 import {
   haQuanto,
   nomePessoa,
   comodoCurto,
   naNo,
 } from "../../lib/resumoDoEstado";
-import { FALLBACK_LAYOUT } from "../../robot/houseLayout";
 import { PlantaCasa } from "../planta/PlantaCasa";
 import { MapaSaidas } from "./MapaSaidas";
 import { LocalAnalysis } from "./LocalAnalysis";
@@ -48,6 +47,7 @@ export function RealMonitoring({
   onResolve: (id: number) => void;
 }) {
   const prefs = useCuidado();
+  const planta = plantaDaFamilia(prefs);
   const [activity, setActivity] = useState<Activity>({
     personName: nomePessoa(device),
     state: "WAITING",
@@ -99,7 +99,7 @@ export function RealMonitoring({
         ? { ...activity, state: "STALE" }
         : activity;
   const room =
-    current.room && fresh ? comodoCurto(FALLBACK_LAYOUT, current.room) : null;
+    current.room && fresh ? comodoCurto(planta, current.room) : null;
   const positionFresh = readingFresh(device.lastUpdate);
   const pending = alerts.filter((a) => a.status !== "RESOLVED");
   return (
@@ -244,7 +244,7 @@ export function RealMonitoring({
             <span className="selo is-neutro">Planta de referência</span>
           </div>
           <PlantaCasa
-            layout={FALLBACK_LAYOUT}
+            layout={planta}
             comodoPessoa={room ? current.room : null}
             estados={
               room

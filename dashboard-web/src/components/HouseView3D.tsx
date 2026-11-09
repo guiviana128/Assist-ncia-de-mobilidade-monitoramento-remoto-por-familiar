@@ -5,7 +5,8 @@ import { ArrowLeftRight, ArrowRight, Glasses, Home, Layers, Lock, MapPin, Maximi
 import type { Alert } from '../types';
 import type { HouseLayout, MissionRequest, Point2D, RobotMission, RobotState, Room } from '../types/robot';
 import { HouseScene } from './house3d/HouseScene';
-import { FALLBACK_LAYOUT, findRoom, pathLength, planPath, roomAt, roomName } from '../robot/houseLayout';
+import { chavePlanta, FALLBACK_LAYOUT, findRoom, pathLength, planPath, roomAt, roomName } from '../robot/houseLayout';
+import { plantaDaFamilia } from '../lib/cuidado';
 import { robotApi } from '../services/robotApi';
 import { ApiError, AuthRequiredError } from '../services/auth';
 import { ATE_TABLET, CELULAR, useMediaQuery } from '../hooks/useMediaQuery';
@@ -137,9 +138,21 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, comodoInicial,
   }, []);
 
   // ---------------------------------------------------------------- dados
+  // A planta é buscada de novo quando a família troca o modelo ou alterna real ⇄ demonstração;
+  // a cena 3D é recriada a partir dela (efeito com [layout]).
+  const prefs = useCuidado();
+  const [fonte, setFonte] = useState(0);
+  useEffect(() => presentation.subscribe(() => setFonte(n => n + 1)), []);
+  const chaveFamilia = chavePlanta(plantaDaFamilia(prefs));
   useEffect(() => {
     let active = true;
-    robotApi.getLayout().then(l => { if (active) setLayout(l); }).catch(() => undefined);
+    robotApi.getLayout().then(l => {
+      if (active) setLayout(atual => (chavePlanta(atual) === chavePlanta(l) ? atual : l));
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [chaveFamilia, fonte]);
+  useEffect(() => {
+    let active = true;
     void HouseScene.isARSupported().then(ok => { if (active) setArSupported(ok); });
     return () => { active = false; };
   }, []);

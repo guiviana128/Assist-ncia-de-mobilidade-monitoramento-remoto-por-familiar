@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bot, Footprints, Pause, Play, Hand, MapPin } from "lucide-react";
 import { DemoRobot } from "../../robot/demoRobot";
-import { FALLBACK_LAYOUT } from "../../robot/houseLayout";
+import { comodosDaPessoa } from "../../robot/houseLayout";
 import { PlantaCasa } from "../planta/PlantaCasa";
-import { useCuidado } from "../../lib/cuidado";
+import { plantaDaFamilia, useCuidado } from "../../lib/cuidado";
 import { MapaSaidas } from "./MapaSaidas";
 
 export function DemoMonitoring({ person }: { person: string }) {
-  const robot = useMemo(() => new DemoRobot(FALLBACK_LAYOUT, "DEMO-LOCAL"), []);
+  const prefs = useCuidado();
+  // Planta da família (a do modelo do cadastro) ou a de exemplo; trocar a planta recria o robô.
+  const planta = useMemo(
+    () => plantaDaFamilia(prefs),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [prefs.floorPlanSource, prefs.floorPlanLayout, prefs.floorPlanTemplate],
+  );
+  const robot = useMemo(() => new DemoRobot(planta, "DEMO-LOCAL"), [planta]);
   const [state, setState] = useState(() => robot.getState());
   const [paused, setPaused] = useState(false),
     [help, setHelp] = useState(false),
@@ -15,8 +22,7 @@ export function DemoMonitoring({ person }: { person: string }) {
   const [events, setEvents] = useState([
     { id: 0, text: `${person} está na sala`, at: new Date().toISOString() },
   ]);
-  const prefs = useCuidado();
-  const rooms = ["sala", "cozinha", "escritorio", "quarto", "sala"];
+  const rooms = useMemo(() => [...comodosDaPessoa(planta), "sala"], [planta]);
   useEffect(() => {
     if (paused) return;
     let ticks = 0;
@@ -37,14 +43,14 @@ export function DemoMonitoring({ person }: { person: string }) {
         [
           {
             id: Date.now(),
-            text: `${person} foi para ${FALLBACK_LAYOUT.rooms.find((r) => r.id === room)?.name ?? room}`,
+            text: `${person} foi para ${planta.rooms.find((r) => r.id === room)?.name ?? room}`,
             at: new Date().toISOString(),
           },
           ...es,
         ].slice(0, 20),
       );
-  }, [step, robot, person]);
-  const room = FALLBACK_LAYOUT.rooms.find((r) => r.id === state.personRoom);
+  }, [step, robot, person, rooms, planta]);
+  const room = planta.rooms.find((r) => r.id === state.personRoom);
   return (
     <div className="monitoring-workspace">
       <section className="activity-hero is-demo">
@@ -101,13 +107,13 @@ export function DemoMonitoring({ person }: { person: string }) {
             <span className="selo is-aviso">Planta de exemplo</span>
           </div>
           <PlantaCasa
-            layout={FALLBACK_LAYOUT}
+            layout={planta}
             comodoPessoa={state.personRoom}
             robo={{ x: state.x, y: state.y }}
             comodoRobo={state.currentRoom}
             emergencia={help}
             estados={Object.fromEntries(
-              FALLBACK_LAYOUT.rooms.map((r) => [
+              planta.rooms.map((r) => [
                 r.id,
                 {
                   titulo:
@@ -194,7 +200,7 @@ export function DemoMonitoring({ person }: { person: string }) {
           <p>{prefs.endereco}</p>
           <p className="texto-pequeno">
             O mapa abaixo marca somente a casa. Os movimentos desta demonstração
-            acontecem na planta de exemplo.
+            acontecem na planta da casa ({planta.name}).
           </p>
           <MapaSaidas
             casa={prefs.areas[0]}

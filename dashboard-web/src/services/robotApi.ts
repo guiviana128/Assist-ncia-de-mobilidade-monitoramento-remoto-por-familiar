@@ -7,7 +7,8 @@ import type {
   RobotState,
 } from "../types/robot";
 import { DemoRobot } from "../robot/demoRobot";
-import { FALLBACK_LAYOUT } from "../robot/houseLayout";
+import { chavePlanta, comodosDaPessoa } from "../robot/houseLayout";
+import { cuidado, plantaDaFamilia } from "../lib/cuidado";
 import { ApiError, AuthRequiredError, apiJson, auth } from "./auth";
 import { presentation } from "./presentation";
 
@@ -34,7 +35,21 @@ auth.onChange(() => {
 });
 let demoRobot: DemoRobot | null = null;
 let demoTimer: number | null = null;
+let demoChave = "";
 let usingDemo = false;
+
+/**
+ * Planta usada pela demonstração: a da família (gerada pelo modelo do cadastro) ou, se ela não
+ * tiver, a de exemplo. Assim a Casa 3D, o Início e o robô simulado mostram a casa cadastrada.
+ */
+const plantaDemo = () => plantaDaFamilia(cuidado.get());
+
+function pararSimulado() {
+  if (demoTimer !== null) window.clearInterval(demoTimer);
+  demoTimer = null;
+  demoRobot = null;
+  demoChave = "";
+}
 
 const isNetworkError = (error: unknown) =>
   !auth.isLoggedIn() &&
@@ -43,8 +58,13 @@ const isNetworkError = (error: unknown) =>
     : !(error instanceof AuthRequiredError));
 
 function demo(): DemoRobot {
+  const planta = plantaDemo();
+  // A família trocou a planta: o robô simulado recomeça na planta nova.
+  if (demoRobot && demoChave !== chavePlanta(planta)) pararSimulado();
   if (!demoRobot) {
-    demoRobot = new DemoRobot(FALLBACK_LAYOUT, ROBOT_ID);
+    demoRobot = new DemoRobot(planta, ROBOT_ID);
+    demoChave = chavePlanta(planta);
+    const rooms = comodosDaPessoa(planta);
     let last = performance.now();
     let elapsed = 0;
     let roomIndex = 0;
@@ -54,7 +74,6 @@ function demo(): DemoRobot {
       elapsed += (now - last) / 1000;
       if (elapsed >= 8) {
         elapsed = 0;
-        const rooms = ["sala", "cozinha", "escritorio", "quarto"];
         demoRobot!.setPersonRoom(rooms[++roomIndex % rooms.length]);
       }
       last = now;
@@ -91,7 +110,7 @@ export const robotApi = {
   getLayout: () =>
     withDemo(
       () => apiJson<HouseLayout>("/house/layout"),
-      () => FALLBACK_LAYOUT,
+      () => plantaDemo(),
     ),
 
   getState: () =>
@@ -134,8 +153,6 @@ export const robotApi = {
 
   stopDemo() {
     usingDemo = false;
-    if (demoTimer !== null) window.clearInterval(demoTimer);
-    demoTimer = null;
-    demoRobot = null;
+    pararSimulado();
   },
 };

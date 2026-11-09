@@ -18,7 +18,10 @@ test("authenticated virtual robot is online and commands never reach the physica
   };
   class ApiError extends Error {}
   class AuthRequiredError extends Error {}
-  const apiJson = async () => {
+  const apiJson = async (path) => {
+    // As preferências da família (planta do modelo) não são o equipamento físico.
+    if (path === "/care/preferences")
+      return { floorPlanSource: "TEMPLATE", floorPlanTemplate: { kind: "HOUSE", bedrooms: 3, bathrooms: 2 } };
     requests++;
     throw Error("Physical endpoint must not be called");
   };
@@ -31,7 +34,15 @@ test("authenticated virtual robot is online and commands never reach the physica
       setItem: (k, v) => storage.set(k, v),
     },
     window: { setInterval: () => 1, clearInterval: () => {} },
+    structuredClone,
   });
+  const reactModule = new vm.SyntheticModule(
+    ["useSyncExternalStore"],
+    function () {
+      this.setExport("useSyncExternalStore", () => {});
+    },
+    { context },
+  );
   const authModule = new vm.SyntheticModule(
     ["auth", "ApiError", "AuthRequiredError", "apiJson"],
     function () {
@@ -48,6 +59,7 @@ test("authenticated virtual robot is online and commands never reach the physica
   const cache = new Map();
   async function load(url) {
     if (url.pathname.endsWith("/services/auth.ts")) return authModule;
+    if (url.pathname.endsWith("/react.ts")) return reactModule;
     if (cache.has(url.href)) return cache.get(url.href);
     const source = await readFile(url, "utf8");
     const mod = new vm.SourceTextModule(
@@ -61,7 +73,9 @@ test("authenticated virtual robot is online and commands never reach the physica
     );
     cache.set(url.href, mod);
     await mod.link((name, parent) =>
-      load(new URL(name + ".ts", parent.identifier)),
+      name === "react"
+        ? reactModule
+        : load(new URL(name + ".ts", parent.identifier)),
     );
     return mod;
   }
@@ -72,14 +86,22 @@ test("authenticated virtual robot is online and commands never reach the physica
   const r = await load(new URL("../src/services/robotApi.ts", import.meta.url));
   await r.evaluate();
   p.namespace.presentation.set("demo");
+  // Espera as preferências carregarem: a demonstração usa a planta da família.
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const layout = await r.namespace.robotApi.getLayout();
+  assert.deepEqual(
+    [...layout.rooms.map((room) => room.id)],
+    ["sala", "cozinha", "quarto", "quarto-2", "quarto-3", "banheiro", "banheiro-2"],
+  );
   const state = await r.namespace.robotApi.getState();
   assert.equal(state.online, true);
   assert.equal(requests, 0);
   const mission = await r.namespace.robotApi.requestMission({
     type: "GO_TO_ROOM",
-    targetRoom: "cozinha",
+    targetRoom: "quarto-3",
   });
   assert.ok(mission.id);
+  assert.equal(mission.targetRoom, "quarto-3");
   assert.equal(requests, 0);
   auth.username = "other@example.test";
   auth.generation++;
