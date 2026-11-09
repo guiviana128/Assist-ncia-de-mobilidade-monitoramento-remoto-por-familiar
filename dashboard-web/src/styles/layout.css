@@ -30,7 +30,7 @@
 
 /* ---------- Navbar (computador) ---------- */
 .navbar {
-  position: sticky; top: 0; z-index: 50;
+  position: sticky; top: 0; z-index: var(--z-navbar);
   display: flex; flex-direction: column; gap: 8px;
   width: 100%; max-width: var(--largura-max); margin: 0 auto; padding: 16px 24px;
   background: var(--superficie-fundo);
@@ -76,7 +76,7 @@
 
 /* ---------- Topo do celular / tablet ---------- */
 .topo-mobile {
-  position: sticky; top: 0; z-index: 50; background: var(--superficie-fundo);
+  position: sticky; top: 0; z-index: var(--z-navbar); background: var(--superficie-fundo);
   padding-top: env(safe-area-inset-top);
 }
 .topo-mobile-barra {
@@ -90,7 +90,7 @@
 
 /* ---------- Barra inferior ---------- */
 .barra-inferior {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-barra-inferior);
   display: flex; padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
   background: var(--superficie-base); border-top: 1px solid var(--borda-padrao);
 }
@@ -132,7 +132,9 @@
 }
 
 /* ---------- Camadas (popover, painel lateral, folha inferior) ---------- */
-.camada { position: fixed; inset: 0; z-index: 100; }
+.camada { position: fixed; inset: 0; z-index: var(--z-folha); }
+/* Popover (avisos, menu da conta) abaixo das folhas e painéis laterais, acima da navbar e do mapa */
+.camada.camada-popover { z-index: var(--z-popover); }
 .camada-fundo { position: absolute; inset: 0; }
 .camada-folha .camada-fundo, .camada-lateral .camada-fundo { background: rgba(15, 23, 42, .32); }
 .camada-painel {

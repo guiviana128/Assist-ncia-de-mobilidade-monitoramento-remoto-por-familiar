@@ -5,6 +5,15 @@
  */
 :root {
   color-scheme: light;
+
+  /* Camadas (z-index). Mapas ficam isolados em --z-mapa; os elementos fixos, acima. */
+  --z-mapa: 0;
+  --z-conteudo: 1;
+  --z-navbar: 1100;
+  --z-barra-inferior: 1100;
+  --z-popover: 1200;
+  --z-folha: 1300;
+  --z-toast: 1400;
   /* Superfícies */
   --superficie-base: #FFFFFF;
   --superficie-fundo: #F4F6F9;

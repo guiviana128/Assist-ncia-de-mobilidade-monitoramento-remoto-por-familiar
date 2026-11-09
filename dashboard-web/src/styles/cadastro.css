@@ -290,7 +290,7 @@ ul.cad-lista { list-style: none; margin: 0; }
     background: transparent; border: none; border-radius: 0; box-shadow: none;
   }
   .cad-topo-celular {
-    position: sticky; top: 0; z-index: 5; width: 100%; display: flex; flex-direction: column; gap: 12px;
+    position: sticky; top: 0; z-index: var(--z-navbar); width: 100%; display: flex; flex-direction: column; gap: 12px;
     padding: calc(12px + env(safe-area-inset-top)) 16px 12px; background: var(--superficie-fundo);
   }
   .cad-topo-barra { display: flex; align-items: center; gap: 8px; }
@@ -307,7 +307,7 @@ ul.cad-lista { list-style: none; margin: 0; }
   .cad-titulo { font-size: 26px; line-height: 32px; }
   .cad-apoio { font-size: 15px; line-height: 22px; }
   .cad-rodape-celular {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-barra-inferior);
     display: flex; flex-direction: column; gap: 8px; align-items: stretch;
     padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
     background: var(--superficie-base); border-top: 1px solid var(--borda-padrao);
