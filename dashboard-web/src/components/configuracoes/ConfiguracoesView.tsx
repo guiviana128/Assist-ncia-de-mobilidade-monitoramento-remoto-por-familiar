@@ -11,10 +11,12 @@ import L from "leaflet";
 import { Activity, Info, MapPin, Phone, Pill, Plus, X } from "lucide-react";
 
 import {
+  CONTATOS_PUBLICOS,
   cuidado,
   useCuidado,
   type PreferenciasBengala,
 } from "../../lib/cuidado";
+import { iniciais } from "../cadastro/regras";
 import { CELULAR, useMediaQuery } from "../../hooks/useMediaQuery";
 import { gsap, movimentoReduzido, useGSAP } from "../../motion/gsap";
 import { DUR, EASE_MOTION, saida } from "../../motion/tokens";
@@ -355,30 +357,32 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
                 <li key={c.id} className="contato-cfg">
                   {!celular && <span className="contato-ordem">{i + 1}º</span>}
                   <span
-                    className={`contato-avatar ${c.id === "maria" ? "is-acento" : c.id === "samu" ? "is-perigo-suave" : "is-aviso-suave"}`}
+                    className={`contato-avatar ${!CONTATOS_PUBLICOS.has(c.id) ? "is-acento" : c.id === "samu" ? "is-perigo-suave" : "is-aviso-suave"}`}
                     aria-hidden="true"
                   >
-                    {c.id === "maria" ? "MS" : c.telefone}
+                    {CONTATOS_PUBLICOS.has(c.id) ? c.telefone : iniciais(c.nome)}
                   </span>
                   <span className="config-textos">
                     <strong>
                       {c.id === "bombeiros" ? "Corpo de Bombeiros" : c.nome}
                     </strong>
                     <span>
-                      {c.id === "maria" ? `Filha · ${c.telefone}` : c.papel}
+                      {CONTATOS_PUBLICOS.has(c.id) ? c.papel : `${c.papel} · ${c.telefone}`}
                     </span>
                   </span>
                   {!celular && (
                     <span className="contato-quando texto-pequeno">
-                      {c.id === "maria"
-                        ? "Recebe todos os avisos no celular"
+                      {!CONTATOS_PUBLICOS.has(c.id)
+                        ? c.avisos === false
+                          ? "Só recebe ligação"
+                          : "Recebe todos os avisos no celular"
                         : c.id === "samu"
                           ? "Para queda sem resposta ou mal-estar"
                           : "Para acidente fora de casa"}
                     </span>
                   )}
                   <a className="btn-link" href={`tel:${c.discagem}`}>
-                    {c.id === "maria" ? "Ligar" : "Testar ligação"}
+                    {CONTATOS_PUBLICOS.has(c.id) ? "Testar ligação" : "Ligar"}
                   </a>
                 </li>
               ))}

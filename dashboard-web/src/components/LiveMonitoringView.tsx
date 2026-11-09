@@ -28,7 +28,8 @@ import type { HouseLayout } from "../types/robot";
 import { MaoAberta, MaoFechada, MaoPolegar } from "./ui/MaoIcones";
 import { ItemLinhaDoTempo } from "./ui/LinhaDoTempo";
 import { OlhosDoRobo } from "./camera/OlhosDoRobo";
-import { useCuidado } from "../lib/cuidado";
+import { contatosDaFamilia, useCuidado } from "../lib/cuidado";
+import { iniciais } from "./cadastro/regras";
 import {
   artigo,
   comodoCurto,
@@ -722,20 +723,15 @@ export const LiveMonitoringView: React.FC<LiveMonitoringViewProps> = ({
       iniciais: pessoa.charAt(0),
       tom: "pessoa",
     },
-    ...contatos
-      .filter((c) => c.id === "maria")
-      .map((c) => ({
-        id: c.id,
-        nome: c.nome,
-        papel: `Filha · ${c.telefone}`,
-        discagem: c.discagem,
-        iniciais: c.nome
-          .split(" ")
-          .map((p) => p[0])
-          .join("")
-          .slice(0, 2),
-        tom: "acento",
-      })),
+    // Contatos da família cadastrados (passo 6 do cadastro ou Configurações), na ordem de aviso.
+    ...contatosDaFamilia(contatos).map((c) => ({
+      id: c.id,
+      nome: c.nome,
+      papel: `${c.papel} · ${c.telefone}`,
+      discagem: c.discagem,
+      iniciais: iniciais(c.nome),
+      tom: "acento",
+    })),
   ];
 
   const controles = (
