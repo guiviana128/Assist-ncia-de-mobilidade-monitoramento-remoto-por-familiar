@@ -45,9 +45,13 @@ export function useRodape(r: Rodape) {
 /**
  * Erros aparecem ao sair do campo e em "Continuar". Em "Continuar" com erro, os campos inválidos
  * tremem uma vez e o foco vai para o primeiro deles.
+ *
+ * Enquanto a pessoa digita num campo, o erro dele sai de cena: some de vez quando o valor fica
+ * válido e só volta (já com o texto atualizado) ao sair do campo ou em "Continuar".
  */
 export function useValidacao(validar: () => Erros) {
   const [tocados, setTocados] = useState<Set<string>>(() => new Set());
+  const [editando, setEditando] = useState<Set<string>>(() => new Set());
   const [enviado, setEnviado] = useState(false);
   const [tremor, setTremor] = useState(0);
   const [servidor, setServidor] = useState<Erros>({});
@@ -55,7 +59,8 @@ export function useValidacao(validar: () => Erros) {
   const todos = { ...validar(), ...servidor };
   const visiveis: Erros = {};
   for (const [campo, msg] of Object.entries(todos))
-    if (enviado || tocados.has(campo) || campo in servidor) visiveis[campo] = msg;
+    if (campo in servidor || ((enviado || tocados.has(campo)) && !editando.has(campo)))
+      visiveis[campo] = msg;
 
   useEffect(() => {
     if (!tremor) return;
@@ -64,21 +69,28 @@ export function useValidacao(validar: () => Erros) {
   }, [tremor]);
 
   const sair = useCallback(
-    (campo: string) => () =>
-      setTocados((t) => (t.has(campo) ? t : new Set(t).add(campo))),
+    (campo: string) => () => {
+      setTocados((t) => (t.has(campo) ? t : new Set(t).add(campo)));
+      setEditando((t) => {
+        if (!t.has(campo)) return t;
+        const n = new Set(t);
+        n.delete(campo);
+        return n;
+      });
+    },
     [],
   );
-  /** Limpa o erro que veio do servidor quando a pessoa edita o campo. */
-  const editar = useCallback(
-    (campo: string) =>
-      setServidor((s) => {
-        if (!(campo in s)) return s;
-        const { [campo]: _, ...resto } = s;
-        return resto;
-      }),
-    [],
-  );
+  /** A pessoa mudou o campo: o erro dele (local ou do servidor) sai até ela terminar. */
+  const editar = useCallback((campo: string) => {
+    setEditando((t) => (t.has(campo) ? t : new Set(t).add(campo)));
+    setServidor((s) => {
+      if (!(campo in s)) return s;
+      const { [campo]: _, ...resto } = s;
+      return resto;
+    });
+  }, []);
   const tentar = () => {
+    setEditando(new Set());
     setEnviado(true);
     if (Object.keys({ ...validar(), ...servidor }).length) {
       setTremor((n) => n + 1);

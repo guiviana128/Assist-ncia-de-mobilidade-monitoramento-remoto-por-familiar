@@ -169,7 +169,10 @@ export const PassoConta: React.FC = () => {
               {...a}
               className="campo-entrada"
               value={nome}
-              onChange={(e) => setNome(e.target.value)}
+              onChange={(e) => {
+                setNome(e.target.value);
+                v.editar("nome");
+              }}
               onBlur={v.sair("nome")}
               autoComplete="name"
               maxLength={100}
@@ -223,7 +226,10 @@ export const PassoConta: React.FC = () => {
               type={mostrar ? "text" : "password"}
               className="campo-entrada"
               value={senha}
-              onChange={(e) => setSenha(e.target.value)}
+              onChange={(e) => {
+                setSenha(e.target.value);
+                v.editar("senha");
+              }}
               onBlur={v.sair("senha")}
               autoComplete="new-password"
               maxLength={120}
