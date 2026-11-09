@@ -10,7 +10,7 @@ import { presentation } from "../services/presentation";
  * A Casa 3D mantém a própria consulta de 1 s; aqui o ritmo é o do painel (3,5 s).
  * Também mede há quanto tempo o José está no cômodo atual.
  */
-export function useRobo(intervaloMs = 3500) {
+export function useRobo(ativo = true, intervaloMs = 3500) {
   const [layout, setLayout] = useState<HouseLayout>(FALLBACK_LAYOUT);
   const [robot, setRobot] = useState<RobotState | null>(null);
   const [missions, setMissions] = useState<RobotMission[]>([]);
@@ -18,17 +18,18 @@ export function useRobo(intervaloMs = 3500) {
   const ultimoComodo = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
-    let ativo = true;
+    if (!ativo) return;
+    let vivo = true;
     robotApi
       .getLayout()
       .then((l) => {
-        if (ativo) setLayout(l);
+        if (vivo) setLayout(l);
       })
       .catch(() => undefined);
     return () => {
-      ativo = false;
+      vivo = false;
     };
-  }, []);
+  }, [ativo]);
 
   useEffect(
     () =>
@@ -74,16 +75,18 @@ export function useRobo(intervaloMs = 3500) {
         setMissions([]);
         setNoComodoDesde(null);
         ultimoComodo.current = undefined;
-        void atualizar();
+        if (ativo) void atualizar();
       }),
-    [atualizar],
+    [atualizar, ativo],
   );
 
+  // Só consulta com o painel aberto (sessão válida e cadastro concluído); para ao sair.
   useEffect(() => {
+    if (!ativo) return;
     void atualizar();
     const timer = window.setInterval(() => void atualizar(), intervaloMs);
     return () => window.clearInterval(timer);
-  }, [atualizar, intervaloMs]);
+  }, [atualizar, intervaloMs, ativo]);
 
   return {
     layout,

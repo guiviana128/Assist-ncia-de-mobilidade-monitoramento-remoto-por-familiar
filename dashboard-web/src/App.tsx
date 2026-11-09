@@ -115,7 +115,15 @@ export const App: React.FC = () => {
   const mounted = useRef(false);
   const celular = useMediaQuery(CELULAR);
   const ateTablet = useMediaQuery(ATE_TABLET);
-  const robo = useRobo();
+  // O painel só consulta a API com a sessão válida (ou na demonstração) e o cadastro concluído.
+  // Deslogado, no login ou no meio do cadastro não há polling; ao sair ele para.
+  const logado = !!username;
+  const prefsDecididas =
+    !logado ||
+    (!cuidado.carregando() &&
+      (!cuidado.pronto() || !cadastroPendente(preferences.onboardingStep)));
+  const painelAtivo = !needsLogin && !cadastro.ativo && prefsDecididas;
+  const robo = useRobo(painelAtivo);
 
   const fetchData = useCallback(async () => {
     if (busy.current) return;
@@ -150,16 +158,20 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Atualização automática a cada 3,5 s
   useEffect(() => {
     mounted.current = true;
-    void fetchData();
-    const interval = window.setInterval(() => void fetchData(), 3500);
     return () => {
       mounted.current = false;
-      window.clearInterval(interval);
     };
-  }, [fetchData]);
+  }, []);
+
+  // Atualização automática a cada 3,5 s, só com o painel aberto
+  useEffect(() => {
+    if (!painelAtivo) return;
+    void fetchData();
+    const interval = window.setInterval(() => void fetchData(), 3500);
+    return () => window.clearInterval(interval);
+  }, [fetchData, painelAtivo]);
 
   // Esqueleto só se a primeira carga passar de 300 ms (evita piscar em respostas rápidas)
   const esperando = loading && !summary;
@@ -355,7 +367,6 @@ export const App: React.FC = () => {
               setNeedsLogin(false);
               setLoading(true);
               setView("inicio");
-              void fetchData();
             }}
           />
         </motion.div>
@@ -367,12 +378,10 @@ export const App: React.FC = () => {
               setNeedsLogin(false);
               setLoading(true);
               setView(ABA_PADRAO);
-              void fetchData();
             }}
             onContinueDemo={() => {
               cuidado.demonstracao();
               setNeedsLogin(false);
-              void fetchData();
             }}
           />
         </motion.div>

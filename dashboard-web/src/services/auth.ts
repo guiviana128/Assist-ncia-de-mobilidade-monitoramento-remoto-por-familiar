@@ -203,11 +203,13 @@ export async function apiFetch(
   });
   if (startedGeneration !== generation) throw new AuthRequiredError();
   if (res.status === 401) {
+    // Só avisa quando havia sessão: sem ela o estado não mudou, e avisar de novo faria quem
+    // escuta (preferências, robô) chamar a API outra vez, num laço de 401.
     if (session) {
       session = null;
       clearStored();
+      notify();
     }
-    notify();
     throw new AuthRequiredError();
   }
   return res;
