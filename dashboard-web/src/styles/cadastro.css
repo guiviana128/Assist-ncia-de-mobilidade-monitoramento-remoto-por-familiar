@@ -230,6 +230,28 @@ ul.cad-lista { list-style: none; margin: 0; }
 .cad-preferencia { display: flex; align-items: center; gap: 12px; }
 .cad-item .interruptor { margin-left: 4px; }
 
+/* Passo 8: equipamentos */
+.cad-estado {
+  flex-shrink: 0; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+  font-size: 12px; line-height: 16px; font-weight: 700;
+  background: var(--superficie-rebaixada); color: var(--texto-secundario);
+}
+.cad-estado.is-conectado { background: var(--sucesso-fundo); color: var(--sucesso-texto); }
+.cad-estado.is-sem-sinal { background: var(--aviso-fundo); color: var(--aviso-texto); }
+.cad-opcao.is-escolhida .cad-item + .cad-item { border-top-color: color-mix(in srgb, var(--acento) 18%, transparent); }
+.cad-equip-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.cad-verificar { min-height: 46px; gap: 8px; border-color: var(--borda-padrao); font-size: 15px; font-weight: 700; }
+.cad-como { min-height: 46px; padding: 0 4px; font-size: 15px; font-weight: 700; white-space: nowrap; }
+.cad-girando { animation: cad-gira .9s linear infinite; }
+@keyframes cad-gira { to { transform: rotate(-360deg); } }
+@media (prefers-reduced-motion: reduce) { .cad-girando { animation: none; } }
+.cad-opcao-detalhe > .texto-pequeno:empty { display: none; }
+.cad-como-lista {
+  display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 12px 14px 12px 32px; list-style: decimal;
+  border-radius: 12px; background: var(--superficie-base);
+  font-size: 14px; line-height: 20px; font-weight: 500; color: var(--texto-secundario);
+}
+
 /* Códigos do passo 7 */
 .cad-codigo { display: flex; flex-direction: column; gap: 8px; }
 .cad-codigo-caixa { display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 16px; min-height: 64px; border-radius: 12px; background: var(--superficie-rebaixada); }
