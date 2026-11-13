@@ -148,7 +148,10 @@ export function roomDecorations(layout: HouseLayout): VisualFurniture[] {
     const items = extras[kind] ?? [{ name: 'Planta', sizeX: 0.28, sizeY: 0.28, height: 0.45 }];
     for (const item of items) {
       if (layout.furniture.some(f => f.roomId === room.id && f.name === item.name)) continue;
-      const position = candidates(room, item).find(f =>
+      const positions = candidates(room, item);
+      // A geladeira fica preferencialmente na parede direita da cozinha.
+      if (item.name === 'Geladeira') positions.sort((a, b) => b.x - a.x || b.y - a.y);
+      const position = positions.find(f =>
         !reserved.some(other => overlaps(f, other)) && !routes.some(([a, b]) => intersectsRoute(f, a, b)) &&
         (f.name !== 'Geladeira' || (insideRoom(fridgeAccess(f), room) &&
           !reserved.some(other => overlaps(fridgeAccess(f), other))))
