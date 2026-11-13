@@ -2,6 +2,8 @@
 // A classe cria e atualiza tudo que aparece no painel: planta, robô, pessoa, rota, LiDAR,
 // a visão "pelos olhos do robô" e a sessão de Realidade Aumentada (WebXR).
 import * as THREE from 'three';
+import { furnitureModel, personModel, robotModel } from './models';
+import { roomDecorations, type VisualFurniture } from './decorations';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import type { HouseLayout, Point2D, RobotState } from '../../types/robot';
@@ -59,8 +61,6 @@ export class HouseScene {
   private readonly controls: OrbitControls;
   private readonly root = new THREE.Group(); // tudo da casa fica aqui (é ele que escala no AR)
   private readonly floors: THREE.Mesh[] = [];
-  private readonly wallMaterial = new THREE.MeshStandardMaterial({ roughness: 0.85 });
-  private readonly furnitureMaterial = new THREE.MeshStandardMaterial({ color: '#b08968', roughness: 0.7 });
   private readonly robot = new THREE.Group();
   private readonly robotRing: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
   private readonly lidar: THREE.Mesh<THREE.CircleGeometry, THREE.ShaderMaterial>;
@@ -405,7 +405,13 @@ export class HouseScene {
     const thickness = 0.15;
     layout.walls.forEach(w => {
       const length = Math.hypot(w.x2 - w.x1, w.y2 - w.y1) + thickness;
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(length, layout.wallHeight, thickness), this.wallMaterial);
+      const material = new THREE.MeshStandardMaterial({ roughness: 0.85 });
+      const mx = (w.x1 + w.x2) / 2;
+      const my = (w.y1 + w.y2) / 2;
+      const room = layout.rooms.find(r => mx >= r.minX - 0.01 && mx <= r.maxX + 0.01 && my >= r.minY - 0.01 && my <= r.maxY + 0.01);
+      const palette: Record<string, string> = { sala: '#a7b8a2', cozinha: '#e3c59f', quarto: '#cfa58e', banheiro: '#9dbfc1', escritorio: '#a2adb9' };
+      material.color.set(palette[room?.id.replace(/-\d+$/, '') ?? ''] ?? '#d9cdbb');
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(length, layout.wallHeight, thickness), material);
       wall.position.copy(this.toLocal((w.x1 + w.x2) / 2, (w.y1 + w.y2) / 2, layout.wallHeight / 2));
       wall.rotation.y = Math.atan2(w.y2 - w.y1, w.x2 - w.x1);
       wall.castShadow = true;
@@ -413,23 +419,17 @@ export class HouseScene {
       this.root.add(wall);
     });
 
-    layout.furniture.forEach(f => {
-      const box = new THREE.Mesh(new THREE.BoxGeometry(f.sizeX, f.height, f.sizeY), this.furnitureMaterial);
-      box.position.copy(this.toLocal(f.x, f.y, f.height / 2));
-      box.castShadow = true;
-      box.receiveShadow = true;
-      this.root.add(box);
+    const furnishings: VisualFurniture[] = [...layout.furniture, ...roomDecorations(layout)];
+    furnishings.forEach(f => {
+      const model = furnitureModel(f, layout);
+      if (f.yaw != null) model.rotation.y = f.yaw;
+      model.position.copy(this.toLocal(f.x, f.y, 0));
+      this.root.add(model);
     });
   }
 
   private buildRobot() {
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 0.14, 32), new THREE.MeshStandardMaterial({ color: '#334155', metalness: 0.3, roughness: 0.5 }));
-    body.position.y = 0.09;
-    const top = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.06, 24), new THREE.MeshStandardMaterial({ color: '#0f172a' }));
-    top.position.y = 0.19;
-    const face = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 0.16), new THREE.MeshStandardMaterial({ color: '#22d3ee', emissive: '#0e7490', emissiveIntensity: 1.2 }));
-    face.position.set(0.17, 0.11, 0);
-    [body, top, face].forEach(m => { m.castShadow = true; this.robot.add(m); });
+    this.robot.add(robotModel());
 
     this.robotRing.rotation.x = -Math.PI / 2;
     this.robotRing.position.y = 0.01;
@@ -448,15 +448,8 @@ export class HouseScene {
   }
 
   private buildPerson() {
-    const material = new THREE.MeshStandardMaterial({ color: '#f97316', roughness: 0.6 });
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.17, 0.85, 20), material);
-    body.position.y = 0.43;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 24, 16), new THREE.MeshStandardMaterial({ color: '#fed7aa' }));
-    head.position.y = 1.0;
-    const cane = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 8), new THREE.MeshStandardMaterial({ color: '#1e293b' }));
-    cane.position.set(0.24, 0.4, 0.05);
-    [body, head, cane].forEach(m => { m.castShadow = true; this.person.add(m); });
-    this.personLabel.position.set(0, 1.4, 0);
+    this.person.add(personModel());
+    this.personLabel.position.set(0, 1.7, 0);
     this.person.add(this.personLabel);
     this.person.visible = false;
     this.root.add(this.person);
@@ -562,7 +555,7 @@ export class HouseScene {
   private applyColors() {
     this.scene.background = this.inAR ? null : new THREE.Color('#f4f6f9');
     this.eyesRenderer.setClearColor('#dfe7f1');
-    this.wallMaterial.color.set('#f8fafc');
+
     this.hemi.intensity = 1.3;
     this.floors.forEach(floor => {
       const material = floor.material as FloorMaterial;
