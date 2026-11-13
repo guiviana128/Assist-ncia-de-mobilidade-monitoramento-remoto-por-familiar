@@ -7,7 +7,9 @@ type Decoration = Pick<Furniture, 'name' | 'sizeX' | 'sizeY' | 'height'>;
 const extras: Record<string, Decoration[]> = {
   quarto: [
     { name: 'Guarda-roupa', sizeX: 1.1, sizeY: 0.45, height: 1.65 },
-    { name: 'Criado-mudo', sizeX: 0.35, sizeY: 0.35, height: 0.48 }
+    { name: 'Criado-mudo', sizeX: 0.35, sizeY: 0.35, height: 0.48 },
+    { name: 'Cômoda', sizeX: 0.72, sizeY: 0.38, height: 0.82 },
+    { name: 'Planta', sizeX: 0.28, sizeY: 0.28, height: 0.45 }
   ],
   banheiro: [
     { name: 'Chuveiro', sizeX: 0.7, sizeY: 0.7, height: 1.8 },
@@ -20,6 +22,8 @@ const extras: Record<string, Decoration[]> = {
   ],
   sala: [
     { name: 'Mesa lateral', sizeX: 0.45, sizeY: 0.45, height: 0.52 },
+    { name: 'Estante', sizeX: 0.68, sizeY: 0.28, height: 1.3 },
+    { name: 'Poltrona', sizeX: 0.65, sizeY: 0.65, height: 0.8 },
     { name: 'Planta', sizeX: 0.3, sizeY: 0.3, height: 0.5 }
   ],
   escritorio: [{ name: 'Armário', sizeX: 0.7, sizeY: 0.35, height: 1.35 }],
@@ -54,21 +58,46 @@ function intersectsRoute(f: Furniture, a: Point2D, b: Point2D) {
   return true;
 }
 
-function candidates(room: Room, item: Decoration): Furniture[] {
-  const points: Furniture[] = [];
-  for (const rotate of [false, true]) {
-    const sizeX = rotate ? item.sizeY : item.sizeX;
-    const sizeY = rotate ? item.sizeX : item.sizeY;
-    const minX = room.minX + sizeX / 2 + 0.12;
-    const maxX = room.maxX - sizeX / 2 - 0.12;
-    const minY = room.minY + sizeY / 2 + 0.12;
-    const maxY = room.maxY - sizeY / 2 - 0.12;
-    if (minX > maxX || minY > maxY) continue;
-    const add = (x: number, y: number) => points.push({ ...item, roomId: room.id, sizeX, sizeY, x, y });
-    for (let x = minX; x <= maxX + 0.001; x += 0.15) { add(x, maxY); add(x, minY); }
-    for (let y = minY; y <= maxY + 0.001; y += 0.15) { add(minX, y); add(maxX, y); }
+function candidates(room: Room, item: Decoration): VisualFurniture[] {
+  const points: VisualFurniture[] = [];
+  const add = (x: number, y: number, sideways: boolean, yaw: number) => points.push({
+    ...item, roomId: room.id, x, y, yaw,
+    sizeX: sideways ? item.sizeY : item.sizeX,
+    sizeY: sideways ? item.sizeX : item.sizeY
+  });
+  // A profundidade sempre aponta para o interior, com as costas junto à parede.
+  const inset = item.sizeY / 2 + 0.12;
+  if (room.maxY - room.minY > item.sizeY + 0.24) {
+    for (let x = room.minX + item.sizeX / 2 + 0.12; x <= room.maxX - item.sizeX / 2 - 0.12; x += 0.15) {
+      add(x, room.maxY - inset, false, 0);
+      add(x, room.minY + inset, false, Math.PI);
+    }
+  }
+  if (room.maxX - room.minX > item.sizeY + 0.24) {
+    for (let y = room.minY + item.sizeX / 2 + 0.12; y <= room.maxY - item.sizeX / 2 - 0.12; y += 0.15) {
+      add(room.minX + inset, y, true, Math.PI / 2);
+      add(room.maxX - inset, y, true, -Math.PI / 2);
+    }
   }
   return points;
+}
+
+/** Faixa de 80 cm reservada para alcançar e abrir a geladeira. */
+export function fridgeAccess(f: VisualFurniture): Furniture {
+  const yaw = f.yaw ?? 0;
+  const sideways = Math.abs(Math.sin(yaw)) > 0.5;
+  const depth = sideways ? f.sizeX : f.sizeY;
+  return { ...f, name: 'Acesso da geladeira',
+    x: f.x + Math.sin(yaw) * (depth / 2 + 0.4),
+    y: f.y - Math.cos(yaw) * (depth / 2 + 0.4),
+    sizeX: sideways ? 0.8 : f.sizeX + 0.1,
+    sizeY: sideways ? f.sizeY + 0.1 : 0.8
+  };
+}
+
+function insideRoom(f: Furniture, r: Room) {
+  return f.x - f.sizeX / 2 >= r.minX + 0.08 && f.x + f.sizeX / 2 <= r.maxX - 0.08 &&
+    f.y - f.sizeY / 2 >= r.minY + 0.08 && f.y + f.sizeY / 2 <= r.maxY - 0.08;
 }
 
 /** Apenas decoração: não modifica os dados de colisão, o mapa nem a navegação. */
@@ -120,13 +149,28 @@ export function roomDecorations(layout: HouseLayout): VisualFurniture[] {
     for (const item of items) {
       if (layout.furniture.some(f => f.roomId === room.id && f.name === item.name)) continue;
       const position = candidates(room, item).find(f =>
-        !reserved.some(other => overlaps(f, other)) && !routes.some(([a, b]) => intersectsRoute(f, a, b))
+        !reserved.some(other => overlaps(f, other)) && !routes.some(([a, b]) => intersectsRoute(f, a, b)) &&
+        (f.name !== 'Geladeira' || (insideRoom(fridgeAccess(f), room) &&
+          !reserved.some(other => overlaps(fridgeAccess(f), other))))
       );
       if (position) {
         result.push(position);
         reserved.push(position);
+        if (position.name === 'Geladeira') reserved.push(fridgeAccess(position));
       }
     }
+  }
+  // Tapetes são superfícies planas abaixo das rotas e do LiDAR (2 cm).
+  for (const room of layout.rooms.filter(r => /^(sala|quarto)(-|$)/.test(r.id))) {
+    const sofa = layout.furniture.find(f => f.roomId === room.id && /sof/i.test(f.name));
+    const tv = layout.furniture.find(f => f.roomId === room.id && /rack/i.test(f.name));
+    const x = sofa && tv ? (sofa.x + tv.x) / 2 : (room.minX + room.maxX) / 2;
+    const y = sofa && tv ? (sofa.y + tv.y) / 2 : (room.minY + room.maxY) / 2;
+    const sizeX = Math.min(2.2, (room.maxX - room.minX) * 0.65);
+    const sizeY = Math.min(1.65, (room.maxY - room.minY) * 0.55);
+    result.push({ name: 'Tapete', roomId: room.id, height: 0.008, sizeX, sizeY,
+      x: Math.max(room.minX + sizeX / 2 + 0.12, Math.min(room.maxX - sizeX / 2 - 0.12, x)),
+      y: Math.max(room.minY + sizeY / 2 + 0.12, Math.min(room.maxY - sizeY / 2 - 0.12, y)) });
   }
   return result;
 }

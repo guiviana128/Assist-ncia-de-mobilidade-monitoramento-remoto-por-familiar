@@ -106,3 +106,37 @@ test("demo robot patrols the family's plan and the person never walks into a bat
   assert.equal(m.targetRoom, "quarto-3");
   assert.throws(() => robo.request({ type: "GO_TO_ROOM", targetRoom: "escritorio" }));
 });
+
+test("3D decoration preserves the map, fridge access and rugs in every bedroom", async () => {
+  const { layoutDoModelo, FALLBACK_LAYOUT } = await modulo("../src/robot/houseLayout.ts");
+  const { roomDecorations, fridgeAccess } = await modulo("../src/components/house3d/decorations.ts");
+  const layouts = [FALLBACK_LAYOUT];
+  for (const kind of ["HOUSE", "APARTMENT"])
+    for (let bedrooms = 1; bedrooms <= 4; bedrooms++)
+      for (let bathrooms = 1; bathrooms <= 3; bathrooms++)
+        layouts.push(layoutDoModelo({ kind, bedrooms, bathrooms }));
+  for (const layout of layouts) {
+    const original = JSON.stringify(layout);
+    const decorations = roomDecorations(layout);
+    assert.equal(JSON.stringify(layout), original, "visual decoration must not mutate navigation data");
+    const fridges = decorations.filter(f => f.name === "Geladeira");
+    assert.equal(fridges.length, 1);
+    for (const fridge of fridges) {
+      const access = fridgeAccess(fridge);
+      const room = layout.rooms.find(r => r.id === fridge.roomId);
+      assert.ok(dentro(room, access.x - access.sizeX / 2, access.y - access.sizeY / 2));
+      assert.ok(dentro(room, access.x + access.sizeX / 2, access.y + access.sizeY / 2));
+      for (const other of [...layout.furniture, ...decorations]) {
+        if (other === fridge || other.name === "Tapete") continue;
+        const blocked = Math.abs(access.x - other.x) < (access.sizeX + other.sizeX) / 2 &&
+          Math.abs(access.y - other.y) < (access.sizeY + other.sizeY) / 2;
+        assert.equal(blocked, false, `${layout.name}: ${other.name} blocks the fridge`);
+      }
+    }
+    for (const room of layout.rooms.filter(r => /^(sala|quarto)(-|$)/.test(r.id))) {
+      const rug = decorations.find(f => f.name === "Tapete" && f.roomId === room.id);
+      assert.ok(rug, `missing rug in ${room.id}`);
+      assert.ok(rug.height < 0.02, "rugs remain below the LiDAR overlay");
+    }
+  }
+});

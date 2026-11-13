@@ -75,15 +75,49 @@ function diningChair(x: number, yaw: number) {
 }
 
 /** Mantém o contorno horizontal do móvel cadastrado, incluindo modelos antigos. */
-export function furnitureModel(f: Furniture, layout?: HouseLayout): THREE.Group {
+export function furnitureModel(f: Furniture & { yaw?: number }, layout?: HouseLayout): THREE.Group {
   const m = new Model();
   const name = f.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const sideways = /sofa|rack|guarda|armario/.test(name) && f.sizeY > f.sizeX;
+  const sideways = f.yaw != null ? Math.abs(Math.sin(f.yaw)) > 0.5 : /sofa|rack|guarda|armario/.test(name) && f.sizeY > f.sizeX;
   const w = sideways ? f.sizeY : f.sizeX;
   const d = sideways ? f.sizeX : f.sizeY;
   const h = f.height;
 
-  if (/cama/.test(name)) {
+  if (/tapete/.test(name)) {
+    m.box(w, 0.006, d, 0, 0.007, 0, '#c6a17a', 0.002);
+    m.box(w * 0.9, 0.002, d * 0.87, 0, 0.011, 0, '#e8dac2', 0.001);
+    for (const x of [-w * 0.38, w * 0.38]) m.box(0.025, 0.001, d * 0.72, x, 0.0125, 0, '#73938b', 0.0002);
+    for (const z of [-d * 0.32, d * 0.32]) m.box(w * 0.77, 0.001, 0.025, 0, 0.0125, z, '#73938b', 0.0002);
+    for (let x = -w * 0.4; x <= w * 0.4; x += 0.08) {
+      for (const z of [-d * 0.47, d * 0.47]) m.box(0.018, 0.002, d * 0.05, x, 0.009, z, '#f2e9d9', 0.0005);
+    }
+  } else if (/estante/.test(name)) {
+    for (const x of [-w * 0.47, w * 0.47]) m.box(w * 0.06, h, d, x, h / 2, 0, wood);
+    m.box(w, h, 0.025, 0, h / 2, -d * 0.45, '#71918b');
+    for (let row = 0; row < 4; row++) {
+      const y = 0.06 + row * h * 0.29;
+      m.box(w, 0.04, d, 0, y, 0, wood);
+      if (row < 3) {
+        for (let i = 0; i < 4; i++) {
+          m.box(w * 0.09, h * (0.13 + i * 0.012), d * 0.7, -w * 0.33 + i * w * 0.11,
+            y + h * (0.065 + i * 0.006) + 0.02, 0, ['#b77b60', '#e0cf9f', '#637f89', '#c6ab87'][i]);
+        }
+      }
+    }
+    plant(m, w * 0.25, h * 0.65, 0, 0.55);
+  } else if (/comoda/.test(name)) {
+    legs(m, w, 0.1, d);
+    m.box(w, h - 0.1, d, 0, (h + 0.1) / 2, 0, wood);
+    for (let i = 0; i < 3; i++) {
+      const y = 0.22 + i * (h - 0.16) / 3;
+      m.box(w * 0.94, (h - 0.16) / 3 - 0.025, 0.025, 0, y, d / 2 - 0.015, cream);
+      m.box(0.14, 0.018, 0.025, 0, y, d / 2 - 0.01, dark);
+    }
+    plant(m, -w * 0.29, h, 0, 0.75);
+    m.box(w * 0.3, 0.25, 0.035, w * 0.25, h + 0.125, -d * 0.1, wood);
+    m.box(w * 0.25, 0.2, 0.01, w * 0.25, h + 0.125, -d * 0.1 + 0.024, '#84a7a2');
+    m.ball(0.07, 0.07, 0.008, w * 0.28, h + 0.17, -d * 0.1 + 0.032, '#e7c28b');
+  } else if (/cama/.test(name)) {
     legs(m, w, 0.12, d);
     m.box(w, 0.16, d, 0, 0.18, 0, wood);
     m.box(w * 0.96, 0.19, d * 0.96, 0, h - 0.08, 0, ceramic, 0.07);
@@ -93,7 +127,7 @@ export function furnitureModel(f: Furniture, layout?: HouseLayout): THREE.Group 
     for (const x of [-w * 0.24, w * 0.24]) {
       m.box(w * 0.4, 0.13, d * 0.19, x, h + 0.08, -d * 0.31, cream, 0.06);
     }
-  } else if (/sofa/.test(name)) {
+  } else if (/sofa|poltrona/.test(name)) {
     legs(m, w, 0.12, d);
     m.box(w, h * 0.35, d, 0, h * 0.32, 0, fabric, 0.07);
     m.box(w, h * 0.64, d * 0.18, 0, h * 0.67, -d * 0.4, fabric, 0.06);
@@ -122,7 +156,9 @@ export function furnitureModel(f: Furniture, layout?: HouseLayout): THREE.Group 
       m.box(0.025, Math.min(0.22, h * 0.3), 0.035, x * 0.2, h * 0.53, d / 2 - 0.015, dark);
     }
     if (/criado/.test(name)) {
-      m.cylinder(0.08, 0.03, 0, h + 0.015, 0, wood);
+      m.box(w * 0.5, 0.035, d * 0.45, -w * 0.15, h + 0.02, d * 0.2, '#6f9895');
+      m.box(w * 0.46, 0.025, d * 0.42, -w * 0.13, h + 0.05, d * 0.2, '#d6b18b');
+      m.cylinder(0.08, 0.03, 0, h + 0.015, -d * 0.15, wood);
       m.cylinder(0.015, 0.18, 0, h + 0.1, 0, dark);
       m.mesh(new THREE.ConeGeometry(0.12, 0.16, 24), '#ead8b8', 0, h + 0.25, 0);
     }
@@ -208,7 +244,7 @@ export function furnitureModel(f: Furniture, layout?: HouseLayout): THREE.Group 
   }
 
   let yaw = sideways ? Math.PI / 2 : 0;
-  if (layout) {
+  if (layout && f.yaw == null) {
     const room = layout.rooms.find(r => r.id === f.roomId);
     const other = layout.furniture.find(item => item.roomId === f.roomId &&
       (/sofa/.test(name) ? /rack|tv/i.test(item.name) : /rack/.test(name) && /sof/i.test(item.name)));
@@ -218,7 +254,7 @@ export function furnitureModel(f: Furniture, layout?: HouseLayout): THREE.Group 
     if (!/cama|cadeira|mesa|escrivaninha|planta/.test(name) &&
         (sideways ? targetX < f.x : targetY > f.y)) yaw += Math.PI;
   }
-  m.group.rotation.y = yaw;
+  yaw = f.yaw ?? yaw;
   // Detalhes superiores podem crescer, mas nunca invadem a circulação lateral.
   m.group.rotation.y = 0;
   const bounds = new THREE.Box3().setFromObject(m.group);
