@@ -50,6 +50,15 @@ export const comodosDaPessoa = (layout: HouseLayout): string[] => {
   return ids.length ? ids : layout.rooms.map(r => r.id);
 };
 
+/** Velocidade de caminhada da pessoa (m/s): passo tranquilo de uma pessoa idosa. */
+export const VELOCIDADE_PESSOA = 0.6;
+
+/** Onde a pessoa fica num cômodo: ao lado do ponto do robô, sem encostar nas paredes. */
+export const pontoDaPessoa = (room: Room): Point2D => ({
+  x: Math.min(room.maxX - 0.4, room.targetX + 0.55),
+  y: Math.min(room.maxY - 0.4, room.targetY + 0.35)
+});
+
 /** Identidade da planta: muda quando a família troca o modelo (para recriar cena e robô simulado). */
 export const chavePlanta = (layout: HouseLayout): string =>
   `${layout.name}|${layout.rooms.map(r => r.id).join(',')}`;

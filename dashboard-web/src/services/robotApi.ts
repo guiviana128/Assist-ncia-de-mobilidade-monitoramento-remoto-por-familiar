@@ -7,7 +7,7 @@ import type {
   RobotState,
 } from "../types/robot";
 import { DemoRobot } from "../robot/demoRobot";
-import { chavePlanta, comodosDaPessoa } from "../robot/houseLayout";
+import { VELOCIDADE_PESSOA, chavePlanta, comodosDaPessoa, findRoom, pathLength, planPath, pontoDaPessoa } from "../robot/houseLayout";
 import { cuidado, plantaDaFamilia } from "../lib/cuidado";
 import { ApiError, AuthRequiredError, apiJson, auth } from "./auth";
 import { presentation } from "./presentation";
@@ -68,13 +68,24 @@ function demo(): DemoRobot {
     let last = performance.now();
     let elapsed = 0;
     let roomIndex = 0;
+    // Próxima troca de cômodo só depois que a pessoa chega (caminhada + 5 s parada), no mínimo 15 s
+    const espera = (de: string, para: string) => {
+      const a = findRoom(planta, de), b = findRoom(planta, para);
+      if (!a || !b) return 15;
+      const metros = pathLength(planPath(planta, pontoDaPessoa(a), pontoDaPessoa(b)));
+      return Math.max(15, metros / VELOCIDADE_PESSOA + 5);
+    };
+    let proxima = 15;
     demoTimer = window.setInterval(() => {
       const now = performance.now();
       demoRobot!.tick(Math.min(0.5, (now - last) / 1000));
       elapsed += (now - last) / 1000;
-      if (elapsed >= 8) {
+      if (elapsed >= proxima) {
         elapsed = 0;
-        demoRobot!.setPersonRoom(rooms[++roomIndex % rooms.length]);
+        const de = rooms[roomIndex % rooms.length]!;
+        const para = rooms[++roomIndex % rooms.length]!;
+        proxima = espera(de, para);
+        demoRobot!.setPersonRoom(para);
       }
       last = now;
     }, 100);

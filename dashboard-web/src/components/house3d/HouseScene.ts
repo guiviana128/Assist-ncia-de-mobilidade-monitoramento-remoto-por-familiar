@@ -7,11 +7,13 @@ import { roomDecorations, type VisualFurniture } from './decorations';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import type { HouseLayout, Point2D, RobotState } from '../../types/robot';
+import { VELOCIDADE_PESSOA, planPath, pontoDaPessoa, roomAt } from '../../robot/houseLayout';
 import { floorFragmentShader, floorVertexShader, lidarFragmentShader, lidarVertexShader } from './shaders';
 
 const LIDAR_RADIUS = 3.5; // alcance do LDS do TurtleBot3
 const HELPERS_LAYER = 1; // objetos só da visão de cima (não aparecem na câmera do robô)
 const AR_SCALE = 0.07; // casa de 10 m vira uma maquete de 70 cm na mesa
+const PERSON_BOB = 0.025; // balanço vertical da passada (m)
 
 /** Cor do piso por tipo de cômodo ("quarto-2" usa a cor de "quarto"). */
 const ROOM_COLORS: Record<string, string> = {
@@ -81,6 +83,14 @@ export class HouseScene {
   private readonly raycaster = new THREE.Raycaster();
   private readonly resizeObserver: ResizeObserver;
   private readonly center: Point2D;
+
+  /** Caminhada da pessoa: pontos ainda a percorrer (coordenadas locais), giro atual e estado. */
+  private personRoute: THREE.Vector3[] = [];
+  private personGoalKey: string | null = null;
+  private personYaw = 0;
+  private personTargetYaw = 0;
+  private personFallen = false;
+  private personPlaced = false;
 
   private pose = { x: 0, y: 0, yaw: 0 };
   private targetPose = { x: 0, y: 0, yaw: 0 };
@@ -215,23 +225,45 @@ export class HouseScene {
   }
 
   setPerson(info: PersonInfo) {
-    const room = this.options.layout.rooms.find(r => r.id === info.roomId);
+    const { layout } = this.options;
+    const room = layout.rooms.find(r => r.id === info.roomId);
     this.person.visible = !!room;
-    if (!room) return;
-    const x = Math.min(room.maxX - 0.4, room.targetX + 0.55);
-    const y = Math.min(room.maxY - 0.4, room.targetY + 0.35);
-    this.person.position.copy(this.toLocal(x, y, 0));
-    this.person.rotation.set(0, 0, info.fallen ? Math.PI / 2 : 0);
-    this.person.position.y = info.fallen ? 0.16 : 0;
+    if (!room) { this.personRoute = []; this.personGoalKey = null; this.personPlaced = false; return; }
+    const { x, y } = pontoDaPessoa(room);
+    const key = `${room.id}:${x.toFixed(2)},${y.toFixed(2)}`;
+    const here = this.toMap(this.person.position);
+
+    if (!this.personPlaced) {
+      // Primeira aparição: já no lugar, sem animar
+      this.placePerson(x, y);
+    } else if (info.fallen) {
+      // Queda: a caminhada para onde ela está. Se não estava andando e está em outro cômodo, vai direto.
+      if (!this.personRoute.length && roomAt(layout, here)?.id !== room.id) this.placePerson(x, y);
+      this.personRoute = [];
+    } else if (key !== this.personGoalKey || (!this.personRoute.length && Math.hypot(here.x - x, here.y - y) > 0.05)) {
+      // Cômodo novo (ou levantou fora do lugar): rota pelas portas a partir da posição atual
+      this.personRoute = planPath(layout, here, { x, y }).slice(1).map(p => this.toLocal(p.x, p.y, 0));
+    }
+    this.personGoalKey = key;
+    this.personFallen = info.fallen;
+
     this.person.userData.emergency = info.emergency;
     this.personLabel.element.textContent = info.emergency ? (info.fallen ? 'Queda detectada' : 'Pedido de socorro') : info.name ?? 'José';
     this.personLabel.element.classList.toggle('is-emergency', info.emergency);
+    // Onda de alerta no piso: centrada onde a pessoa realmente está
+    const at = this.toMap(this.person.position);
+    const alertRoom = roomAt(layout, at)?.id ?? room.id;
     this.floors.forEach(floor => {
       const material = floor.material as FloorMaterial;
-      const isRoom = material.userData.roomId === room.id;
-      material.uniforms.uAlert.value = info.emergency && isRoom ? 1 : 0;
-      material.uniforms.uAlertCenter.value.set(x, y);
+      material.uniforms.uAlert.value = info.emergency && material.userData.roomId === alertRoom ? 1 : 0;
+      material.uniforms.uAlertCenter.value.set(at.x, at.y);
     });
+  }
+
+  private placePerson(x: number, y: number) {
+    this.person.position.copy(this.toLocal(x, y, 0));
+    this.personRoute = [];
+    this.personPlaced = true;
   }
 
   setGoal(goal: Point2D | null, route: Point2D[], color = '#3b82f6') {
@@ -468,6 +500,7 @@ export class HouseScene {
     this.pose.yaw += Math.atan2(Math.sin(this.targetPose.yaw - this.pose.yaw), Math.cos(this.targetPose.yaw - this.pose.yaw)) * k;
     this.robot.position.copy(this.toLocal(this.pose.x, this.pose.y, 0));
     this.robot.rotation.y = this.pose.yaw;
+    this.animatePerson(dt, t);
 
     this.lidar.material.uniforms.uTime.value = t;
     this.floors.forEach(f => { (f.material as THREE.ShaderMaterial).uniforms.uTime.value = t; });
@@ -481,6 +514,38 @@ export class HouseScene {
     // Segunda passada de renderização com a câmera do robô (sem os objetos de ajuda da camada 1)
     if (!this.inAR) this.eyesRenderer.render(this.scene, this.robotCamera);
   };
+
+  /** Pessoa andando pela rota: velocidade constante, de frente para onde vai, com passada leve. */
+  private animatePerson(dt: number, t: number) {
+    const p = this.person.position;
+    let walking = false;
+    if (!this.personFallen) {
+      let step = VELOCIDADE_PESSOA * dt;
+      while (step > 0 && this.personRoute.length) {
+        const next = this.personRoute[0]!;
+        const dx = next.x - p.x, dz = next.z - p.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 1e-4) {
+          this.personTargetYaw = Math.atan2(dx, dz); // o modelo olha para +z
+          walking = true;
+        }
+        if (d <= step) { p.x = next.x; p.z = next.z; step -= d; this.personRoute.shift(); }
+        else { p.x += dx / d * step; p.z += dz / d * step; step = 0; }
+      }
+    }
+    const k = Math.min(1, dt * 6);
+    this.personYaw += Math.atan2(Math.sin(this.personTargetYaw - this.personYaw), Math.cos(this.personTargetYaw - this.personYaw)) * k;
+    if (this.personFallen) {
+      this.person.rotation.set(0, this.personYaw, Math.PI / 2);
+      p.y = 0.16;
+      return;
+    }
+    const sway = walking && !reducedMotion();
+    const bob = sway ? Math.abs(Math.sin(t * 8)) * PERSON_BOB : 0;
+    const lean = sway ? Math.sin(t * 8) * 0.04 : 0;
+    p.y += (bob - p.y) * Math.min(1, dt * 20);
+    this.person.rotation.set(0, this.personYaw, this.person.rotation.z + (lean - this.person.rotation.z) * Math.min(1, dt * 10));
+  }
 
   // ------------------------------------------------------------------ auxiliares
 

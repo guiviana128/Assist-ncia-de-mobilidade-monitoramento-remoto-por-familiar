@@ -5,6 +5,7 @@ import { gsap, movimentoReduzido, useGSAP } from '../../motion/gsap';
 import { usePulso } from '../../motion/usePulso';
 import { zoomCasa } from '../../motion/zoomCasa';
 import { DUR, QUEDA, ROBO_INTERPOLA } from '../../motion/tokens';
+import { VELOCIDADE_PESSOA, planPath, roomAt } from '../../robot/houseLayout';
 
 /*
  * Planta 2D da casa (Figma: painel "Casa agora"). Fonte dos cômodos: robot/houseLayout.ts.
@@ -45,6 +46,11 @@ export const PlantaCasa: React.FC<PlantaCasaProps> = ({ layout, comodoPessoa, ro
   const svg = useRef<SVGSVGElement>(null);
   const roboRef = useRef<SVGGElement>(null);
   const roboAntes = useRef<{ x: number; y: number } | null>(null);
+  const pessoaRef = useRef<SVGGElement>(null);
+  /** Onde o pino do José está agora (metros) e a caminhada em andamento. */
+  const posPessoa = useRef<Point2D | null>(null);
+  const caminhada = useRef<gsap.core.Timeline | null>(null);
+  const caminhando = useRef(false);
   const comodoRoboAntes = useRef<string | null | undefined>(undefined);
   const destinoAntes = useRef<string | null | undefined>(undefined);
   const emergenciaAntes = useRef<boolean | null>(null);
@@ -85,6 +91,36 @@ export const PlantaCasa: React.FC<PlantaCasaProps> = ({ layout, comodoPessoa, ro
     roboAntes.current = alvo;
   }, { scope: svg, dependencies: [robo?.x, robo?.y, robo ? 1 : 0, largura, altura] });
 
+  // ---- José: anda pelas portas até o cômodo novo (0,6 m/s, linear), sem pular.
+  // Na queda, para onde está. Na primeira pintura (ou na tela de login), já no lugar.
+  useGSAP(() => {
+    const g = pessoaRef.current;
+    caminhada.current?.kill();
+    caminhada.current = null;
+    if (!g || !pessoaRoom) { posPessoa.current = null; return; }
+    const destino = { x: pessoaRoom.targetX, y: pessoaRoom.targetY };
+    const aplicar = () => { const p = posPessoa.current!; gsap.set(g, { x: px(p.x), y: py(p.y) }); };
+    const atual = posPessoa.current;
+    if (!atual || decorativa || (emergencia && roomAt(layout, atual)?.id !== pessoaRoom.id && !caminhando.current)) {
+      posPessoa.current = { ...destino };
+      caminhando.current = false;
+      aplicar();
+      return;
+    }
+    aplicar();
+    if (emergencia) { caminhando.current = false; return; }
+    const pos = atual;
+    const tl = gsap.timeline({ onComplete: () => { caminhando.current = false; } });
+    let anterior = pos;
+    for (const ponto of planPath(layout, pos, destino).slice(1)) {
+      const metros = Math.hypot(ponto.x - anterior.x, ponto.y - anterior.y);
+      if (metros > 0.01) tl.to(pos, { x: ponto.x, y: ponto.y, duration: metros / VELOCIDADE_PESSOA, ease: 'none', onUpdate: aplicar });
+      anterior = ponto;
+    }
+    caminhando.current = tl.duration() > 0;
+    caminhada.current = tl;
+  }, { scope: svg, dependencies: [comodoPessoa, !!emergencia, largura, altura] });
+
   // ---- Halo: um pulso único quando o robô chega a outro cômodo
   useGSAP(() => {
     const antes = comodoRoboAntes.current;
@@ -113,9 +149,14 @@ export const PlantaCasa: React.FC<PlantaCasaProps> = ({ layout, comodoPessoa, ro
     emergenciaAntes.current = !!emergencia;
     const onda = '.planta-onda-circulo';
     const camada = '.planta-onda';
-    if (!pino) return;
+    if (!pino || !pessoaRoom) return;
     const ligado = !!emergencia;
-    gsap.set(onda, { svgOrigin: `${pino.x} ${pino.y}` });
+    // A onda sai de onde o José realmente está (pode ter caído no meio do caminho)
+    const real = posPessoa.current;
+    const centro = real ? { x: px(real.x), y: py(real.y) } : pino;
+    const raio = Math.max(...[[pessoaRoom.minX, pessoaRoom.minY], [pessoaRoom.minX, pessoaRoom.maxY], [pessoaRoom.maxX, pessoaRoom.minY], [pessoaRoom.maxX, pessoaRoom.maxY]]
+      .map(([x, y]) => Math.hypot(px(x!) - centro.x, py(y!) - centro.y))) + 4;
+    gsap.set(onda, { attr: { cx: centro.x, cy: centro.y, r: raio }, svgOrigin: `${centro.x} ${centro.y}` });
     if (antes === null || antes === ligado) {
       // primeira pintura (ou só mudou o cômodo): estado final, sem animação
       gsap.set(onda, { scale: ligado ? 1 : 0 });
@@ -213,13 +254,13 @@ export const PlantaCasa: React.FC<PlantaCasaProps> = ({ layout, comodoPessoa, ro
         <circle className="planta-destino" cx={px(fimRota.x)} cy={py(fimRota.y)} r={7} stroke={corRota} />
       </>}
 
-      {/* José */}
+      {/* José: desenhado em (0, 0); o GSAP leva o grupo pelo caminho */}
       {pino && (
-        <g className={`marcador-pessoa${emergencia ? ' is-alerta' : ''}`} aria-hidden="true">
-          <circle className="marcador-pessoa-pulso2" data-pulso="2" cx={pino.x} cy={pino.y} r={46} />
-          <circle className="marcador-pessoa-pulso1" data-pulso="1" cx={pino.x} cy={pino.y} r={33} />
-          <circle className="marcador-pessoa-pino" cx={pino.x} cy={pino.y} r={18.5} />
-          <text className="marcador-pessoa-letra" x={pino.x} y={pino.y + 6}>J</text>
+        <g ref={pessoaRef} className={`marcador-pessoa${emergencia ? ' is-alerta' : ''}`} aria-hidden="true">
+          <circle className="marcador-pessoa-pulso2" data-pulso="2" cx={0} cy={0} r={46} />
+          <circle className="marcador-pessoa-pulso1" data-pulso="1" cx={0} cy={0} r={33} />
+          <circle className="marcador-pessoa-pino" cx={0} cy={0} r={18.5} />
+          <text className="marcador-pessoa-letra" x={0} y={6}>J</text>
         </g>
       )}
 
