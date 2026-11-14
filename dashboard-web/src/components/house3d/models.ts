@@ -78,7 +78,9 @@ function diningChair(x: number, yaw: number) {
 export function furnitureModel(f: Furniture & { yaw?: number }, layout?: HouseLayout): THREE.Group {
   const m = new Model();
   const name = f.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const sideways = f.yaw != null ? Math.abs(Math.sin(f.yaw)) > 0.5 : /sofa|rack|guarda|armario/.test(name) && f.sizeY > f.sizeX;
+  const sideways = f.yaw != null ? Math.abs(Math.sin(f.yaw)) > 0.5
+    : /cama/.test(name) ? f.sizeX > f.sizeY
+    : /sofa|rack|guarda|armario/.test(name) && f.sizeY > f.sizeX;
   const w = sideways ? f.sizeY : f.sizeX;
   const d = sideways ? f.sizeX : f.sizeY;
   const h = f.height;
@@ -91,6 +93,33 @@ export function furnitureModel(f: Furniture & { yaw?: number }, layout?: HouseLa
     for (let x = -w * 0.4; x <= w * 0.4; x += 0.08) {
       for (const z of [-d * 0.47, d * 0.47]) m.box(0.018, 0.002, d * 0.05, x, 0.009, z, '#f2e9d9', 0.0005);
     }
+  } else if (/mesa de centro/.test(name)) {
+    for (const x of [-w * 0.4, w * 0.4]) for (const z of [-d * 0.36, d * 0.36]) m.box(0.045, h - 0.05, 0.045, x, (h - 0.05) / 2, z, wood);
+    m.box(w, 0.05, d, 0, h - 0.025, 0, wood);
+    m.box(w * 0.9, 0.02, d * 0.85, 0, h * 0.3, 0, wood);
+    m.box(w * 0.32, 0.04, d * 0.22, -w * 0.15, h + 0.02, 0, '#c6ab87');
+    m.cylinder(0.05, 0.12, w * 0.22, h + 0.06, 0, ceramic);
+  } else if (/luminaria/.test(name)) {
+    m.cylinder(Math.min(w, d) * 0.4, 0.03, 0, 0.015, 0, dark, 0.5);
+    m.cylinder(0.015, h - 0.25, 0, (h - 0.25) / 2, 0, dark, 0.6);
+    m.mesh(new THREE.CylinderGeometry(Math.min(w, d) * 0.3, Math.min(w, d) * 0.48, 0.28, 24, 1, true), '#efe2c4', 0, h - 0.14, 0);
+    m.ball(0.05, 0.05, 0.05, 0, h - 0.16, 0, '#fff4d6');
+  } else if (/aparador/.test(name)) {
+    for (const x of [-w * 0.44, w * 0.44]) for (const z of [-d * 0.36, d * 0.36]) m.box(0.04, 0.16, 0.04, x, 0.08, z, dark);
+    m.box(w, h - 0.16, d, 0, (h + 0.16) / 2, 0, wood);
+    for (const x of [-w * 0.25, w * 0.25]) {
+      m.box(w * 0.46, h * 0.6, 0.02, x, h * 0.55, d / 2, cream);
+      m.box(0.1, 0.018, 0.025, x, h * 0.62, d / 2 + 0.01, dark);
+    }
+    m.cylinder(0.07, 0.24, -w * 0.3, h + 0.12, 0, '#84a7a2');
+    plant(m, w * 0.28, h, 0, 0.6);
+  } else if (/maquina/.test(name)) {
+    m.box(w, h, d, 0, h / 2, 0, '#eef1ef', 0.04);
+    m.box(w * 0.9, 0.08, 0.02, 0, h - 0.07, d / 2, '#c9d2d0');
+    const porta = m.cylinder(w * 0.3, 0.03, 0, h * 0.45, d / 2, '#9fb3b8', 0.6);
+    porta.rotation.x = Math.PI / 2;
+    const vidro = m.cylinder(w * 0.22, 0.035, 0, h * 0.45, d / 2 + 0.003, '#56707a', 0.8);
+    vidro.rotation.x = Math.PI / 2;
   } else if (/estante/.test(name)) {
     for (const x of [-w * 0.47, w * 0.47]) m.box(w * 0.06, h, d, x, h / 2, 0, wood);
     m.box(w, h, 0.025, 0, h / 2, -d * 0.45, '#71918b');
@@ -162,7 +191,7 @@ export function furnitureModel(f: Furniture & { yaw?: number }, layout?: HouseLa
       m.cylinder(0.015, 0.18, 0, h + 0.1, 0, dark);
       m.mesh(new THREE.ConeGeometry(0.12, 0.16, 24), '#ead8b8', 0, h + 0.25, 0);
     }
-  } else if (/bancada|pia/.test(name)) {
+  } else if (/bancada|pia|tanque/.test(name)) {
     m.box(w * 0.98, h * 0.91, d * 0.94, 0, h * 0.455, 0, '#9faf9d');
     m.box(w, 0.06, d, 0, h - 0.03, 0, cream);
     const doors = Math.max(1, Math.round(w / 0.45));
@@ -171,17 +200,20 @@ export function furnitureModel(f: Furniture & { yaw?: number }, layout?: HouseLa
       m.box(w / doors - 0.025, h * 0.79, 0.02, x, h * 0.46, d * 0.47, '#a9b9a6');
       m.box(0.1, 0.018, 0.025, x, h * 0.72, d * 0.48, dark);
     }
-    const sinkX = /bancada/.test(name) ? -w * 0.2 : 0;
-    m.box(Math.min(0.48, w * 0.7), 0.018, d * 0.64, sinkX, h + 0.005, 0, '#aabbbd');
-    m.box(Math.min(0.38, w * 0.56), 0.02, d * 0.46, sinkX, h + 0.009, 0, '#627e82');
-    m.cylinder(0.018, 0.23, sinkX, h + 0.115, -d * 0.34, '#b7c5c6', 0.8);
-    m.box(0.036, 0.036, d * 0.26, sinkX, h + 0.23, -d * 0.22, '#b7c5c6');
+    const sinks = /dupla/.test(name) ? [-w * 0.25, w * 0.25] : [/bancada/.test(name) ? -w * 0.2 : 0];
+    const sinkW = /dupla/.test(name) ? w * 0.38 : Math.min(0.48, w * 0.7);
+    for (const sinkX of sinks) {
+      m.box(sinkW, 0.018, d * 0.64, sinkX, h + 0.005, 0, '#aabbbd');
+      m.box(sinkW * 0.8, 0.02, d * 0.46, sinkX, h + 0.009, 0, /tanque/.test(name) ? '#9fb0b3' : '#627e82');
+      m.cylinder(0.018, 0.23, sinkX, h + 0.115, -d * 0.34, '#b7c5c6', 0.8);
+      m.box(0.036, 0.036, d * 0.26, sinkX, h + 0.23, -d * 0.22, '#b7c5c6');
+    }
     if (/bancada/.test(name)) {
       m.box(w * 0.3, 0.025, d * 0.8, w * 0.28, h + 0.01, 0, dark);
       for (const x of [w * 0.2, w * 0.36]) for (const z of [-d * 0.2, d * 0.2]) {
         m.cylinder(0.055, 0.015, x, h + 0.03, z, '#819197', 0.7);
       }
-    } else {
+    } else if (!/tanque/.test(name)) {
       m.box(w * 0.8, 0.56, 0.035, 0, h + 0.46, -d * 0.46, wood);
       m.box(w * 0.73, 0.49, 0.012, 0, h + 0.46, -d * 0.42, '#b8d8dc');
     }
@@ -253,6 +285,12 @@ export function furnitureModel(f: Furniture & { yaw?: number }, layout?: HouseLa
     // A frente local aponta para +z; no mapa, +y corresponde a -z.
     if (!/cama|cadeira|mesa|escrivaninha|planta/.test(name) &&
         (sideways ? targetX < f.x : targetY > f.y)) yaw += Math.PI;
+  }
+  if (layout && f.yaw == null && /cama/.test(name)) {
+    // Cabeceira (-z local) encostada na parede mais próxima no sentido do comprimento
+    const room = layout.rooms.find(r => r.id === f.roomId);
+    if (room) yaw = sideways ? (f.x - room.minX < room.maxX - f.x ? Math.PI / 2 : -Math.PI / 2)
+      : (room.maxY - f.y <= f.y - room.minY ? 0 : Math.PI);
   }
   yaw = f.yaw ?? yaw;
   // Detalhes superiores podem crescer, mas nunca invadem a circulação lateral.

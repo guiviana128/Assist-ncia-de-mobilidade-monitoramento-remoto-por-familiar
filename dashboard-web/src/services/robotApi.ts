@@ -7,7 +7,8 @@ import type {
   RobotState,
 } from "../types/robot";
 import { DemoRobot } from "../robot/demoRobot";
-import { VELOCIDADE_PESSOA, chavePlanta, comodosDaPessoa, findRoom, pathLength, planPath, pontoDaPessoa } from "../robot/houseLayout";
+import { VELOCIDADE_PESSOA, chavePlanta, comodosDaPessoa, findRoom, pathLength } from "../robot/houseLayout";
+import { planPersonPath, pontoLivreDaPessoa } from "../robot/furnitureNavigation";
 import { cuidado, plantaDaFamilia } from "../lib/cuidado";
 import { ApiError, AuthRequiredError, apiJson, auth } from "./auth";
 import { presentation } from "./presentation";
@@ -72,7 +73,7 @@ function demo(): DemoRobot {
     const espera = (de: string, para: string) => {
       const a = findRoom(planta, de), b = findRoom(planta, para);
       if (!a || !b) return 15;
-      const metros = pathLength(planPath(planta, pontoDaPessoa(a), pontoDaPessoa(b)));
+      const metros = pathLength(planPersonPath(planta, pontoLivreDaPessoa(planta, a), pontoLivreDaPessoa(planta, b)));
       return Math.max(15, metros / VELOCIDADE_PESSOA + 5);
     };
     let proxima = 15;

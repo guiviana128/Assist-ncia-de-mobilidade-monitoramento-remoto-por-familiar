@@ -91,7 +91,7 @@ test("authenticated virtual robot is online and commands never reach the physica
   const layout = await r.namespace.robotApi.getLayout();
   assert.deepEqual(
     [...layout.rooms.map((room) => room.id)],
-    ["sala", "cozinha", "quarto", "quarto-2", "quarto-3", "banheiro", "banheiro-2"],
+    ["sala", "cozinha", "quarto", "quarto-2", "quarto-3", "banheiro", "banheiro-2", "jantar"],
   );
   const state = await r.namespace.robotApi.getState();
   assert.equal(state.online, true);

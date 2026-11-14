@@ -16,6 +16,8 @@ const opcoes: Record<string, Atividade[]> = {
   cozinha: ['agua', 'cozinha', 'cafe', 'almoco', 'jantar'],
   quarto: ['descanso', 'vestir', 'leitura'],
   escritorio: ['computador', 'leitura', 'conversa'],
+  jantar: ['almoco', 'jantar', 'conversa', 'leitura'],
+  servico: ['caminhada', 'vestir'],
   banheiro: ['dentes', 'banho'], lavabo: ['dentes'],
 };
 

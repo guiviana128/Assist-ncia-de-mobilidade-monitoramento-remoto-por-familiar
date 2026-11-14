@@ -5,7 +5,8 @@ import { gsap, movimentoReduzido, useGSAP } from '../../motion/gsap';
 import { usePulso } from '../../motion/usePulso';
 import { zoomCasa } from '../../motion/zoomCasa';
 import { DUR, QUEDA, ROBO_INTERPOLA } from '../../motion/tokens';
-import { VELOCIDADE_PESSOA, planPath, roomAt } from '../../robot/houseLayout';
+import { VELOCIDADE_PESSOA, roomAt } from '../../robot/houseLayout';
+import { planPersonPath, pontoLivreDaPessoa } from '../../robot/furnitureNavigation';
 
 /*
  * Planta 2D da casa (Figma: painel "Casa agora"). Fonte dos cômodos: robot/houseLayout.ts.
@@ -98,7 +99,7 @@ export const PlantaCasa: React.FC<PlantaCasaProps> = ({ layout, comodoPessoa, ro
     caminhada.current?.kill();
     caminhada.current = null;
     if (!g || !pessoaRoom) { posPessoa.current = null; return; }
-    const destino = { x: pessoaRoom.targetX, y: pessoaRoom.targetY };
+    const destino = decorativa ? { x: pessoaRoom.targetX, y: pessoaRoom.targetY } : pontoLivreDaPessoa(layout, pessoaRoom);
     const aplicar = () => { const p = posPessoa.current!; gsap.set(g, { x: px(p.x), y: py(p.y) }); };
     const atual = posPessoa.current;
     if (!atual || decorativa || (emergencia && roomAt(layout, atual)?.id !== pessoaRoom.id && !caminhando.current)) {
@@ -112,7 +113,7 @@ export const PlantaCasa: React.FC<PlantaCasaProps> = ({ layout, comodoPessoa, ro
     const pos = atual;
     const tl = gsap.timeline({ onComplete: () => { caminhando.current = false; } });
     let anterior = pos;
-    for (const ponto of planPath(layout, pos, destino).slice(1)) {
+    for (const ponto of planPersonPath(layout, pos, destino).slice(1)) {
       const metros = Math.hypot(ponto.x - anterior.x, ponto.y - anterior.y);
       if (metros > 0.01) tl.to(pos, { x: ponto.x, y: ponto.y, duration: metros / VELOCIDADE_PESSOA, ease: 'none', onUpdate: aplicar });
       anterior = ponto;

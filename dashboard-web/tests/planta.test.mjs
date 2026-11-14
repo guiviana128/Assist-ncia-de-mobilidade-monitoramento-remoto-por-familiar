@@ -86,7 +86,8 @@ test("every model is a valid house: no overlaps, all rooms reachable, inside the
       for (let bathrooms = 1; bathrooms <= 3; bathrooms++) {
         const l = layoutDoModelo({ kind, bedrooms, bathrooms });
         const nome = `${kind} ${bedrooms}q ${bathrooms}b`;
-        assert.equal(l.rooms.length, 2 + bedrooms + bathrooms, nome);
+        const frente = l.rooms.filter((r) => r.id === "jantar" || r.id === "servico").length;
+        assert.equal(l.rooms.length, 2 + bedrooms + bathrooms + frente, nome);
         assert.ok(l.walls.length <= 80 && l.furniture.length <= 40 && l.doors.length <= 30, nome);
         for (const r of l.rooms) {
           assert.ok(r.minX < r.maxX && r.minY < r.maxY && dentro(r, r.targetX, r.targetY), `${nome}: ${r.id}`);
@@ -121,8 +122,8 @@ test("demo robot patrols the family's plan and the person never walks into a bat
   const { layoutDoModelo, comodosDaPessoa, chavePlanta } = await modulo("../src/robot/houseLayout.ts");
   const { DemoRobot } = await modulo("../src/robot/demoRobot.ts");
   const l = layoutDoModelo({ kind: "HOUSE", bedrooms: 3, bathrooms: 2 });
-  assert.deepEqual([...l.rooms.map((r) => r.name)], ["Sala de estar", "Cozinha", "Quarto", "Quarto 2", "Quarto 3", "Banheiro", "Banheiro 2"]);
-  assert.deepEqual([...comodosDaPessoa(l)], ["sala", "cozinha", "quarto", "quarto-2", "quarto-3"]);
+  assert.deepEqual([...l.rooms.map((r) => r.name)], ["Sala de estar", "Cozinha", "Quarto", "Quarto 2", "Quarto 3", "Banheiro", "Banheiro 2", "Sala de jantar"]);
+  assert.deepEqual([...comodosDaPessoa(l)], ["sala", "cozinha", "quarto", "quarto-2", "quarto-3", "jantar"]);
   assert.notEqual(chavePlanta(l), chavePlanta(layoutDoModelo({ kind: "HOUSE", bedrooms: 2, bathrooms: 1 })));
 
   const robo = new DemoRobot(l, "DEMO");
@@ -170,6 +171,105 @@ test("3D decoration preserves the map, fridge access and rugs in every bedroom",
       const rug = decorations.find(f => f.name === "Tapete" && f.roomId === room.id);
       assert.ok(rug, `missing rug in ${room.id}`);
       assert.ok(rug.height < 0.02, "rugs remain below the LiDAR overlay");
+    }
+  }
+});
+
+const todasAsPlantas = async () => {
+  const { layoutDoModelo, FALLBACK_LAYOUT } = await modulo('../src/robot/houseLayout.ts');
+  const layouts = [FALLBACK_LAYOUT];
+  for (const kind of ['HOUSE', 'APARTMENT']) for (let bedrooms = 1; bedrooms <= 4; bedrooms++)
+    for (let bathrooms = 1; bathrooms <= 3; bathrooms++) layouts.push(layoutDoModelo({ kind, bedrooms, bathrooms }));
+  return layouts;
+};
+
+test('living room stays proportional and the extra front space becomes useful rooms', async () => {
+  const { layoutDoModelo } = await modulo('../src/robot/houseLayout.ts');
+  for (const layout of (await todasAsPlantas()).slice(1)) {
+    const sala = layout.rooms.find(r => r.id === 'sala');
+    const largura = sala.maxX - sala.minX, fundo = sala.maxY - sala.minY;
+    assert.ok(largura <= 6.5 + 1e-9 && largura / fundo <= 2, `${layout.name}: sala ${largura} x ${fundo}`);
+    // A frente é coberta sem buracos: sala, [jantar], cozinha, [serviço]
+    const frente = layout.rooms.filter(r => r.minY === sala.minY).sort((a, b) => a.minX - b.minX);
+    for (let i = 1; i < frente.length; i++) {
+      assert.equal(frente[i].minX, frente[i - 1].maxX);
+      assert.ok(layout.doors.some(d => [d.a, d.b].includes(frente[i].id) && [d.a, d.b].includes(frente[i - 1].id)), 'porta entre vizinhos da frente');
+    }
+    assert.ok(Math.abs(frente.at(-1).maxX - frente[0].minX - layout.width) < 1e-9);
+    if (layout.rooms.some(r => r.id === 'servico')) assert.ok(layout.rooms.some(r => r.id === 'jantar'), 'a sala de jantar vem antes');
+  }
+  const grande = layoutDoModelo({ kind: 'HOUSE', bedrooms: 3, bathrooms: 2 });
+  assert.ok(grande.rooms.some(r => r.id === 'jantar' && r.name === 'Sala de jantar'));
+  const enorme = layoutDoModelo({ kind: 'HOUSE', bedrooms: 4, bathrooms: 3 });
+  assert.ok(enorme.rooms.some(r => r.id === 'servico' && r.name === 'Lavanderia'));
+  assert.ok(layoutDoModelo({ kind: 'APARTMENT', bedrooms: 4, bathrooms: 3 }).rooms.some(r => r.name === 'Área de serviço'));
+  // Modelo mínimo: igual ao de antes (sala de 4 m e cozinha de 3 m)
+  const minimo = layoutDoModelo({ kind: 'HOUSE', bedrooms: 1, bathrooms: 1 });
+  assert.equal(JSON.stringify(minimo.rooms.map(r => [r.id, r.maxX - r.minX]).slice(0, 2)), JSON.stringify([['sala', 4], ['cozinha', 3]]));
+});
+
+test('each bedroom and bathroom has its own style; extra living-room decor only in bigger homes', async () => {
+  const { layoutDoModelo } = await modulo('../src/robot/houseLayout.ts');
+  const { roomDecorations } = await modulo('../src/components/house3d/decorations.ts');
+  const estilo = (layout, deco, id) => JSON.stringify([
+    ...layout.furniture.filter(f => f.roomId === id).map(f => [f.name, f.sizeX, f.sizeY, +(f.x - layout.rooms.find(r => r.id === id).minX).toFixed(1)]),
+    ...deco.filter(f => f.roomId === id && f.name !== 'Tapete').map(f => f.name).sort()]);
+  const l = layoutDoModelo({ kind: 'HOUSE', bedrooms: 4, bathrooms: 3 });
+  const deco = roomDecorations(l);
+  const quartos = l.rooms.filter(r => r.id.startsWith('quarto')).map(r => estilo(l, deco, r.id));
+  const banheiros = l.rooms.filter(r => r.id.startsWith('banheiro')).map(r => estilo(l, deco, r.id));
+  assert.equal(new Set(quartos).size, 4, quartos.join('\n'));
+  assert.equal(new Set(banheiros).size, 3, banheiros.join('\n'));
+  assert.equal(deco.filter(f => f.roomId === 'banheiro-3' && /chuveiro/i.test(f.name)).length, 0, 'lavabo sem box');
+  assert.equal(deco.filter(f => f.roomId === 'quarto' && /criado/i.test(f.name)).length, 2, 'casal com dois criados-mudos');
+  assert.ok(deco.some(f => f.roomId === 'quarto-2' && f.name === 'Cadeira'), 'escrivaninha com cadeira');
+  // Determinístico
+  assert.equal(JSON.stringify(roomDecorations(layoutDoModelo({ kind: 'HOUSE', bedrooms: 4, bathrooms: 3 }))), JSON.stringify(deco));
+
+  const extras = ['Estante de livros', 'Luminária de chão', 'Mesa de centro'];
+  for (const layout of await todasAsPlantas()) {
+    const nomes = roomDecorations(layout).filter(f => f.roomId === 'sala').map(f => f.name);
+    const maior = layout.rooms.filter(r => r.id.startsWith('quarto')).length > 1 || layout.rooms.filter(r => r.id.startsWith('banheiro')).length > 1;
+    for (const nome of extras) assert.equal(nomes.includes(nome), maior, `${layout.name}: ${nome}`);
+    if (layout.rooms.some(r => r.id === 'jantar')) {
+      assert.ok(layout.furniture.some(f => f.roomId === 'jantar' && /mesa/i.test(f.name)));
+      assert.ok(roomDecorations(layout).some(f => f.roomId === 'jantar' && f.name === 'Aparador'), `${layout.name}: aparador`);
+    }
+  }
+});
+
+test('the person never walks through walls or furniture and goes through the middle of doors', async () => {
+  const { planPersonPath, pontoLivreDaPessoa, pessoaLivre, pessoaTrechoLivre, pontoLivre } = await modulo('../src/robot/furnitureNavigation.ts');
+  const { roomDecorations } = await modulo('../src/components/house3d/decorations.ts');
+  const { DOORS } = await modulo('../src/robot/houseLayout.ts');
+  for (const layout of await todasAsPlantas()) {
+    const doors = layout.doors ?? DOORS;
+    // Nenhum móvel bloqueia porta
+    for (const d of doors) assert.ok(pessoaLivre(layout, d), `${layout.name}: porta ${d.a}/${d.b} bloqueada`);
+    const pontos = layout.rooms.map(r => {
+      const p = pontoLivreDaPessoa(layout, r);
+      assert.ok(dentro(r, p.x, p.y) && pessoaLivre(layout, p), `${layout.name}: ponto da pessoa em ${r.id}`);
+      return p;
+    });
+    for (let i = 0; i < pontos.length; i++) for (let j = 0; j < pontos.length; j++) {
+      if (i === j) continue;
+      const path = planPersonPath(layout, pontos[i], pontos[j]);
+      const nome = `${layout.name}: ${layout.rooms[i].id} → ${layout.rooms[j].id}`;
+      assert.ok(path.length >= 2, `${nome} sem caminho`);
+      for (let k = 1; k < path.length; k++) assert.ok(pessoaTrechoLivre(layout, path[k - 1], path[k]), `${nome}: atravessa algo`);
+      // Toda troca de cômodo acontece exatamente no meio de uma porta
+      for (let k = 1; k < path.length; k++) {
+        const a = path[k - 1], b = path[k];
+        const ra = layout.rooms.filter(r => dentro(r, a.x, a.y)), rb = layout.rooms.filter(r => dentro(r, b.x, b.y));
+        if (!ra.some(r => rb.includes(r))) assert.fail(`${nome}: trecho entre cômodos sem passar pela porta`);
+      }
+      const portas = path.filter(p => doors.some(d => Math.hypot(d.x - p.x, d.y - p.y) < 1e-6));
+      if (layout.rooms[i].id !== layout.rooms[j].id) assert.ok(portas.length >= 1, `${nome}: não passa pelo meio de uma porta`);
+    }
+    // Parada em cima de um móvel: reposiciona no ponto livre mais próximo
+    for (const f of [...layout.furniture, ...roomDecorations(layout)].filter(f => f.height > 0.05)) {
+      const livre = pontoLivre(layout, { x: f.x, y: f.y });
+      assert.ok(pessoaLivre(layout, livre), `${layout.name}: ${f.name}`);
     }
   }
 });

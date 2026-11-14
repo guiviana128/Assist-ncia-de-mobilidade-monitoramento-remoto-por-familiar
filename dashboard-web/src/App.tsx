@@ -42,7 +42,7 @@ import type { EstadoConexao } from "./components/ui/StatusConexao";
 import { auth, AuthRequiredError } from "./services/auth";
 import { api } from "./services/api";
 import { useRobo } from "./hooks/useRobo";
-import { layoutDoModelo } from "./robot/houseLayout";
+import { assinaturaPlanta, layoutDoModelo } from "./robot/houseLayout";
 import { ATE_TABLET, CELULAR, useMediaQuery } from "./hooks/useMediaQuery";
 import {
   comodoCurto,
@@ -136,7 +136,8 @@ export const App: React.FC = () => {
   const chavePlanta = `${preferences.floorPlanSource ?? ""}:${preferences.floorPlanLayout?.name ?? ""}`;
   const robo = useRobo(painelAtivo, chavePlanta);
 
-  // Famílias que escolheram "Montar por um modelo" antes da planta gerada: gera e salva uma vez.
+  // Famílias que escolheram "Montar por um modelo": gera e salva a planta uma vez, e de novo quando
+  // o gerador muda (ex.: sala proporcional e cômodos variados). Uma vez por sessão, no máximo.
   const migrouPlanta = useRef<string | null>(null);
   useEffect(() => {
     const t = preferences.floorPlanTemplate;
@@ -145,12 +146,13 @@ export const App: React.FC = () => {
       !cuidado.pronto() ||
       preferences.floorPlanSource !== "TEMPLATE" ||
       !t ||
-      preferences.floorPlanLayout ||
       migrouPlanta.current === username
     )
       return;
+    const nova = layoutDoModelo(t);
+    if (preferences.floorPlanLayout && assinaturaPlanta(preferences.floorPlanLayout) === assinaturaPlanta(nova)) return;
     migrouPlanta.current = username;
-    void cuidado.salvarCadastro({ floorPlanLayout: layoutDoModelo(t) });
+    void cuidado.salvarCadastro({ floorPlanLayout: nova });
   }, [username, preferences.floorPlanSource, preferences.floorPlanTemplate, preferences.floorPlanLayout]);
 
   const fetchData = useCallback(async () => {

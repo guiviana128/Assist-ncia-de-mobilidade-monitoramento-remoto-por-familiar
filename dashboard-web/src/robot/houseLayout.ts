@@ -63,6 +63,13 @@ export const pontoDaPessoa = (room: Room): Point2D => ({
 export const chavePlanta = (layout: HouseLayout): string =>
   `${layout.name}|${layout.rooms.map(r => r.id).join(',')}`;
 
+/** Geometria da planta (cômodos, portas e móveis), para saber se uma planta salva ficou desatualizada. */
+export const assinaturaPlanta = (l: HouseLayout): string => JSON.stringify([
+  l.rooms.map(r => [r.id, r.name, r.minX, r.minY, r.maxX, r.maxY, r.targetX, r.targetY]),
+  (l.doors ?? []).map(d => [d.a, d.b, d.x, d.y]),
+  l.furniture.map(f => [f.name, f.roomId, f.x, f.y, f.sizeX, f.sizeY, f.height]),
+]);
+
 export const findRoom = (layout: HouseLayout, id?: string | null): Room | undefined =>
   id ? layout.rooms.find(room => room.id === id.trim().toLowerCase()) : undefined;
 
@@ -122,12 +129,32 @@ export interface ModeloCasa {
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
 /**
+ * Variação de um cômodo repetido pelo número do id: "quarto" → 0, "quarto-2" → 1, "quarto-3" → 2…
+ * Determinística: o mesmo cômodo tem sempre a mesma aparência ao recarregar.
+ */
+export const variante = (id: string): number => {
+  const n = /-(\d+)$/.exec(id);
+  return n ? Number(n[1]) - 1 : 0;
+};
+
+/** Tipo do cômodo sem o número ("quarto-2" → "quarto"). */
+export const tipoComodo = (id: string): string => id.replace(/-\d+$/, '');
+
+/** Casa com mais quartos ou banheiros que o padrão (ganha decoração extra na sala). */
+export const casaMaior = (layout: HouseLayout): boolean =>
+  layout.rooms.filter(r => tipoComodo(r.id) === 'quarto').length > 1 ||
+  layout.rooms.filter(r => tipoComodo(r.id) === 'banheiro').length > 1;
+
+/**
  * Gera a planta da família a partir do modelo (Casa térrea ou Apartamento, quartos, banheiros).
  *
  * Frente: sala e cozinha, ligadas por uma porta. Fundo: os quartos e depois os banheiros, cada um
  * com porta para o cômodo da frente que fica na direção dele. Mesmo formato da planta de exemplo
  * (metros, centro da casa perto de 0,0), para o painel 2D, a Casa 3D e o robô usarem igual.
  * Ids: "quarto", "quarto-2"…, "banheiro", "banheiro-2"… (o banheiro nunca é filmado).
+ *
+ * Em casas largas a sala não passa de ~2:1 (6,5 m na casa, 6 m no apartamento): a sobra da frente
+ * vira "Sala de jantar" (entre a sala e a cozinha) e, se ainda sobrar, "Lavanderia" / "Área de serviço".
  */
 export function layoutDoModelo(m: ModeloCasa): HouseLayout {
   const quartos = Math.min(4, Math.max(1, Math.round(m.bedrooms)));
@@ -137,6 +164,7 @@ export function layoutDoModelo(m: ModeloCasa): HouseLayout {
   const larguraBanheiro = casa ? 2.2 : 1.8;
   const fundoFrente = casa ? 4 : 3.6;
   const fundoTras = casa ? 4 : 3.4;
+  const salaMaxima = casa ? 6.5 : 6;
 
   const tras = [
     ...Array.from({ length: quartos }, (_, i) => ({
@@ -160,10 +188,36 @@ export function layoutDoModelo(m: ModeloCasa): HouseLayout {
   const yMeio = r1(yFrente + fundoFrente);
   const yFundo = r1(yMeio + fundoTras);
 
-  const larguraCozinha = r1(Math.max(3, W * 0.38));
-  const xDivisa = r1(x0 + W - larguraCozinha);
-  const sala = { id: 'sala', nome: 'Sala de estar', minX: x0, maxX: xDivisa, minY: yFrente, maxY: yMeio };
-  const cozinha = { id: 'cozinha', nome: 'Cozinha', minX: xDivisa, maxX: r1(x0 + W), minY: yFrente, maxY: yMeio };
+  // Larguras da frente (da esquerda para a direita): sala | [jantar] | cozinha | [serviço]
+  type Frente = { id: string; nome: string; largura: number };
+  let frente: Frente[];
+  const cozinhaPadrao = r1(Math.max(3, W * 0.38));
+  if (W - cozinhaPadrao <= salaMaxima) {
+    // Casa estreita: exatamente como antes (sala com a sobra)
+    frente = [
+      { id: 'sala', nome: 'Sala de estar', largura: r1(W - cozinhaPadrao) },
+      { id: 'cozinha', nome: 'Cozinha', largura: cozinhaPadrao },
+    ];
+  } else {
+    let cozinha = r1(Math.min(casa ? 4.5 : 4, Math.max(3, W * 0.3)));
+    let sobra = r1(W - salaMaxima - cozinha);
+    let jantar = 0;
+    let servico = 0;
+    if (sobra < 2.4) cozinha = r1(cozinha + sobra); // pouco espaço: a cozinha fica maior
+    else if (sobra <= 4.8) jantar = sobra;
+    else {
+      servico = r1(Math.min(3, sobra - 3));
+      jantar = r1(sobra - servico);
+      if (jantar > 5) { cozinha = r1(cozinha + jantar - 5); jantar = 5; }
+    }
+    sobra = 0;
+    frente = [
+      { id: 'sala', nome: 'Sala de estar', largura: salaMaxima },
+      ...(jantar ? [{ id: 'jantar', nome: 'Sala de jantar', largura: jantar }] : []),
+      { id: 'cozinha', nome: 'Cozinha', largura: cozinha },
+      ...(servico ? [{ id: 'servico', nome: casa ? 'Lavanderia' : 'Área de serviço', largura: servico }] : []),
+    ];
+  }
 
   const comodo = (c: { id: string; nome: string; minX: number; maxX: number; minY: number; maxY: number }): Room => ({
     id: c.id,
@@ -176,24 +230,48 @@ export function layoutDoModelo(m: ModeloCasa): HouseLayout {
     targetY: r1((c.minY + c.maxY) / 2),
   });
 
-  const rooms: Room[] = [comodo(sala), comodo(cozinha)];
-  let x = x0;
-  for (const c of tras) {
-    rooms.push(comodo({ id: c.id, nome: c.nome, minX: r1(x), maxX: r1(x + c.largura), minY: yMeio, maxY: yFundo }));
-    x += c.largura;
+  const rooms: Room[] = [];
+  let xf = x0;
+  for (const c of frente) {
+    rooms.push(comodo({ id: c.id, nome: c.nome, minX: r1(xf), maxX: r1(xf + c.largura), minY: yFrente, maxY: yMeio }));
+    xf += c.largura;
   }
   rooms[rooms.length - 1]!.maxX = r1(x0 + W);
+  const nFrente = rooms.length;
+  // Ordem dos ids: sala, cozinha, quartos, banheiros e por fim jantar/serviço (quem já tinha a planta
+  // antiga continua com os mesmos índices).
+  const ordemFrente = rooms.slice();
+  let x = x0;
+  const fundo: Room[] = [];
+  for (const c of tras) {
+    fundo.push(comodo({ id: c.id, nome: c.nome, minX: r1(x), maxX: r1(x + c.largura), minY: yMeio, maxY: yFundo }));
+    x += c.largura;
+  }
+  fundo[fundo.length - 1]!.maxX = r1(x0 + W);
 
-  // Portas: sala ↔ cozinha (na divisa da frente) e cada cômodo do fundo ↔ o da frente abaixo dele.
+  // Portas: entre os cômodos vizinhos da frente (no meio da divisa) e cada cômodo do fundo ↔ o da frente
+  // abaixo dele, sempre com o vão inteiro dentro dos dois cômodos.
   const meiaPorta = casa ? 0.5 : 0.45;
   const yPortaFrente = r1((yFrente + yMeio) / 2);
-  const doors: Door[] = [{ a: 'sala', b: 'cozinha', x: xDivisa, y: yPortaFrente }];
+  const doors: Door[] = [];
+  // A porta da lavanderia fica perto do fundo: a parede da cozinha abaixo dela fica livre para a geladeira.
+  const yPortaDivisa = (f: Room) => (f.id === 'servico' ? r1(yMeio - 0.8) : yPortaFrente);
+  for (let i = 1; i < nFrente; i++) doors.push({ a: ordemFrente[i - 1]!.id, b: ordemFrente[i]!.id, x: ordemFrente[i]!.minX, y: yPortaDivisa(ordemFrente[i]!) });
   const vaos: [number, number][] = [];
-  for (const r of rooms.slice(2)) {
+  const folga = meiaPorta + 0.15;
+  for (const r of fundo) {
     const cx = r1((r.minX + r.maxX) / 2);
-    const frente = cx < xDivisa ? 'sala' : 'cozinha';
-    doors.push({ a: frente, b: r.id, x: cx, y: yMeio });
-    vaos.push([r1(cx - meiaPorta), r1(cx + meiaPorta)]);
+    let alvo = ordemFrente.find(f => cx >= f.minX + folga && cx <= f.maxX - folga);
+    let px = cx;
+    if (!alvo) {
+      // O meio do cômodo cai numa divisa da frente: porta no trecho em comum mais largo
+      const comum = (f: Room) => Math.min(f.maxX, r.maxX) - Math.max(f.minX, r.minX);
+      alvo = ordemFrente.slice().sort((a, b) => comum(b) - comum(a))[0]!;
+      const a = Math.max(alvo.minX, r.minX) + folga, b = Math.min(alvo.maxX, r.maxX) - folga;
+      px = r1(a <= b ? Math.min(b, Math.max(a, cx)) : (Math.max(alvo.minX, r.minX) + Math.min(alvo.maxX, r.maxX)) / 2);
+    }
+    doors.push({ a: alvo.id, b: r.id, x: px, y: yMeio });
+    vaos.push([r1(px - meiaPorta), r1(px + meiaPorta)]);
   }
 
   const walls: Wall[] = [
@@ -209,28 +287,57 @@ export function layoutDoModelo(m: ModeloCasa): HouseLayout {
     inicio = b;
   }
   if (inicio < x0 + W) walls.push({ x1: r1(inicio), y1: yMeio, x2: r1(x0 + W), y2: yMeio });
-  // Sala | cozinha, com a porta no meio
-  walls.push({ x1: xDivisa, y1: yFrente, x2: xDivisa, y2: r1(yPortaFrente - 0.6) });
-  walls.push({ x1: xDivisa, y1: r1(yPortaFrente + 0.6), x2: xDivisa, y2: yMeio });
+  // Divisas da frente (sala | jantar | cozinha | serviço), com a porta no meio
+  for (const f of ordemFrente.slice(1)) {
+    const yp = yPortaDivisa(f);
+    walls.push({ x1: f.minX, y1: yFrente, x2: f.minX, y2: r1(yp - 0.6) });
+    if (yp + 0.6 < yMeio) walls.push({ x1: f.minX, y1: r1(yp + 0.6), x2: f.minX, y2: yMeio });
+  }
   // Divisas entre os cômodos do fundo (fechadas)
-  for (const r of rooms.slice(3)) walls.push({ x1: r.minX, y1: yMeio, x2: r.minX, y2: yFundo });
+  for (const r of fundo.slice(1)) walls.push({ x1: r.minX, y1: yMeio, x2: r.minX, y2: yFundo });
 
   const furniture: Furniture[] = [];
-  const s = rooms[0]!;
+  const s = ordemFrente[0]!;
   furniture.push({ name: 'Sofá', roomId: 'sala', x: r1(s.minX + 0.6), y: r1((s.minY + s.maxY) / 2), sizeX: 0.8, sizeY: 1.8, height: 0.8 });
   furniture.push({ name: 'Rack da TV', roomId: 'sala', x: r1(s.minX + 2.4), y: r1((s.minY + s.maxY) / 2), sizeX: 0.4, sizeY: 1.4, height: 0.5 });
-  const k = rooms[1]!;
+  const k = ordemFrente.find(r => r.id === 'cozinha')!;
   furniture.push({ name: 'Bancada', roomId: 'cozinha', x: r1((k.minX + k.maxX) / 2), y: r1(k.minY + 0.35), sizeX: r1(Math.min(2.6, k.maxX - k.minX - 0.6)), sizeY: 0.5, height: 0.9 });
   furniture.push({ name: 'Mesa', roomId: 'cozinha', x: r1((k.minX + k.maxX) / 2), y: r1((k.minY + k.maxY) / 2 + 0.3), sizeX: 1.2, sizeY: 0.8, height: 0.75 });
-  for (const r of rooms.slice(2)) {
-    if (r.id.startsWith('quarto'))
-      furniture.push({ name: 'Cama', roomId: r.id, x: r1((r.minX + r.maxX) / 2), y: r1(r.maxY - 1.1), sizeX: 1.6, sizeY: 2, height: 0.5 });
-    else
-      furniture.push({ name: 'Pia', roomId: r.id, x: r1(r.maxX - 0.5), y: r1(r.maxY - 0.35), sizeX: 0.8, sizeY: 0.5, height: 0.85 });
+  const jantar = ordemFrente.find(r => r.id === 'jantar');
+  if (jantar) {
+    // Mesa para a frente da casa; o ponto do cômodo fica livre, entre a mesa e as portas do fundo
+    const largura = r1(Math.min(1.6, jantar.maxX - jantar.minX - 1.4));
+    furniture.push({ name: 'Mesa de jantar', roomId: 'jantar', x: r1((jantar.minX + jantar.maxX) / 2), y: r1(jantar.minY + 1.2), sizeX: largura, sizeY: 0.9, height: 0.75 });
+    jantar.targetY = r1((jantar.minY + jantar.maxY) / 2 + 0.3);
+  }
+  const servico = ordemFrente.find(r => r.id === 'servico');
+  if (servico) furniture.push({ name: 'Tanque', roomId: 'servico', x: r1(servico.maxX - 0.45), y: r1(servico.minY + 0.35), sizeX: 0.6, sizeY: 0.5, height: 0.85 });
+
+  for (const r of fundo) {
+    const v = variante(r.id);
+    if (r.id.startsWith('quarto')) {
+      // Casal no meio da parede do fundo, solteiro no canto esquerdo, hóspedes no canto direito,
+      // casal encostado na parede direita (a cabeceira sempre na parede mais próxima).
+      const camas: Furniture[] = [
+        { name: 'Cama de casal', roomId: r.id, x: r1((r.minX + r.maxX) / 2), y: r1(r.maxY - 1.1), sizeX: 1.6, sizeY: 2, height: 0.5 },
+        { name: 'Cama de solteiro', roomId: r.id, x: r1(r.minX + 1.1), y: r1(r.maxY - 0.55), sizeX: 2, sizeY: 0.9, height: 0.5 },
+        { name: 'Cama de solteiro', roomId: r.id, x: r1(r.maxX - 1.1), y: r1(r.maxY - 0.55), sizeX: 2, sizeY: 0.9, height: 0.5 },
+        { name: 'Cama de casal', roomId: r.id, x: r1(r.maxX - 1.1), y: r1(r.maxY - 0.9), sizeX: 2, sizeY: 1.6, height: 0.5 },
+      ];
+      furniture.push(camas[v % camas.length]!);
+    } else {
+      // Social (pia com gabinete), suíte (pia dupla) e lavabo (pia pequena)
+      const pias: Furniture[] = [
+        { name: 'Pia', roomId: r.id, x: r1(r.maxX - 0.5), y: r1(r.maxY - 0.35), sizeX: 0.8, sizeY: 0.5, height: 0.85 },
+        { name: 'Pia dupla', roomId: r.id, x: r1(r.maxX - 0.75), y: r1(r.maxY - 0.35), sizeX: 1.3, sizeY: 0.5, height: 0.85 },
+        { name: 'Pia', roomId: r.id, x: r1(r.maxX - 0.4), y: r1(r.maxY - 0.33), sizeX: 0.6, sizeY: 0.45, height: 0.85 },
+      ];
+      furniture.push(pias[v % pias.length]!);
+    }
   }
 
-  const idsQuartos = rooms.filter((r) => r.id.startsWith('quarto')).map((r) => r.id);
-  const idsBanheiros = rooms.filter((r) => r.id.startsWith('banheiro')).map((r) => r.id);
+  const ids = (tipo: string) => fundo.filter((r) => r.id.startsWith(tipo)).map((r) => r.id);
+  const extras = ordemFrente.filter(r => r.id === 'jantar' || r.id === 'servico');
   return {
     name: `${casa ? 'Casa térrea' : 'Apartamento'} · ${quartos} ${quartos === 1 ? 'quarto' : 'quartos'} e ${banheiros} ${banheiros === 1 ? 'banheiro' : 'banheiros'}`,
     width: W,
@@ -238,10 +345,11 @@ export function layoutDoModelo(m: ModeloCasa): HouseLayout {
     wallHeight: 1,
     // Base do robô na sala, longe das paredes e das portas
     dock: { x: r1(s.minX + 1.6), y: r1(s.minY + 1) },
-    rooms,
+    rooms: [s, k, ...fundo, ...extras],
     walls,
     furniture,
-    patrolRoute: ['sala', ...idsQuartos, 'sala', 'cozinha', ...idsBanheiros, 'sala'],
+    patrolRoute: ['sala', ...ids('quarto'), 'sala', ...extras.map(r => r.id).filter(id => id === 'jantar'), 'cozinha',
+      ...extras.map(r => r.id).filter(id => id === 'servico'), ...ids('banheiro'), 'sala'],
     doors,
   };
 }

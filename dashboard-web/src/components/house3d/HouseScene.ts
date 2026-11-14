@@ -3,12 +3,12 @@
 // a visão "pelos olhos do robô" e a sessão de Realidade Aumentada (WebXR).
 import * as THREE from 'three';
 import { furnitureModel, personModel, robotModel } from './models';
-import { planRobotPath } from '../../robot/furnitureNavigation';
+import { pessoaLivre, planPersonPath, planRobotPath, pontoLivre, pontoLivreDaPessoa } from '../../robot/furnitureNavigation';
 import { roomDecorations, type VisualFurniture } from './decorations';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import type { HouseLayout, Point2D, RobotState } from '../../types/robot';
-import { VELOCIDADE_PESSOA, planPath, pontoDaPessoa, roomAt } from '../../robot/houseLayout';
+import { VELOCIDADE_PESSOA, roomAt, tipoComodo, variante } from '../../robot/houseLayout';
 import { floorFragmentShader, floorVertexShader, lidarFragmentShader, lidarVertexShader } from './shaders';
 
 const LIDAR_RADIUS = 3.5; // alcance do LDS do TurtleBot3
@@ -16,14 +16,19 @@ const HELPERS_LAYER = 1; // objetos só da visão de cima (não aparecem na câm
 const AR_SCALE = 0.07; // casa de 10 m vira uma maquete de 70 cm na mesa
 const PERSON_BOB = 0.025; // balanço vertical da passada (m)
 
-/** Cor do piso por tipo de cômodo ("quarto-2" usa a cor de "quarto"). */
-const ROOM_COLORS: Record<string, string> = {
-  sala: '#e8eef6',
-  cozinha: '#eef3e9',
-  quarto: '#f3ece6',
-  banheiro: '#e6f1f3',
-  escritorio: '#efeaf4',
-  servico: '#eef1f3'
+/** Cor do piso por tipo de cômodo; quartos e banheiros variam o tom pelo número ("quarto-2"). */
+const ROOM_COLORS: Record<string, string[]> = {
+  sala: ['#e8eef6'],
+  jantar: ['#f2ede4'],
+  cozinha: ['#eef3e9'],
+  quarto: ['#f3ece6', '#eee6dc', '#f0eaef', '#ebe9e0'],
+  banheiro: ['#e6f1f3', '#e3eee8', '#e8ecf4'],
+  escritorio: ['#efeaf4'],
+  servico: ['#eef1f3']
+};
+const floorColor = (roomId: string) => {
+  const cores = ROOM_COLORS[tipoComodo(roomId)];
+  return cores ? cores[variante(roomId) % cores.length]! : '#eeeeee';
 };
 
 const MODE_COLORS: Record<RobotState['mode'], string> = {
@@ -87,6 +92,7 @@ export class HouseScene {
   private readonly raycaster = new THREE.Raycaster();
   private readonly resizeObserver: ResizeObserver;
   private readonly center: Point2D;
+  private readonly viewScale: number;
 
   /** Caminhada da pessoa: pontos ainda a percorrer (coordenadas locais), giro atual e estado. */
   private personRoute: THREE.Vector3[] = [];
@@ -125,14 +131,15 @@ export class HouseScene {
     this.eyesRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     eyesContainer.appendChild(this.eyesRenderer.domElement);
 
-    // --- câmera e controles
-    this.camera.position.set(0, 10.5, 8.5);
+    // --- câmera e controles (casas largas: a vista inicial se afasta para caber a casa inteira)
+    this.viewScale = Math.max(1, layout.width / 14.5, layout.depth / 8);
+    this.camera.position.set(0, 10.5 * this.viewScale, 8.5 * this.viewScale);
     this.camera.layers.enable(HELPERS_LAYER);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.maxPolarAngle = Math.PI * 0.45;
     this.controls.minDistance = 4;
-    this.controls.maxDistance = 22;
+    this.controls.maxDistance = Math.max(22, 18 * this.viewScale);
     this.controls.target.set(0, 0, 0);
 
     // --- luz (sombra via shadow map da luz direcional)
@@ -248,9 +255,15 @@ export class HouseScene {
     const room = layout.rooms.find(r => r.id === info.roomId);
     this.person.visible = !!room;
     if (!room) { this.personRoute = []; this.personGoalKey = null; this.personPlaced = false; return; }
-    const { x, y } = pontoDaPessoa(room);
+    const { x, y } = pontoLivreDaPessoa(layout, room);
     const key = `${room.id}:${x.toFixed(2)},${y.toFixed(2)}`;
-    const here = this.toMap(this.person.position);
+    let here = this.toMap(this.person.position);
+    // Parada dentro de um móvel ou colada numa parede (ex.: ao carregar): vai para o ponto livre mais próximo
+    if (this.personPlaced && !this.personRoute.length && !pessoaLivre(layout, here)) {
+      here = pontoLivre(layout, here);
+      this.person.position.x = this.toLocal(here.x, here.y, 0).x;
+      this.person.position.z = this.toLocal(here.x, here.y, 0).z;
+    }
 
     if (!this.personPlaced) {
       // Primeira aparição: já no lugar, sem animar
@@ -260,8 +273,9 @@ export class HouseScene {
       if (!this.personRoute.length && roomAt(layout, here)?.id !== room.id) this.placePerson(x, y);
       this.personRoute = [];
     } else if (key !== this.personGoalKey || (!this.personRoute.length && Math.hypot(here.x - x, here.y - y) > 0.05)) {
-      // Cômodo novo (ou levantou fora do lugar): rota pelas portas a partir da posição atual
-      this.personRoute = planPath(layout, here, { x, y }).slice(1).map(p => this.toLocal(p.x, p.y, 0));
+      // Cômodo novo (ou levantou fora do lugar): rota pelo meio das portas, desviando dos móveis.
+      // Sem passagem livre, ela fica onde está (nunca atravessa parede nem móvel).
+      this.personRoute = planPersonPath(layout, here, { x, y }).slice(1).map(p => this.toLocal(p.x, p.y, 0));
     }
     this.personGoalKey = key;
     this.personFallen = info.fallen;
@@ -368,7 +382,7 @@ export class HouseScene {
 
   /** Volta para a vista inicial da casa. */
   recentralizar() {
-    this.camera.position.set(0, 10.5, 8.5);
+    this.camera.position.set(0, 10.5 * this.viewScale, 8.5 * this.viewScale);
     this.controls.target.set(0, 0, 0);
     this.controls.update();
   }
@@ -460,7 +474,7 @@ export class HouseScene {
       const mx = (w.x1 + w.x2) / 2;
       const my = (w.y1 + w.y2) / 2;
       const room = layout.rooms.find(r => mx >= r.minX - 0.01 && mx <= r.maxX + 0.01 && my >= r.minY - 0.01 && my <= r.maxY + 0.01);
-      const palette: Record<string, string> = { sala: '#a7b8a2', cozinha: '#e3c59f', quarto: '#cfa58e', banheiro: '#9dbfc1', escritorio: '#a2adb9' };
+      const palette: Record<string, string> = { sala: '#a7b8a2', jantar: '#c4b394', cozinha: '#e3c59f', quarto: '#cfa58e', banheiro: '#9dbfc1', escritorio: '#a2adb9', servico: '#adbcc0' };
       material.color.set(palette[room?.id.replace(/-\d+$/, '') ?? ''] ?? '#d9cdbb');
       const wall = new THREE.Mesh(new THREE.BoxGeometry(length, layout.wallHeight, thickness), material);
       wall.position.copy(this.toLocal((w.x1 + w.x2) / 2, (w.y1 + w.y2) / 2, layout.wallHeight / 2));
@@ -661,8 +675,7 @@ export class HouseScene {
     this.hemi.intensity = 1.3;
     this.floors.forEach(floor => {
       const material = floor.material as FloorMaterial;
-      const tipo = String(material.userData.roomId).replace(/-\d+$/, '');
-      material.uniforms.uColor.value.set(ROOM_COLORS[tipo] ?? '#eeeeee');
+      material.uniforms.uColor.value.set(floorColor(String(material.userData.roomId)));
       material.uniforms.uLineColor.value.set('#c3ccd8');
     });
   }

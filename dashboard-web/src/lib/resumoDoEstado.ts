@@ -35,13 +35,14 @@ export function comodoCurto(layout: HouseLayout, id?: string | null): string | n
   return nome === 'Sala de estar' ? 'Sala' : nome;
 }
 
-/** "na Sala", "no Quarto": cômodos terminados em "a" (e Sala/Cozinha) são femininos. */
-export const naNo = (comodo: string) => `${/a$/i.test(comodo) ? 'na' : 'no'} ${comodo}`;
+/** "na Sala", "no Quarto", "na Sala de jantar", "na Área de serviço": o gênero vem da primeira palavra. */
+const feminino = (comodo: string) => /^[^\s]*a(\s|$)/i.test(comodo);
+export const naNo = (comodo: string) => `${feminino(comodo) ? 'na' : 'no'} ${comodo}`;
 
 /** "a Sala", "o Quarto". */
-export const artigo = (comodo: string) => `${/a$/i.test(comodo) ? 'a' : 'o'} ${comodo}`;
+export const artigo = (comodo: string) => `${feminino(comodo) ? 'a' : 'o'} ${comodo}`;
 /** "da Sala", "do Quarto". */
-export const deComodo = (comodo: string) => `${/a$/i.test(comodo) ? 'da' : 'do'} ${comodo}`;
+export const deComodo = (comodo: string) => `${feminino(comodo) ? 'da' : 'do'} ${comodo}`;
 
 /** Preposição + cômodo para frases, a partir do id ("cozinha" -> "na Cozinha"). */
 export const noComodo = (layout: HouseLayout, id?: string | null): string | null => {
