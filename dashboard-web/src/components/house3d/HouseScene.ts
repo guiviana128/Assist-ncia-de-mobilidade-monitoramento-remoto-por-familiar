@@ -3,6 +3,7 @@
 // a visão "pelos olhos do robô" e a sessão de Realidade Aumentada (WebXR).
 import * as THREE from 'three';
 import { furnitureModel, personModel, robotModel } from './models';
+import { planRobotPath } from '../../robot/furnitureNavigation';
 import { roomDecorations, type VisualFurniture } from './decorations';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
@@ -49,6 +50,7 @@ export interface PersonInfo {
   fallen: boolean;
   /** Nome exibido no rótulo (padrão: José). */
   name?: string;
+  gender?: 'MALE' | 'FEMALE';
 }
 
 type FloorMaterial = THREE.ShaderMaterial & { userData: { roomId: string } };
@@ -68,6 +70,8 @@ export class HouseScene {
   private readonly lidar: THREE.Mesh<THREE.CircleGeometry, THREE.ShaderMaterial>;
   private readonly robotLabel: CSS2DObject;
   private readonly person = new THREE.Group();
+  private personVisual = personModel();
+  private personGender: 'MALE' | 'FEMALE' = 'MALE';
   private readonly personLabel: CSS2DObject;
   private readonly target: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>;
   private readonly pending: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>;
@@ -92,6 +96,7 @@ export class HouseScene {
   private personFallen = false;
   private personPlaced = false;
 
+  private robotRoute: Point2D[] | null = null;
   private pose = { x: 0, y: 0, yaw: 0 };
   private targetPose = { x: 0, y: 0, yaw: 0 };
   private lidarEnabled = true;
@@ -208,12 +213,13 @@ export class HouseScene {
 
   // ------------------------------------------------------------------ API pública
 
-  setRobot(state: RobotState) {
+  setRobot(state: RobotState, avoidFurniture = false) {
     this.targetPose = { x: state.x, y: state.y, yaw: state.yaw };
     if (!this.robot.userData.placed) {
       this.pose = { ...this.targetPose };
       this.robot.userData.placed = true;
     }
+    this.robotRoute = avoidFurniture ? planRobotPath(this.options.layout, this.pose, this.targetPose).slice(1) : null;
     const color = MODE_COLORS[state.mode] ?? '#94a3b8';
     this.robotRing.material.color.set(color);
     this.lidar.material.uniforms.uObstacle.value = state.online && state.nearestObstacleM != null ? state.nearestObstacleM : -1;
@@ -225,6 +231,19 @@ export class HouseScene {
   }
 
   setPerson(info: PersonInfo) {
+    const gender = info.gender ?? 'MALE';
+    if (gender !== this.personGender) {
+      this.person.remove(this.personVisual);
+      this.personVisual.traverse(object => {
+        const mesh = object as THREE.Mesh;
+        mesh.geometry?.dispose();
+        const materials = mesh.material ? (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) : [];
+        materials.forEach(material => material.dispose());
+      });
+      this.personGender = gender;
+      this.personVisual = personModel(gender);
+      this.person.add(this.personVisual);
+    }
     const { layout } = this.options;
     const room = layout.rooms.find(r => r.id === info.roomId);
     this.person.visible = !!room;
@@ -480,7 +499,7 @@ export class HouseScene {
   }
 
   private buildPerson() {
-    this.person.add(personModel());
+    this.person.add(this.personVisual);
     this.personLabel.position.set(0, 1.7, 0);
     this.person.add(this.personLabel);
     this.person.visible = false;
@@ -495,8 +514,26 @@ export class HouseScene {
 
     // Interpolação suave entre as amostras de pose que chegam da API (~1 Hz)
     const k = Math.min(1, dt * 5);
-    this.pose.x += (this.targetPose.x - this.pose.x) * k;
-    this.pose.y += (this.targetPose.y - this.pose.y) * k;
+    if (this.robotRoute) {
+      let previous: Point2D = this.pose;
+      let remaining = 0;
+      for (const point of this.robotRoute) { remaining += Math.hypot(point.x - previous.x, point.y - previous.y); previous = point; }
+      let travel = remaining * k;
+      while (this.robotRoute.length && travel > 0) {
+        const next = this.robotRoute[0]!;
+        const distance = Math.hypot(next.x - this.pose.x, next.y - this.pose.y);
+        if (distance <= travel) {
+          this.pose.x = next.x; this.pose.y = next.y; travel -= distance; this.robotRoute.shift();
+        } else {
+          this.pose.x += (next.x - this.pose.x) * travel / distance;
+          this.pose.y += (next.y - this.pose.y) * travel / distance;
+          travel = 0;
+        }
+      }
+    } else {
+      this.pose.x += (this.targetPose.x - this.pose.x) * k;
+      this.pose.y += (this.targetPose.y - this.pose.y) * k;
+    }
     this.pose.yaw += Math.atan2(Math.sin(this.targetPose.yaw - this.pose.yaw), Math.cos(this.targetPose.yaw - this.pose.yaw)) * k;
     this.robot.position.copy(this.toLocal(this.pose.x, this.pose.y, 0));
     this.robot.rotation.y = this.pose.yaw;

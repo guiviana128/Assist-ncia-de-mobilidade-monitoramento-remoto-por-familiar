@@ -47,6 +47,7 @@ const LINHA = {
 export const PassoPessoa: React.FC = () => {
   const idForm = useIdForm();
   const prefs = useCuidado();
+  const [genero, setGenero] = useState<"MALE" | "FEMALE">(prefs.personGender ?? "MALE");
   const [nome, setNome] = useState(prefs.personName ?? "");
   const [telefone, setTelefone] = useState(
     prefs.personPhone ? formatarTelefone(prefs.personPhone) : "",
@@ -99,6 +100,7 @@ export const PassoPessoa: React.FC = () => {
     }
     await s.salvar({
       personName: nome.trim(),
+      personGender: genero,
       personPhone: telefone.trim(),
       telefonePessoa: discagem(telefone),
       livesAlone: moraSozinho!,
@@ -115,6 +117,12 @@ export const PassoPessoa: React.FC = () => {
         apoio="Esses dados aparecem nos botões de ligação e ajudam a decidir quem avisar primeiro."
       />
       <fieldset className="cad-fieldset" disabled={s.ocupado}>
+        <Campo rotulo="Gênero da pessoa acompanhada">
+          {(a) => <select {...a} className="campo-entrada" value={genero} onChange={e => setGenero(e.target.value as "MALE" | "FEMALE")}>
+            <option value="MALE">Homem · idoso</option>
+            <option value="FEMALE">Mulher · idosa</option>
+          </select>}
+        </Campo>
         <Campo rotulo="Nome" erro={v.erros.nome} tremor={v.tremor}>
           {(a) => (
             <input

@@ -266,17 +266,23 @@ export function furnitureModel(f: Furniture & { yaw?: number }, layout?: HouseLa
   return m.group;
 }
 
-export function personModel(): THREE.Group {
+export function personModel(gender: 'MALE' | 'FEMALE' = 'MALE'): THREE.Group {
   const m = new Model();
+  const blouse = gender === 'FEMALE' ? '#9972aa' : '#ba7757';
+  if (gender === 'FEMALE') {
+    m.ball(0.18, 0.18, 0.17, 0, 1.46, -0.14, '#c9c6bb');
+    m.box(0.39, 0.35, 0.25, 0, 0.65, 0, '#706184', 0.06);
+    m.ball(0.045, 0.05, 0.025, 0.1, 1.08, 0.125, '#e2cc89');
+  }
   for (const x of [-0.095, 0.095]) {
     m.box(0.13, 0.12, 0.25, x, 0.07, 0.035, '#34414a', 0.04);
     m.box(0.13, 0.56, 0.15, x, 0.39, 0, '#536777', 0.045);
   }
   m.box(0.33, 0.19, 0.2, 0, 0.67, 0, '#536777', 0.05);
-  m.box(0.38, 0.46, 0.23, 0, 0.93, 0, '#ba7757', 0.08);
+  m.box(0.38, 0.46, 0.23, 0, 0.93, 0, blouse, 0.08);
   m.box(0.025, 0.39, 0.012, 0, 0.94, 0.119, '#e0b292');
   for (const x of [-0.25, 0.25]) {
-    const arm = m.box(0.12, 0.35, 0.14, x, 0.96, 0, '#ba7757', 0.05);
+    const arm = m.box(0.12, 0.35, 0.14, x, 0.96, 0, blouse, 0.05);
     arm.rotation.z = x > 0 ? 0.12 : -0.12;
     m.box(0.09, 0.23, 0.1, x * 1.05, 0.71, 0.02, '#dca785', 0.04);
     m.ball(0.09, 0.12, 0.1, x * 1.05, 0.59, 0.025, '#dca785');

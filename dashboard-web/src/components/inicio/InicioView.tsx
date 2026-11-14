@@ -1,3 +1,4 @@
+import { atividades, atividadesSimuladas, type Atividade } from '../../lib/activities';
 import type { ObservacaoComodo } from "../../hooks/useRobo";
 import { LocalAnalysis } from "../monitorar/LocalAnalysis";
 import React, { useMemo, useRef, useState } from "react";
@@ -64,20 +65,7 @@ interface InicioViewProps {
   onResolver: (alertId: number) => void;
 }
 
-const atividades = {
-  remedio: "tomou o remédio",
-  cozinha: "cozinhou",
-  caminhada: "caminhou",
-  descanso: "descansou",
-} as const;
-type Atividade = keyof typeof atividades;
 type Registro = { atividade: Atividade; quando: number };
-
-const roteiroDemo: Partial<Record<string, Atividade>> = {
-  cozinha: "cozinha",
-  sala: "remedio",
-  quarto: "descanso",
-};
 
 function lerRegistros(chave: string): Registro[] {
   try {
@@ -266,7 +254,8 @@ export const InicioView: React.FC<InicioViewProps> = ({
       .filter((m) => ehHoje(m.finishedAt ?? m.createdAt))
       .map((m) => itemDeMissao(m, layout))
       .filter((i): i is ItemDia => !!i);
-    const deComodos: ItemDia[] = observacoes
+    const simuladas = atividadesSimuladas(observacoes);
+    const deComodos: ItemDia[] = (demo ? simuladas : observacoes)
       .filter(({ quando }) => ehHoje(new Date(quando).toISOString()))
       .flatMap(({ comodo, quando }) => {
         const sala = layout.rooms.find((room) => room.id === comodo);
@@ -275,8 +264,8 @@ export const InicioView: React.FC<InicioViewProps> = ({
           id: `observacao-${quando}-${comodo}`,
           quando,
           hora: horaCurta(new Date(quando).toISOString()),
-          titulo: demo && roteiroDemo[comodo]
-            ? `${pessoa} ${atividades[roteiroDemo[comodo]!]}`
+          titulo: demo
+            ? `${pessoa} ${atividades[simuladas.find(r => r.quando === quando && r.comodo === comodo)!.atividade]}`
             : `${pessoa} · ${sala.name}`,
           detalhe: demo ? `Simulação · ${sala.name}` : "Presença informada pelo robô",
           tom: "neutro",
@@ -578,16 +567,13 @@ export const InicioView: React.FC<InicioViewProps> = ({
           )}
           {!(emergencia && celular) && (
             demo ? (
-              <p className="texto-pequeno">Demonstração: as atividades e presenças são simuladas. O resumo do Ollama usa leituras do equipamento real.</p>
+              <p className="texto-pequeno">Demonstração: atividades simuladas com intervalos de 5 a 20 minutos. O resumo do Ollama usa leituras do equipamento real.</p>
             ) : (
               <>
                 <form className="campo" onSubmit={(e) => { e.preventDefault(); registrarAtividade(); }}>
                   <label className="campo-rotulo" htmlFor="atividade-hoje">Registrar atividade confirmada</label>
                   <select id="atividade-hoje" className="campo-entrada" value={atividade} onChange={(e) => setAtividade(e.target.value as Atividade)}>
-                    <option value="remedio">Tomou o remédio</option>
-                    <option value="cozinha">Cozinhou</option>
-                    <option value="caminhada">Caminhou</option>
-                    <option value="descanso">Descansou</option>
+                    {Object.entries(atividades).map(([id, texto]) => <option key={id} value={id}>{texto.charAt(0).toUpperCase() + texto.slice(1)}</option>)}
                   </select>
                   <button className="btn btn-secundario" type="submit">Registrar no horário atual</button>
                   <p className="texto-pequeno">Registros confirmados ficam neste navegador.</p>

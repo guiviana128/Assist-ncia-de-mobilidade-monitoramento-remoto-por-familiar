@@ -13,6 +13,7 @@ import { ATE_TABLET, CELULAR, useMediaQuery } from '../hooks/useMediaQuery';
 import { artigo, comodoCurto, deComodo, emergenciaPendente, haQuanto, naNo } from '../lib/resumoDoEstado';
 import { horaCurta } from '../lib/avisos';
 import { useCuidado } from '../lib/cuidado';
+import { planRobotPath } from '../robot/furnitureNavigation';
 import { PassosMissao, MarcadorRoboIcone, type Passo } from './ui/PassoMissao';
 import { Flip, gsap, movimentoReduzido, useGSAP } from '../motion/gsap';
 import { zoomCasa } from '../motion/zoomCasa';
@@ -232,15 +233,15 @@ export const HouseView3D: React.FC<HouseView3DProps> = ({ alerts, comodoInicial,
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene || !robot) return;
-    scene.setRobot(robot);
-    scene.setPerson({ roomId: personRoom, emergency: !!emergency, fallen: emergency?.alertType === 'FALL_DETECTED', name: pessoa });
+    scene.setRobot(robot, demo || robotApi.isDemo());
+    scene.setPerson({ roomId: personRoom, emergency: !!emergency, fallen: emergency?.alertType === 'FALL_DETECTED', name: pessoa, gender: prefs.personGender });
     if (mission?.targetX != null && mission.targetY != null && camadas[camadaDaMissao(mission)]) {
       const goal = { x: mission.targetX, y: mission.targetY };
-      scene.setGoal(goal, planPath(layout, robot, goal), COR_CAMADA[camadaDaMissao(mission)]);
+      scene.setGoal(goal, (demo || robotApi.isDemo() ? planRobotPath : planPath)(layout, robot, goal), COR_CAMADA[camadaDaMissao(mission)]);
     } else {
       scene.setGoal(null, []);
     }
-  }, [robot, emergency, personRoom, mission, layout, camadas, pessoa, cenaPronta]);
+  }, [robot, emergency, personRoom, mission, layout, camadas, pessoa, prefs.personGender, demo, cenaPronta]);
 
   // Em socorro a câmera do robô vira a vista principal (a pessoa pode trocar de volta)
   // A troca de vistas é só do computador; no tablet e no celular a câmera do robô tem painel próprio

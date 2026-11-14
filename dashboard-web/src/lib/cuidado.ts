@@ -94,6 +94,7 @@ export interface Estado {
   bengala: PreferenciasBengala;
   /* Cadastro em 8 passos (todos opcionais: contas antigas não têm) */
   personName?: string;
+  personGender?: "MALE" | "FEMALE";
   personPhone?: string;
   livesAlone?: boolean;
   residents?: { name: string; relation: string }[];

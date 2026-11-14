@@ -1,7 +1,8 @@
 // Robô simulado no navegador, usado só no modo demonstração (backend/ROS 2 offline).
 // Reproduz de forma simplificada a máquina de estados do robô real (robot-ros2/.../state_machine.py).
 import type { HouseLayout, MissionRequest, MissionType, Point2D, RobotMission, RobotMode, RobotState } from '../types/robot';
-import { findRoom, planPath, roomAt } from './houseLayout';
+import { findRoom, roomAt } from './houseLayout';
+import { planRobotPath } from './furnitureNavigation';
 
 const PRIORITY: Record<MissionType, number> = {
   RESPOND_TO_ALERT: 100, GO_TO_ROOM: 50, GO_TO_POINT: 50, RETURN_TO_DOCK: 20, PATROL: 10
@@ -213,7 +214,12 @@ export class DemoRobot {
   }
 
   private goTo(target: Point2D) {
-    this.path = planPath(this.layout, { x: this.x, y: this.y }, target).slice(1);
+    this.path = planRobotPath(this.layout, { x: this.x, y: this.y }, target).slice(1);
+    if (!this.path.length) {
+      if (this.mission) this.finish(this.mission, 'FAILED', 'Sem caminho livre até o destino');
+      this.mission = null;
+      this.mode = 'IDLE';
+    }
   }
 
   private newMission(type: MissionType, target: Point2D | null, targetRoom: string | null,

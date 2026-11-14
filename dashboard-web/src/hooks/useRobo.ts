@@ -1,3 +1,4 @@
+import { atividadesSimuladas, intervaloAtividade } from '../lib/activities';
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HouseLayout, RobotMission, RobotState } from "../types/robot";
 import { FALLBACK_LAYOUT } from "../robot/houseLayout";
@@ -92,7 +93,9 @@ export function useRobo(ativo = true, chavePlanta = "", intervaloMs = 3500) {
           ? observacoesRef.current : historicoComodos(chave);
         const ultima = anteriores[0];
         const mesmoDia = ultima && new Date(ultima.quando).toDateString() === new Date(agora).toDateString();
-        const lista = mesmoDia && ultima.comodo === comodo
+        const ultimaAtividade = robotApi.isDemo() ? atividadesSimuladas(anteriores)[0] : undefined;
+        const aguardando = ultimaAtividade && agora - ultimaAtividade.quando < intervaloAtividade(ultimaAtividade.atividade);
+        const lista = aguardando || (mesmoDia && ultima.comodo === comodo)
           ? anteriores
           : [{ comodo, quando: agora }, ...anteriores].slice(0, 100);
         observacoesRef.current = lista;

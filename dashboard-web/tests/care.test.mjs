@@ -17,6 +17,7 @@ test("failed preference loading cannot overwrite existing care data", async () =
       return written;
     }
     if (fail) throw Error("offline");
+    if (written) return written;
     return {
       endereco: "Endereço preservado",
       remedios: [
@@ -96,4 +97,11 @@ test("failed preference loading cannot overwrite existing care data", async () =
   assert.equal(care.pronto(), true);
   assert.equal(await care.definirCasa(home), true);
   assert.equal(written.remedios[0].nome, "Lembrete existente");
+  for (const personGender of ["FEMALE", "MALE"]) {
+    assert.equal(await care.salvarCadastro({ personGender }), true);
+    assert.equal(written.personGender, personGender);
+    await care.recarregar();
+    assert.equal(care.get().personGender, personGender);
+    assert.equal(care.get().remedios[0].nome, "Lembrete existente");
+  }
 });

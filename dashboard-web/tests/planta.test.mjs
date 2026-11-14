@@ -33,6 +33,39 @@ const modulo = async (path) => {
 
 const dentro = (r, x, y) => x >= r.minX && x <= r.maxX && y >= r.minY && y <= r.maxY;
 
+test('robot avoids solid furniture and walls in every furnished house', async () => {
+  const { layoutDoModelo, FALLBACK_LAYOUT } = await modulo('../src/robot/houseLayout.ts');
+  const { planRobotPath, robotSegmentClear } = await modulo('../src/robot/furnitureNavigation.ts');
+  const layouts = [FALLBACK_LAYOUT];
+  for (const kind of ['HOUSE', 'APARTMENT']) for (let bedrooms = 1; bedrooms <= 4; bedrooms++)
+    for (let bathrooms = 1; bathrooms <= 3; bathrooms++) layouts.push(layoutDoModelo({ kind, bedrooms, bathrooms }));
+  for (const layout of layouts) {
+    let from = layout.dock;
+    for (const room of layout.rooms) {
+      const path = planRobotPath(layout, from, { x: room.targetX, y: room.targetY });
+      assert.ok(path.length >= 2, `${layout.name}: ${room.id} is reachable`);
+      const end = path.at(-1);
+      assert.ok(dentro(room, end.x, end.y));
+      for (let i = 1; i < path.length; i++) assert.ok(robotSegmentClear(layout, path[i - 1], path[i]), `${room.id}: unsafe segment`);
+      from = end;
+    }
+  }
+  const blocked = { ...FALLBACK_LAYOUT, walls: [...FALLBACK_LAYOUT.walls, { x1: 3, y1: -3, x2: 3, y2: 1 }] };
+  assert.equal(planRobotPath(blocked, blocked.dock, { x: 5.5, y: -1 }).length, 0, 'never fall back to crossing a closed wall');
+});
+
+test('simulated activities have realistic intervals, variety and numbered rooms', async () => {
+  const { atividades, atividadesSimuladas, intervaloAtividade } = await modulo('../src/lib/activities.ts');
+  const rooms = ['sala', 'cozinha', 'quarto-2', 'escritorio'];
+  const input = Array.from({ length: 2000 }, (_, i) => ({ comodo: rooms[i % rooms.length], quando: 1700000000000 + i * 15000 }));
+  const result = [...atividadesSimuladas(input)].reverse();
+  assert.ok(result.length < 100);
+  assert.ok(new Set(result.map(r => r.atividade)).size >= 8);
+  assert.ok(Object.keys(atividades).length >= 15);
+  for (let i = 1; i < result.length; i++) assert.ok(result[i].quando - result[i - 1].quando >= intervaloAtividade(result[i - 1].atividade));
+  assert.equal(atividadesSimuladas([{ comodo: 'quarto-3', quando: 1 }])[0].atividade, 'descanso');
+});
+
 test("floor plan from the chosen model: rooms, doors, furniture and dock", async () => {
   const { layoutDoModelo, planPath } = await modulo("../src/robot/houseLayout.ts");
   const l = layoutDoModelo({ kind: "HOUSE", bedrooms: 2, bathrooms: 1 });
